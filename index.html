@@ -1,0 +1,76 @@
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Study AI</title>
+    <!-- ResponsiveVoice Text-to-Speech with API Key -->
+    <script>
+      // Global flags for ResponsiveVoice status
+      window.responsiveVoiceReady = false;
+      window.responsiveVoiceError = false;
+      
+      // Enhanced initialization function
+      function initResponsiveVoice() {
+        console.log('Initializing ResponsiveVoice...');
+        
+        if (typeof responsiveVoice !== 'undefined') {
+          // Set up event listeners
+          if (responsiveVoice.OnVoiceReady) {
+            responsiveVoice.OnVoiceReady = function() {
+              window.responsiveVoiceReady = true;
+              console.log('ResponsiveVoice is ready with API key');
+              console.log('Available voices:', responsiveVoice.getVoices().length);
+            };
+          }
+          
+          // Check if already ready
+          if (responsiveVoice.voiceSupport && responsiveVoice.voiceSupport()) {
+            window.responsiveVoiceReady = true;
+            console.log('ResponsiveVoice initialized successfully with API key');
+            console.log('Available voices:', responsiveVoice.getVoices().length);
+          }
+        } else {
+          console.error('ResponsiveVoice not loaded');
+          window.responsiveVoiceError = true;
+        }
+      }
+      
+      // Error handler
+      function handleResponsiveVoiceError() {
+        console.error('ResponsiveVoice failed to load');
+        window.responsiveVoiceError = true;
+        window.responsiveVoiceReady = false;
+      }
+      
+      // Multiple initialization attempts for better compatibility
+      document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, waiting for ResponsiveVoice...');
+        setTimeout(initResponsiveVoice, 1000);
+      });
+      
+      // For mobile/APK compatibility
+      document.addEventListener('deviceready', function() {
+        setTimeout(initResponsiveVoice, 500);
+      }, false);
+      
+      // Window load event
+      window.addEventListener('load', function() {
+        setTimeout(initResponsiveVoice, 1500);
+      });
+    </script>
+    
+    <!-- ResponsiveVoice with your API key -->
+    <script 
+      src="https://code.responsivevoice.org/responsivevoice.js?key=5topRmyr" 
+      onload="setTimeout(initResponsiveVoice, 200)" 
+      onerror="handleResponsiveVoiceError()"
+    ></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

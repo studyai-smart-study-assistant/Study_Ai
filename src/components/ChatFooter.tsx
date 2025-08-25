@@ -1,0 +1,184 @@
+
+import React, { useState, useRef, useEffect } from 'react';
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { SendHorizonal } from "lucide-react";
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useLanguage } from '@/contexts/LanguageContext';
+
+interface ChatFooterProps {
+  onSend: (message: string) => void;
+  isLoading: boolean;
+  isDisabled?: boolean;
+}
+
+const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled = false }) => {
+  const [input, setInput] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isMobile = useIsMobile();
+  const { language } = useLanguage();
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 240)}px`;
+    }
+  }, [input]);
+
+  const handleSend = () => {
+    if (input.trim() && !isLoading && !isDisabled) {
+      onSend(input.trim());
+      setInput('');
+      
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleFocus = () => setIsFocused(true);
+  const handleBlur = () => setIsFocused(false);
+
+  return (
+    <div className="fixed bottom-2 left-0 right-0 px-4 pb-6 z-10">
+      {/* Background blur overlay with gradient */}
+      <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent dark:from-gray-900/95 dark:via-gray-900/80 dark:to-transparent backdrop-blur-xl" />
+      
+      <div className="relative max-w-4xl mx-auto">
+        {/* Main input container with enhanced animations */}
+        <div className={`
+          relative transform transition-all duration-500 ease-out
+          ${isFocused ? 'scale-[1.02] translate-y-[-4px]' : 'scale-100 translate-y-0'}
+          ${isDisabled ? 'opacity-60' : 'opacity-100'}
+        `}>
+          {/* Animated glow effect */}
+          <div className={`
+            absolute inset-0 rounded-2xl transition-all duration-700
+            ${isFocused 
+              ? 'shadow-[0_0_40px_rgba(147,51,234,0.3)] dark:shadow-[0_0_40px_rgba(147,51,234,0.5)]' 
+              : 'shadow-[0_0_20px_rgba(147,51,234,0.1)] dark:shadow-[0_0_20px_rgba(147,51,234,0.2)]'
+            }
+          `} />
+          
+          {/* Glass morphism container */}
+          <div className={`
+            relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl 
+            border transition-all duration-500
+            ${isFocused 
+              ? 'border-purple-300/60 dark:border-purple-600/60 shadow-2xl' 
+              : 'border-purple-200/40 dark:border-gray-700/40 shadow-lg'
+            }
+            p-3
+          `}>
+            {/* Floating particles animation background */}
+            <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+              <div className={`
+                absolute top-2 left-4 w-1 h-1 bg-purple-400 rounded-full
+                transition-all duration-1000 ${isFocused ? 'animate-pulse opacity-100' : 'opacity-0'}
+              `} />
+              <div className={`
+                absolute top-6 right-8 w-1 h-1 bg-indigo-400 rounded-full
+                transition-all duration-1000 delay-200 ${isFocused ? 'animate-pulse opacity-100' : 'opacity-0'}
+              `} />
+              <div className={`
+                absolute bottom-4 left-12 w-1 h-1 bg-violet-400 rounded-full
+                transition-all duration-1000 delay-400 ${isFocused ? 'animate-pulse opacity-100' : 'opacity-0'}
+              `} />
+            </div>
+
+            <Textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              placeholder={isDisabled 
+                ? (language === 'hi' ? "AI प्रतिक्रिया का इंतज़ार कर रहा है..." : "Waiting for AI to respond...")
+                : (language === 'hi' ? "कुछ भी पूछें..." : "Ask anything...")}
+              className={`
+                resize-none min-h-[80px] max-h-[240px] py-6 pr-20 pl-6 rounded-xl 
+                border-0 bg-transparent text-base font-medium
+                focus:ring-0 focus:outline-none transition-all duration-300
+                placeholder:text-gray-400 dark:placeholder:text-gray-500
+                placeholder:transition-all placeholder:duration-300
+                ${isFocused ? 'placeholder:text-purple-400 dark:placeholder:text-purple-400' : ''}
+                ${isDisabled ? 'cursor-not-allowed' : ''}
+              `}
+              disabled={isLoading || isDisabled}
+              rows={1}
+            />
+            
+            {/* Enhanced send button */}
+            <div className="absolute right-4 bottom-4 flex items-center gap-2">
+              <Button
+                onClick={handleSend}
+                disabled={!input.trim() || isLoading || isDisabled}
+                size="icon"
+                className={`
+                  h-12 w-12 rounded-xl transition-all duration-500
+                  ${!input.trim() || isLoading || isDisabled
+                    ? 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-500 cursor-not-allowed scale-90'
+                    : `bg-gradient-to-r from-purple-600 to-violet-600 text-white 
+                       hover:from-purple-700 hover:to-violet-700 
+                       dark:from-purple-700 dark:to-violet-700 
+                       dark:hover:from-purple-600 dark:hover:to-violet-600
+                       hover:scale-110 hover:rotate-12 shadow-lg
+                       hover:shadow-purple-300 dark:hover:shadow-purple-800
+                       active:scale-95 transform`
+                  }
+                `}
+              >
+                {isLoading ? (
+                  <div className="h-5 w-5 rounded-full border-2 border-t-transparent border-white animate-spin" />
+                ) : (
+                  <SendHorizonal 
+                    size={22} 
+                    className={`transition-transform duration-300 ${
+                      input.trim() && !isDisabled ? 'group-hover:translate-x-1' : ''
+                    }`} 
+                  />
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+        
+        {/* Enhanced footer text with animations */}
+        {!isMobile && (
+          <div className={`
+            max-w-4xl mx-auto mt-4 text-xs text-center transition-all duration-700
+            ${isFocused 
+              ? 'text-purple-600/90 dark:text-purple-400/90 transform translate-y-[-2px]' 
+              : 'text-purple-500/70 dark:text-purple-400/70'
+            }
+            flex items-center justify-center gap-3
+          `}>
+            <span className={`
+              text-yellow-500 transition-all duration-500
+              ${isFocused ? 'animate-pulse scale-110' : 'animate-pulse'}
+            `}>✨</span>
+            <span className="font-medium">
+              {language === 'hi' ? "स्टडी AI - स्मार्ट लर्निंग सहायक" : "Study AI - Smart learning assistant"}
+            </span>
+            <span className={`
+              text-yellow-500 transition-all duration-500 delay-100
+              ${isFocused ? 'animate-pulse scale-110' : 'animate-pulse'}
+            `}>✨</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default ChatFooter;
