@@ -2,47 +2,53 @@ import { toast } from "sonner";
 import { Message } from "./db";
 import { chatDB } from "./db";
 import { supabase } from "@/integrations/supabase/client";
-import { apiKeyRotationService } from "@/services/apiKeyRotationService";
 
 export async function generateResponse(
   prompt: string, 
   history: Message[] = [], 
   chatId?: string,
-  apiKeyType: 'default' | 'interactive-teacher' | 'interactive-quiz' = 'default'
+  model: string = 'google/gemini-2.5-flash'
 ): Promise<string> {
   try {
-    console.log(`🚀 Using Multi-Provider API system with type:`, apiKeyType);
+    console.log(`🚀 Calling Lovable AI Gateway with model:`, model);
     
-    // Log current API key rotation stats
-    const stats = apiKeyRotationService.getRotationStats();
-    console.log("📊 Multi-Provider API Stats:", stats);
-
-    // Convert history to the format expected by the API service
+    // Convert history to the format expected by the edge function
     const formattedHistory = history.map(msg => ({
       role: msg.role,
       content: msg.content
     }));
 
-    // Use the new multi-provider API request method
-    const apiResponse = await apiKeyRotationService.makeApiRequest(prompt, formattedHistory, apiKeyType);
+    // Call the Lovable AI edge function
+    const { data, error } = await supabase.functions.invoke('chat-completion', {
+      body: {
+        prompt,
+        history: formattedHistory,
+        model
+      }
+    });
 
-    if (!apiResponse.success) {
-      console.error(`❌ All API providers failed:`, apiResponse.error);
-      throw new Error(apiResponse.error || "All AI services are currently unavailable");
+    if (error) {
+      console.error(`❌ Edge function error:`, error);
+      throw new Error(error.message || "AI service unavailable");
     }
 
-    const responseText = apiResponse.response!;
+    if (data?.error) {
+      console.error(`❌ AI Gateway error:`, data.error);
+      throw new Error(data.error);
+    }
+
+    const responseText = data.response;
     
-    // Log success details
-    console.log(`✅ Success with Multi-Provider system:`, {
-      provider: apiResponse.provider,
-      model: apiResponse.model,
-      keyUsed: apiResponse.keyUsed,
+    if (!responseText) {
+      throw new Error("No response from AI");
+    }
+    
+    console.log(`✅ Success with Lovable AI:`, {
+      model: data.model || model,
       responseLength: responseText.length
     });
 
-    // Show success toast with provider info
-    toast.success(`Response from ${apiResponse.provider} (${apiResponse.model})`, {
+    toast.success(`✨ AI Response generated successfully`, {
       duration: 2000
     });
     
@@ -60,27 +66,21 @@ export async function generateResponse(
     return responseText;
     
   } catch (error) {
-    console.error("❌ Multi-Provider API system failed:", error);
+    console.error("❌ Lovable AI request failed:", error);
     
     // Show user-friendly error message
-    const errorMessage = error.message?.includes('rate limit') 
-      ? "All AI services are busy, please try again in a moment"
-      : error.message?.includes('Failed to fetch')
-      ? "Network connection issue, please check your internet"
-      : error.message?.includes('unavailable')
-      ? "AI services are temporarily unavailable"
-      : "Failed to get response from AI services";
+    const errorMessage = error instanceof Error 
+      ? error.message.includes('rate limit') || error.message.includes('429')
+        ? "AI सेवा व्यस्त है, कृपया कुछ समय बाद पुनः प्रयास करें"
+        : error.message.includes('Failed to fetch') || error.message.includes('network')
+        ? "Network connection issue, कृपया अपना internet चेक करें"
+        : error.message.includes('402') || error.message.includes('Payment')
+        ? "कृपया Lovable AI credits को top up करें"
+        : error.message
+      : "AI service से response प्राप्त करने में विफल";
       
     toast.error(errorMessage, {
-      duration: 5000,
-      action: {
-        label: 'Force Retry',
-        onClick: () => {
-          // Force rotation to try different provider
-          apiKeyRotationService.forceRotation(apiKeyType);
-          window.location.reload();
-        }
-      }
+      duration: 5000
     });
     
     throw error;
@@ -143,6 +143,6 @@ export async function generateStudyPlan(
     इसे बहुत विस्तृत और विशिष्ट बनाएं, जैसे कि एक शिक्षक अपने छात्र के लिए तैयार करेगा।`;
   }
   
-  // Call the secure Edge Function with default API key (will use rotation)
-  return await generateResponse(prompt, [], undefined, 'default');
+  // Use Lovable AI with default model
+  return await generateResponse(prompt, [], undefined, 'google/gemini-2.5-flash');
 }
