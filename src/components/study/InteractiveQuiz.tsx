@@ -228,7 +228,7 @@ IMPORTANT: Create completely unique questions. Avoid similar patterns, repeated 
 
 Please follow this exact format.`;
 
-      const response = await generateResponse(prompt, [], undefined, 'interactive-quiz');
+      const response = await generateResponse(prompt, [], undefined, 'google/gemini-2.5-flash');
       const parsedQuestions = parseQuestionsFromResponse(response);
       
       if (parsedQuestions.length === 0) {

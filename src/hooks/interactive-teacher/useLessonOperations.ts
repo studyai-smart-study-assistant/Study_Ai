@@ -59,8 +59,8 @@ export const useLessonOperations = ({
       const initialPrompt = buildInitialLessonPrompt(newContext, language);
       console.log('Starting lesson with improved prompt structure');
 
-      // Use interactive-teacher API key for teacher mode
-      const response = await generateResponse(initialPrompt, [], undefined, 'interactive-teacher');
+      // Use Lovable AI with Gemini Flash model for teacher mode
+      const response = await generateResponse(initialPrompt, [], undefined, 'google/gemini-2.5-flash');
       
       // Extract only the first segment until the first question
       const { firstSegment, hasQuestion } = extractFirstSegment(response);
@@ -141,8 +141,8 @@ export const useLessonOperations = ({
         
         console.log('Using enhanced prompt with conversation history:', updatedHistory.length, 'messages');
 
-        // Use interactive-teacher API key for teacher mode
-        const response = await generateResponse(contextPrompt, [], undefined, 'interactive-teacher');
+        // Use Lovable AI with Gemini Flash model for teacher mode
+        const response = await generateResponse(contextPrompt, [], undefined, 'google/gemini-2.5-flash');
         
         // Extract first segment until next question
         const { firstSegment, hasQuestion } = extractFirstSegment(response);
