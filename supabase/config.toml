@@ -9,3 +9,6 @@ max_rows = 1000
 
 [functions.chat-completion]
 verify_jwt = false
+
+[functions.generate-image]
+verify_jwt = false

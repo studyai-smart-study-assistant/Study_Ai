@@ -6,7 +6,7 @@ interface UseMessageHandlerProps {
   loadMessages: () => Promise<void>;
   onChatUpdated?: () => void;
   scrollToBottom: () => void;
-  sendMessage: (input: string) => void;
+  sendMessage: (input: string, imageUrl?: string) => void;
 }
 
 export const useMessageHandler = ({
@@ -17,8 +17,8 @@ export const useMessageHandler = ({
   sendMessage
 }: UseMessageHandlerProps) => {
   
-  const handleSend = useCallback((input: string) => {
-    sendMessage(input);
+  const handleSend = useCallback((input: string, imageUrl?: string) => {
+    sendMessage(input, imageUrl);
     scrollToBottom();
   }, [sendMessage, scrollToBottom]);
 

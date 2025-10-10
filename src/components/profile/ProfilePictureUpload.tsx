@@ -46,45 +46,57 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
     try {
       setIsUploading(true);
 
-      // Delete previous avatar if exists (via secure edge function)
+      // Delete previous avatar if exists
       if (currentAvatarUrl) {
         try {
-          await supabase.functions.invoke('avatar-manager', {
-            body: {
-              action: 'delete',
-              user_id: currentUser.uid,
-              avatarUrl: currentAvatarUrl,
-            },
-          });
+          const oldPath = currentAvatarUrl.split('/').pop();
+          if (oldPath) {
+            await supabase.storage
+              .from('avatars')
+              .remove([`${currentUser.uid}/${oldPath}`]);
+          }
         } catch (e) {
           console.warn('Previous avatar delete failed (non-blocking):', e);
         }
       }
 
-      // Read file as base64 (data URL)
-      const fileBase64: string = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error('Failed to read file'));
-        reader.readAsDataURL(file);
-      });
+      // Upload new avatar
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${currentUser.uid}/${fileName}`;
 
-      // Secure upload through Supabase Edge Function (uses service role)
-      const { data: result, error: fnError } = await supabase.functions.invoke('avatar-manager', {
-        body: {
-          action: 'upload',
-          user_id: currentUser.uid,
-          filename: file.name,
-          contentType: file.type,
-          fileBase64,
-        },
-      });
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-      if (fnError || !result?.publicUrl) {
-        throw fnError || new Error('Upload failed');
+      if (uploadError) {
+        throw uploadError;
       }
 
-      onAvatarUpdate(result.publicUrl);
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Update profile in database
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .upsert({
+          user_id: currentUser.uid,
+          avatar_url: publicUrl,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      onAvatarUpdate(publicUrl);
       toast.success('Profile picture सफलतापूर्वक upload हो गई!');
     } catch (error) {
       console.error('Error uploading avatar:', error);
@@ -119,13 +131,22 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
     try {
       setIsDeleting(true);
 
-      await supabase.functions.invoke('avatar-manager', {
-        body: {
-          action: 'delete',
-          user_id: currentUser.uid,
-          avatarUrl: currentAvatarUrl,
-        },
-      });
+      // Delete from storage
+      const filePath = currentAvatarUrl.split('/').pop();
+      if (filePath) {
+        await supabase.storage
+          .from('avatars')
+          .remove([`${currentUser.uid}/${filePath}`]);
+      }
+
+      // Update profile in database
+      await supabase
+        .from('profiles')
+        .update({
+          avatar_url: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', currentUser.uid);
 
       onAvatarUpdate(null);
       toast.success('Profile picture delete हो गई!');

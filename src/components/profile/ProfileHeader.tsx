@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getUserInitials, getAvatarColor } from '@/components/leaderboard/utils/avatarUtils';
 import { supabase } from "@/integrations/supabase/client";
 import ProfilePictureUpload from './ProfilePictureUpload';
+import ProfileNameEditor from './ProfileNameEditor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Upload, Trash2, X } from "lucide-react";
@@ -14,10 +15,10 @@ interface ProfileHeaderProps {
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({ currentUser }) => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string>(currentUser?.displayName || 'User');
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const userName = currentUser?.displayName || 'User';
-  const userInitials = getUserInitials(userName);
+  const userInitials = getUserInitials(displayName);
   const avatarColor = getAvatarColor(currentUser?.uid || '');
 
   useEffect(() => {
@@ -32,7 +33,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({ currentUser }) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('avatar_url')
+        .select('avatar_url, display_name')
         .eq('user_id', currentUser.uid)
         .maybeSingle();
 
@@ -41,8 +42,13 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({ currentUser }) => {
         return;
       }
 
-      if (data?.avatar_url) {
-        setAvatarUrl(data.avatar_url);
+      if (data) {
+        if (data.avatar_url) {
+          setAvatarUrl(data.avatar_url);
+        }
+        if (data.display_name) {
+          setDisplayName(data.display_name);
+        }
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
@@ -60,7 +66,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({ currentUser }) => {
         <ProfilePictureUpload
           currentAvatarUrl={avatarUrl}
           onAvatarUpdate={handleAvatarUpdate}
-          userName={userName}
+          userName={displayName}
           userId={currentUser?.uid || ''}
         />
       ) : (<>
@@ -85,7 +91,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({ currentUser }) => {
         <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
           <DialogContent className="max-w-md sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>{userName}</DialogTitle>
+              <DialogTitle>{displayName}</DialogTitle>
             </DialogHeader>
             <DialogClose aria-label="Close" className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
               <X className="h-5 w-5" />
@@ -94,7 +100,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({ currentUser }) => {
             {avatarUrl ? (
               <img
                 src={avatarUrl}
-                alt={`${userName} profile picture large`}
+                alt={`${displayName} profile picture large`}
                 className="w-full h-auto rounded-xl"
                 loading="lazy"
               />
@@ -113,7 +119,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({ currentUser }) => {
       
       <div className="text-center mt-6 space-y-3">
         <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white break-words max-w-full px-2 bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 bg-clip-text text-transparent animate-fade-in drop-shadow-sm">
-          {userName}
+          {displayName}
         </h2>
         <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 break-words max-w-full px-2 font-medium">
           {currentUser?.email}
@@ -127,26 +133,32 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({ currentUser }) => {
             ← Back to Profile
           </button>
         ) : (
-          <div className="flex items-center justify-center gap-3">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowUploadDialog(true)}
-              aria-label="Change profile picture"
-            >
-              <Upload className="h-4 w-4 mr-1" /> Change
-            </Button>
-            {avatarUrl && (
+          <>
+            <div className="flex items-center justify-center gap-3">
               <Button
                 size="sm"
-                variant="destructive"
+                variant="outline"
                 onClick={() => setShowUploadDialog(true)}
-                aria-label="Delete profile picture"
+                aria-label="Change profile picture"
               >
-                <Trash2 className="h-4 w-4 mr-1" /> Delete
+                <Upload className="h-4 w-4 mr-1" /> Change
               </Button>
-            )}
-          </div>
+              {avatarUrl && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setShowUploadDialog(true)}
+                  aria-label="Delete profile picture"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" /> Delete
+                </Button>
+              )}
+            </div>
+            <ProfileNameEditor 
+              currentName={displayName}
+              onNameUpdate={(newName) => setDisplayName(newName)}
+            />
+          </>
         )}
         
         {/* Enhanced status indicator */}

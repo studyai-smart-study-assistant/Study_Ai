@@ -2,12 +2,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal } from "lucide-react";
+import { SendHorizonal, X } from "lucide-react";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/contexts/LanguageContext';
+import ImageUploadButton from './chat/ImageUploadButton';
+import ImageGenerateButton from './chat/ImageGenerateButton';
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ChatFooterProps {
-  onSend: (message: string) => void;
+  onSend: (message: string, imageUrl?: string) => void;
   isLoading: boolean;
   isDisabled?: boolean;
 }
@@ -15,9 +20,12 @@ interface ChatFooterProps {
 const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled = false }) => {
   const [input, setInput] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isMobile = useIsMobile();
   const { language } = useLanguage();
+  const { currentUser } = useAuth();
 
   // Auto-resize textarea
   useEffect(() => {
@@ -28,14 +36,60 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   }, [input]);
 
   const handleSend = () => {
-    if (input.trim() && !isLoading && !isDisabled) {
-      onSend(input.trim());
+    if ((input.trim() || uploadedImage) && !isLoading && !isDisabled) {
+      onSend(input.trim(), uploadedImage || undefined);
       setInput('');
+      setUploadedImage(null);
       
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
     }
+  };
+
+  const handleImageSelect = async (file: File) => {
+    if (!currentUser) {
+      toast.error('कृपया पहले लॉगिन करें');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      
+      // Upload to chat_media bucket
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${currentUser.uid}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('chat_media')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat_media')
+        .getPublicUrl(filePath);
+
+      setUploadedImage(publicUrl);
+      toast.success('Image upload हो गई!');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('Image upload में समस्या हुई');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleImageGenerated = (imageUrl: string) => {
+    setUploadedImage(imageUrl);
+  };
+
+  const removeImage = () => {
+    setUploadedImage(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -95,6 +149,22 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
               `} />
             </div>
 
+            {uploadedImage && (
+              <div className="mb-3 relative inline-block">
+                <img 
+                  src={uploadedImage} 
+                  alt="Uploaded" 
+                  className="h-20 w-20 object-cover rounded-lg border-2 border-purple-200 dark:border-purple-700"
+                />
+                <button
+                  onClick={removeImage}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+
             <Textarea
               ref={textareaRef}
               value={input}
@@ -104,7 +174,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
               onBlur={handleBlur}
               placeholder={isDisabled 
                 ? (language === 'hi' ? "AI प्रतिक्रिया का इंतज़ार कर रहा है..." : "Waiting for AI to respond...")
-                : (language === 'hi' ? "कुछ भी पूछें..." : "Ask anything...")}
+                : (language === 'hi' ? "कुछ भी पूछें या image upload/generate करें..." : "Ask anything or upload/generate image...")}
               className={`
                 resize-none min-h-[80px] max-h-[240px] py-6 pr-20 pl-6 rounded-xl 
                 border-0 bg-transparent text-base font-medium
@@ -118,15 +188,23 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
               rows={1}
             />
             
-            {/* Enhanced send button */}
+            {/* Action buttons */}
             <div className="absolute right-4 bottom-4 flex items-center gap-2">
+              <ImageUploadButton 
+                onImageSelect={handleImageSelect}
+                isDisabled={isLoading || isDisabled || isUploading}
+              />
+              <ImageGenerateButton 
+                onImageGenerated={handleImageGenerated}
+                isDisabled={isLoading || isDisabled}
+              />
               <Button
                 onClick={handleSend}
-                disabled={!input.trim() || isLoading || isDisabled}
+                disabled={(!input.trim() && !uploadedImage) || isLoading || isDisabled}
                 size="icon"
                 className={`
                   h-12 w-12 rounded-xl transition-all duration-500
-                  ${!input.trim() || isLoading || isDisabled
+                  ${(!input.trim() && !uploadedImage) || isLoading || isDisabled
                     ? 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-500 cursor-not-allowed scale-90'
                     : `bg-gradient-to-r from-purple-600 to-violet-600 text-white 
                        hover:from-purple-700 hover:to-violet-700 
@@ -138,13 +216,13 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
                   }
                 `}
               >
-                {isLoading ? (
+                {isLoading || isUploading ? (
                   <div className="h-5 w-5 rounded-full border-2 border-t-transparent border-white animate-spin" />
                 ) : (
                   <SendHorizonal 
                     size={22} 
                     className={`transition-transform duration-300 ${
-                      input.trim() && !isDisabled ? 'group-hover:translate-x-1' : ''
+                      (input.trim() || uploadedImage) && !isDisabled ? 'group-hover:translate-x-1' : ''
                     }`} 
                   />
                 )}

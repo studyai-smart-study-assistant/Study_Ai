@@ -53,8 +53,8 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
     }
   };
 
-  const enhancedSendMessage = useCallback(async (input: string) => {
-    if (!input.trim() || isLoading || isResponding) return;
+  const enhancedSendMessage = useCallback(async (input: string, imageUrl?: string) => {
+    if ((!input.trim() && !imageUrl) || isLoading || isResponding) return;
     
     // Check if user has reached message limit
     if (!currentUser && messages.filter(m => m.role === 'user').length >= GUEST_MESSAGE_LIMIT) {
@@ -68,8 +68,14 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
       setIsResponding(true);
       setConnectionStatus('connected');
       
+      // Prepare message content
+      let messageContent = input.trim();
+      if (imageUrl) {
+        messageContent = imageUrl ? `${messageContent}\n\n[Image: ${imageUrl}]` : `[Image: ${imageUrl}]`;
+      }
+      
       // Add user message to local storage
-      const userMessage = await chatDB.addMessage(chatId, input.trim(), 'user');
+      const userMessage = await chatDB.addMessage(chatId, messageContent, 'user');
       
       // Update local state
       setMessages((prev) => [...prev, userMessage]);
@@ -91,7 +97,7 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
       const userId = currentUser?.uid || 'guest';
       
       const result = await chatHandler.processQuery(
-        input.trim(),
+        messageContent,
         async (query: string) => {
           setConnectionStatus('reconnecting');
           const response = await generateResponse(query, chatHistory, chatId);
