@@ -39,7 +39,11 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     if (isLoading || isDisabled) return;
 
     // Check if user wants to generate an image (keywords: "image बनाओ", "generate image", "create image", etc.)
-    const imageGenerateKeywords = ['image बनाओ', 'इमेज बनाओ', 'image generate', 'generate image', 'create image', 'इमेज क्रिएट'];
+    const imageGenerateKeywords = [
+      'image बनाओ', 'इमेज बनाओ', 'image generate', 'generate image', 
+      'create image', 'create a', 'make image', 'make a', 'इमेज क्रिएट',
+      'photo बनाओ', 'picture बनाओ', 'generate a', 'draw'
+    ];
     const shouldGenerateImage = imageGenerateKeywords.some(keyword => 
       input.toLowerCase().includes(keyword.toLowerCase())
     );
@@ -62,8 +66,9 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
           throw new Error('Image generation failed');
         }
 
-        setUploadedImage(data.imageUrl);
-        toast.success('Image बन गई! अब send करें।');
+        // Automatically send the generated image to chat
+        onSend(input.trim(), data.imageUrl);
+        toast.success('Image बन गई और chat में send हो गई!');
         setInput('');
       } catch (error) {
         console.error('Error generating image:', error);
