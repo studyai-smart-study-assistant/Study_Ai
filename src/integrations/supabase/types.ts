@@ -14,6 +14,145 @@ export type Database = {
   }
   public: {
     Tables: {
+      campus_chats: {
+        Row: {
+          created_at: string
+          id: string
+          last_message_at: string | null
+          participant1_uid: string
+          participant2_uid: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          participant1_uid: string
+          participant2_uid: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          participant1_uid?: string
+          participant2_uid?: string
+        }
+        Relationships: []
+      }
+      campus_messages: {
+        Row: {
+          chat_id: string
+          created_at: string
+          edited_at: string | null
+          id: string
+          image_url: string | null
+          message_type: string
+          sender_uid: string
+          text_content: string | null
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string
+          edited_at?: string | null
+          id?: string
+          image_url?: string | null
+          message_type?: string
+          sender_uid: string
+          text_content?: string | null
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string
+          edited_at?: string | null
+          id?: string
+          image_url?: string | null
+          message_type?: string
+          sender_uid?: string
+          text_content?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campus_messages_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "campus_chats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campus_users: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          email: string | null
+          firebase_uid: string
+          id: string
+          last_seen: string | null
+          status: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          firebase_uid: string
+          id?: string
+          last_seen?: string | null
+          status?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          firebase_uid?: string
+          id?: string
+          last_seen?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          chat_id: string
+          created_at: string
+          edited_at: string | null
+          id: string
+          message_type: string
+          reply_to_id: string | null
+          sender_id: string
+          text_content: string | null
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string
+          edited_at?: string | null
+          id?: string
+          message_type?: string
+          reply_to_id?: string | null
+          sender_id: string
+          text_content?: string | null
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string
+          edited_at?: string | null
+          id?: string
+          message_type?: string
+          reply_to_id?: string | null
+          sender_id?: string
+          text_content?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
