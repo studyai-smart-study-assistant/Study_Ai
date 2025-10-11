@@ -73,11 +73,16 @@ serve(async (req) => {
     }
 
     const data = await response.json();
+    console.log('AI Gateway response structure:', JSON.stringify(data).slice(0, 200));
+    
     const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
     if (!imageUrl) {
+      console.error('No image in response. Full response:', JSON.stringify(data));
       throw new Error('No image generated');
     }
+
+    console.log('✅ Image generated successfully, size:', imageUrl.length, 'chars');
 
     return new Response(
       JSON.stringify({ imageUrl }),

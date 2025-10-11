@@ -5,6 +5,9 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { cn } from "@/lib/utils";
+import { Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 interface MessageMarkdownContentProps {
   content: string;
@@ -55,12 +58,63 @@ const MessageMarkdownContent: React.FC<MessageMarkdownContentProps> = ({
     }
   }, [isTyping, typingIndex]);
 
+  // Extract image URL from content if present
+  const imageMatch = displayedContent.match(/\[Image:\s*(data:image\/[^;]+;base64,[^\]]+)\]/);
+  const imageUrl = imageMatch ? imageMatch[1] : null;
+  const textWithoutImage = imageUrl ? displayedContent.replace(/\[Image:[^\]]+\]/, '').trim() : displayedContent;
+
+  const handleDownload = () => {
+    if (!imageUrl) return;
+    
+    try {
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      link.download = `generated-image-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Image download शुरू हो गया!');
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Download में समस्या हुई');
+    }
+  };
+
   return (
     <div className={cn(
       "prose dark:prose-invert max-w-none w-full break-words overflow-hidden prose-p:my-1 prose-pre:my-2 prose-headings:mt-3 prose-headings:mb-2",
       "prose-pre:overflow-x-auto prose-code:whitespace-pre-wrap",
       isTyping && isBot && typingIndex < contentRef.current.length && "after:content-['▎'] after:animate-pulse after:ml-0.5 after:text-purple-500"
     )}>
+      {/* Display generated image if present */}
+      {imageUrl && (
+        <div className="my-4 space-y-3">
+          <div className="relative group rounded-xl overflow-hidden border-2 border-purple-200 dark:border-purple-700 shadow-lg hover:shadow-xl transition-all duration-300">
+            <img 
+              src={imageUrl} 
+              alt="AI Generated" 
+              className="w-full h-auto max-w-2xl mx-auto"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <Button
+                onClick={handleDownload}
+                size="sm"
+                className="bg-white/90 hover:bg-white text-purple-700 shadow-lg"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-center text-muted-foreground italic">
+            ✨ AI द्वारा generate की गई image
+          </p>
+        </div>
+      )}
+      
+      {/* Display text content */}
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -97,7 +151,7 @@ const MessageMarkdownContent: React.FC<MessageMarkdownContentProps> = ({
           }
         }}
       >
-        {displayedContent}
+        {textWithoutImage}
       </ReactMarkdown>
     </div>
   );

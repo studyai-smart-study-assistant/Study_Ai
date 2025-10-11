@@ -68,7 +68,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
 
         // Automatically send the generated image to chat
         onSend(input.trim(), data.imageUrl);
-        toast.success('Image बन गई और chat में send हो गई!');
+        toast.success('Image सफलतापूर्वक बन गई!');
         setInput('');
       } catch (error) {
         console.error('Error generating image:', error);
