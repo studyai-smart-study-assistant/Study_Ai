@@ -6,7 +6,6 @@ import { SendHorizonal, X } from "lucide-react";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/contexts/LanguageContext';
 import ImageUploadButton from './chat/ImageUploadButton';
-import ImageGenerateButton from './chat/ImageGenerateButton';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,15 +34,53 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     }
   }, [input]);
 
-  const handleSend = () => {
-    if ((input.trim() || uploadedImage) && !isLoading && !isDisabled) {
-      onSend(input.trim(), uploadedImage || undefined);
-      setInput('');
-      setUploadedImage(null);
-      
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
+  const handleSend = async () => {
+    if (!input.trim() && !uploadedImage) return;
+    if (isLoading || isDisabled) return;
+
+    // Check if user wants to generate an image (keywords: "image बनाओ", "generate image", "create image", etc.)
+    const imageGenerateKeywords = ['image बनाओ', 'इमेज बनाओ', 'image generate', 'generate image', 'create image', 'इमेज क्रिएट'];
+    const shouldGenerateImage = imageGenerateKeywords.some(keyword => 
+      input.toLowerCase().includes(keyword.toLowerCase())
+    );
+
+    if (shouldGenerateImage && input.trim()) {
+      try {
+        setIsUploading(true);
+        toast.info('Image बन रही है... कृपया प्रतीक्षा करें');
+
+        const { data, error } = await supabase.functions.invoke('generate-image', {
+          body: { prompt: input.trim() }
+        });
+
+        if (error) {
+          console.error('Generate image error:', error);
+          throw error;
+        }
+
+        if (!data?.imageUrl) {
+          throw new Error('Image generation failed');
+        }
+
+        setUploadedImage(data.imageUrl);
+        toast.success('Image बन गई! अब send करें।');
+        setInput('');
+      } catch (error) {
+        console.error('Error generating image:', error);
+        toast.error('Image बनाने में समस्या हुई');
+      } finally {
+        setIsUploading(false);
       }
+      return;
+    }
+
+    // Normal message send
+    onSend(input.trim(), uploadedImage || undefined);
+    setInput('');
+    setUploadedImage(null);
+    
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
     }
   };
 
@@ -174,7 +211,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
               onBlur={handleBlur}
               placeholder={isDisabled 
                 ? (language === 'hi' ? "AI प्रतिक्रिया का इंतज़ार कर रहा है..." : "Waiting for AI to respond...")
-                : (language === 'hi' ? "कुछ भी पूछें या image upload/generate करें..." : "Ask anything or upload/generate image...")}
+                : (language === 'hi' ? "कुछ भी पूछें, 'image बनाओ...' लिखें या image upload करें" : "Ask anything, type 'image बनाओ...' or upload image")}
               className={`
                 resize-none min-h-[80px] max-h-[240px] py-6 pr-20 pl-6 rounded-xl 
                 border-0 bg-transparent text-base font-medium
@@ -193,10 +230,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
               <ImageUploadButton 
                 onImageSelect={handleImageSelect}
                 isDisabled={isLoading || isDisabled || isUploading}
-              />
-              <ImageGenerateButton 
-                onImageGenerated={handleImageGenerated}
-                isDisabled={isLoading || isDisabled}
               />
               <Button
                 onClick={handleSend}

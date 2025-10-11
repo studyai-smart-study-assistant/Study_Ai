@@ -73,6 +73,7 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
         });
 
       if (uploadError) {
+        console.error('Avatar upload error:', uploadError);
         throw uploadError;
       }
 
@@ -93,6 +94,7 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
         });
 
       if (updateError) {
+        console.error('Profile update error:', updateError);
         throw updateError;
       }
 
@@ -134,19 +136,28 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
       // Delete from storage
       const filePath = currentAvatarUrl.split('/').pop();
       if (filePath) {
-        await supabase.storage
+        const { error: deleteError } = await supabase.storage
           .from('avatars')
           .remove([`${currentUser.uid}/${filePath}`]);
+        
+        if (deleteError) {
+          console.error('Storage delete error:', deleteError);
+        }
       }
 
       // Update profile in database
-      await supabase
+      const { error: updateError } = await supabase
         .from('profiles')
         .update({
           avatar_url: null,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', currentUser.uid);
+
+      if (updateError) {
+        console.error('Profile update error:', updateError);
+        throw updateError;
+      }
 
       onAvatarUpdate(null);
       toast.success('Profile picture delete हो गई!');
