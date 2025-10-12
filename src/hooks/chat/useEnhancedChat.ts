@@ -53,7 +53,7 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
     }
   };
 
-  const enhancedSendMessage = useCallback(async (input: string, imageUrl?: string) => {
+  const enhancedSendMessage = useCallback(async (input: string, imageUrl?: string, skipAIResponse: boolean = false) => {
     if ((!input.trim() && !imageUrl) || isLoading || isResponding) return;
     
     // Check if user has reached message limit
@@ -89,36 +89,43 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
       
       if (onChatUpdated) onChatUpdated();
 
-      // Get current conversation history
-      const currentChat = await chatDB.getChat(chatId);
-      const chatHistory = currentChat?.messages || [];
-      
-      // Use enhanced chat handler for better response management
-      const userId = currentUser?.uid || 'guest';
-      
-      const result = await chatHandler.processQuery(
-        messageContent,
-        async (query: string) => {
-          setConnectionStatus('reconnecting');
-          const response = await generateResponse(query, chatHistory, chatId);
-          setConnectionStatus('connected');
-          return response;
-        },
-        chatHistory.map(msg => ({
-          sender: msg.role === 'user' ? 'user' : 'ai' as const,
-          text: msg.content,
-          timestamp: msg.timestamp
-        })),
-        userId
-      );
-      
-      // If this was a custom response, we need to store it manually
-      if (result.source === 'custom') {
-        await chatDB.addMessage(chatId, result.response, 'bot');
+      // Skip AI response if this is just an image message
+      if (skipAIResponse) {
+        // Just add a simple bot acknowledgment for image
+        await chatDB.addMessage(chatId, '✨ Image सफलतापूर्वक generate हो गई है!', 'bot');
+        await loadMessages();
+      } else {
+        // Get current conversation history
+        const currentChat = await chatDB.getChat(chatId);
+        const chatHistory = currentChat?.messages || [];
+        
+        // Use enhanced chat handler for better response management
+        const userId = currentUser?.uid || 'guest';
+        
+        const result = await chatHandler.processQuery(
+          messageContent,
+          async (query: string) => {
+            setConnectionStatus('reconnecting');
+            const response = await generateResponse(query, chatHistory, chatId);
+            setConnectionStatus('connected');
+            return response;
+          },
+          chatHistory.map(msg => ({
+            sender: msg.role === 'user' ? 'user' : 'ai' as const,
+            text: msg.content,
+            timestamp: msg.timestamp
+          })),
+          userId
+        );
+        
+        // If this was a custom response, we need to store it manually
+        if (result.source === 'custom') {
+          await chatDB.addMessage(chatId, result.response, 'bot');
+        }
+        
+        // Refresh messages from storage to ensure we have the latest data
+        await loadMessages();
       }
-      
-      // Refresh messages from storage to ensure we have the latest data
-      await loadMessages();
       
       if (onChatUpdated) onChatUpdated();
       

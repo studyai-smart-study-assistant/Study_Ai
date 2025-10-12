@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { useAuth } from '@/contexts/AuthContext';
 
 interface ChatFooterProps {
-  onSend: (message: string, imageUrl?: string) => void;
+  onSend: (message: string, imageUrl?: string, skipAIResponse?: boolean) => void;
   isLoading: boolean;
   isDisabled?: boolean;
 }
@@ -66,9 +66,9 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
           throw new Error('Image generation failed');
         }
 
-        // Automatically send the generated image to chat
-        onSend(input.trim(), data.imageUrl);
-        toast.success('Image सफलतापूर्वक बन गई!');
+      // Automatically send the generated image to chat (skip AI response)
+      onSend(input.trim(), data.imageUrl, true);
+      toast.success('Image सफलतापूर्वक बन गई!');
         setInput('');
       } catch (error) {
         console.error('Error generating image:', error);
