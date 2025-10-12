@@ -38,11 +38,19 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     if (!input.trim() && !uploadedImage) return;
     if (isLoading || isDisabled) return;
 
-    // Check if user wants to generate an image (keywords: "image बनाओ", "generate image", "create image", etc.)
+    // Check if user wants to generate an image (keywords in Hindi and English)
     const imageGenerateKeywords = [
-      'image बनाओ', 'इमेज बनाओ', 'image generate', 'generate image', 
-      'create image', 'create a', 'make image', 'make a', 'इमेज क्रिएट',
-      'photo बनाओ', 'picture बनाओ', 'generate a', 'draw'
+      // Hindi variations
+      'इमेज बना', 'इमेज बनाओ', 'इमेज बनाना', 'इमेज generate', 'इमेज क्रिएट',
+      'छवि बना', 'छवि बनाओ', 'छवि बनाना', 'छवि generate',
+      'तस्वीर बना', 'तस्वीर बनाओ', 'तस्वीर बनाना',
+      'फोटो बना', 'फोटो बनाओ', 'फोटो बनाना',
+      'चित्र बना', 'चित्र बनाओ', 'चित्र बनाना',
+      'picture बना', 'picture बनाओ', 'photo बना', 'photo बनाओ',
+      // English variations
+      'image बनाओ', 'image generate', 'generate image', 
+      'create image', 'create a', 'make image', 'make a',
+      'picture बनाओ', 'generate a', 'draw', 'paint'
     ];
     const shouldGenerateImage = imageGenerateKeywords.some(keyword => 
       input.toLowerCase().includes(keyword.toLowerCase())
