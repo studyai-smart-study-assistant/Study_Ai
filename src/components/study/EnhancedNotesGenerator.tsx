@@ -38,86 +38,85 @@ interface GeneratedNote {
 }
 
 const EnhancedNotesGenerator: React.FC<EnhancedNotesGeneratorProps> = ({ onSendMessage }) => {
-  const [noteTitle, setNoteTitle] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
-  const [topic, setTopic] = useState('');
-  const [noteType, setNoteType] = useState('comprehensive');
+  const [chapter, setChapter] = useState('');
+  const [selectedClass, setSelectedClass] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState('hindi');
   const [customRequirements, setCustomRequirements] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedNotes, setGeneratedNotes] = useState<GeneratedNote[]>([]);
   const [currentNote, setCurrentNote] = useState<GeneratedNote | null>(null);
 
   const subjects = [
-    'गणित', 'भौतिक विज्ञान', 'रसायन विज्ञान', 'जीव विज्ञान',
-    'हिंदी', 'अंग्रेजी', 'इतिहास', 'भूगोल', 'राजनीति विज्ञान',
-    'अर्थशास्त्र', 'समाजशास्त्र', 'कंप्यूटर साइंस'
+    'गणित (Mathematics)', 'भौतिक विज्ञान (Physics)', 'रसायन विज्ञान (Chemistry)', 
+    'जीव विज्ञान (Biology)', 'हिंदी (Hindi)', 'अंग्रेजी (English)', 
+    'इतिहास (History)', 'भूगोल (Geography)', 'राजनीति विज्ञान (Political Science)',
+    'अर्थशास्त्र (Economics)', 'समाजशास्त्र (Sociology)', 'कंप्यूटर साइंस (Computer Science)'
   ];
 
-  const noteTypes = [
-    { value: 'comprehensive', label: 'Comprehensive Notes', description: 'विस्तृत और complete notes' },
-    { value: 'quick-revision', label: 'Quick Revision', description: 'जल्दी revision के लिए' },
-    { value: 'exam-focused', label: 'Exam Focused', description: 'परीक्षा के लिए important points' },
-    { value: 'concept-explanation', label: 'Concept Explanation', description: 'Concepts को समझने के लिए' },
-    { value: 'formula-summary', label: 'Formula Summary', description: 'सभी formulas और equations' }
+  const classes = [
+    'कक्षा 6', 'कक्षा 7', 'कक्षा 8', 'कक्षा 9', 'कक्षा 10',
+    'कक्षा 11', 'कक्षा 12', 'स्नातक (Graduation)', 'अन्य (Other)'
   ];
 
-  const smartTemplates = [
-    { subject: 'गणित', topic: 'Quadratic Equations', type: 'formula-summary' },
-    { subject: 'भौतिक विज्ञान', topic: 'Laws of Motion', type: 'concept-explanation' },
-    { subject: 'रसायन विज्ञान', topic: 'Periodic Table', type: 'comprehensive' },
-    { subject: 'जीव विज्ञान', topic: 'Photosynthesis', type: 'exam-focused' },
-    { subject: 'इतिहास', topic: 'Mughal Empire', type: 'quick-revision' }
-  ];
 
-  const generateSmartPrompt = (title: string, subject: string, topic: string, type: string, requirements: string) => {
-    let basePrompt = '';
-    
-    switch (type) {
-      case 'comprehensive':
-        basePrompt = `${subject} के topic "${topic}" पर comprehensive notes बनाएं। सभी important concepts, definitions, examples और applications include करें।`;
-        break;
-      case 'quick-revision':
-        basePrompt = `${subject} के topic "${topic}" के लिए quick revision notes बनाएं। केवल most important points, key formulas और facts include करें।`;
-        break;
-      case 'exam-focused':
-        basePrompt = `${subject} के topic "${topic}" के लिए exam-focused notes बनाएं। Previous year questions patterns, important questions और exam tips include करें।`;
-        break;
-      case 'concept-explanation':
-        basePrompt = `${subject} के topic "${topic}" को step-by-step explain करें। Basic concepts से advanced level तक, examples के साथ।`;
-        break;
-      case 'formula-summary':
-        basePrompt = `${subject} के topic "${topic}" के सभी important formulas, equations और derivations को organized format में present करें।`;
-        break;
-    }
+  const generateSmartPrompt = (subject: string, chapter: string, className: string, language: string, requirements: string) => {
+    const languageInstruction = language === 'hindi' 
+      ? 'कृपया पूरे notes हिंदी में लिखें। सभी technical terms के साथ हिंदी अनुवाद भी दें।'
+      : language === 'english'
+      ? 'Please write the entire notes in English. Keep the language simple and easy to understand.'
+      : 'कृपया notes हिंदी और English दोनों भाषाओं का mixed use करें, जैसा students comfortable हैं।';
+
+    let basePrompt = `आप एक expert teacher हैं। ${className} के लिए ${subject} विषय के "${chapter}" chapter पर विस्तृत और high-quality study notes बनाएं।
+
+${languageInstruction}
+
+Notes में ये सभी sections शामिल करें:
+
+📚 **Chapter Overview**
+- Chapter का introduction और importance
+- Main topics की list
+
+📝 **Detailed Content**
+- हर topic को step-by-step explain करें
+- Important definitions और concepts
+- Formulas और equations (अगर applicable हो)
+- Diagrams की detailed description
+- Real-life examples और applications
+
+💡 **Key Points**
+- Chapter के सबसे important points
+- याद रखने के लिए tricks और mnemonics
+- Common mistakes से बचने के tips
+
+📊 **Practice Questions**
+- Short answer questions (3-4)
+- Long answer questions (2-3)
+- MCQs (5-6)
+
+📖 **Summary**
+- Chapter का quick revision summary
+- Important formulas की list (अगर applicable हो)`;
 
     if (requirements.trim()) {
-      basePrompt += ` Additional requirements: ${requirements}`;
+      basePrompt += `\n\n**अतिरिक्त आवश्यकताएं:**\n${requirements}`;
     }
 
-    basePrompt += `
-    
-    Please format the notes with:
-    1. Clear headings और subheadings
-    2. Important points को bullet format में
-    3. Key formulas को highlight करें
-    4. Examples जहां जरूरी हो
-    5. Summary section अंत में
-    
-    Language: Hindi और English mixed (जैसा students prefer करते हैं)`;
+    basePrompt += `\n\nNotes को professional, organized और student-friendly format में बनाएं। Headings, subheadings, bullet points, और numbering का proper use करें।`;
 
     return basePrompt;
   };
 
   const generateNotes = async () => {
-    if (!noteTitle.trim() || !selectedSubject || !topic.trim()) {
-      toast.error('कृपया सभी required fields भरें');
+    if (!selectedSubject || !chapter.trim() || !selectedClass) {
+      toast.error('कृपया विषय, अध्याय और कक्षा भरें');
       return;
     }
 
     setIsGenerating(true);
     
     try {
-      const prompt = generateSmartPrompt(noteTitle, selectedSubject, topic, noteType, customRequirements);
+      const prompt = generateSmartPrompt(selectedSubject, chapter, selectedClass, selectedLanguage, customRequirements);
       const content = await generateResponse(prompt);
 
       // Extract key points from the generated content
@@ -125,10 +124,10 @@ const EnhancedNotesGenerator: React.FC<EnhancedNotesGeneratorProps> = ({ onSendM
 
       const newNote: GeneratedNote = {
         id: Date.now().toString(),
-        title: noteTitle,
+        title: `${selectedSubject} - ${chapter}`,
         subject: selectedSubject,
-        topic: topic,
-        noteType: noteType,
+        topic: chapter,
+        noteType: selectedClass,
         content: content,
         keyPoints: keyPoints,
         timestamp: new Date().toISOString(),
@@ -139,11 +138,10 @@ const EnhancedNotesGenerator: React.FC<EnhancedNotesGeneratorProps> = ({ onSendM
       setCurrentNote(newNote);
       
       // Clear form
-      setNoteTitle('');
-      setTopic('');
+      setChapter('');
       setCustomRequirements('');
       
-      toast.success('📝 Smart Notes तैयार हैं!');
+      toast.success('📝 उच्च गुणवत्ता के Notes तैयार हैं!');
     } catch (error) {
       console.error('Error generating notes:', error);
       toast.error('Notes generate करने में error आया');
@@ -167,12 +165,6 @@ const EnhancedNotesGenerator: React.FC<EnhancedNotesGeneratorProps> = ({ onSendM
     return points.slice(0, 5); // Top 5 key points
   };
 
-  const useTemplate = (template: typeof smartTemplates[0]) => {
-    setSelectedSubject(template.subject);
-    setTopic(template.topic);
-    setNoteType(template.type);
-    setNoteTitle(`${template.subject} - ${template.topic}`);
-  };
 
   const toggleFavorite = (noteId: string) => {
     setGeneratedNotes(generatedNotes.map(note => 
@@ -197,58 +189,25 @@ const EnhancedNotesGenerator: React.FC<EnhancedNotesGeneratorProps> = ({ onSendM
   };
 
   return (
-    <div className="space-y-6">
-      {/* Smart Templates */}
-      <Card className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-300">
-            <Lightbulb className="h-5 w-5" />
-            Smart Templates
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {smartTemplates.map((template, index) => (
-              <Button
-                key={index}
-                variant="outline"
-                onClick={() => useTemplate(template)}
-                className="p-3 h-auto flex flex-col items-start"
-              >
-                <div className="font-medium text-sm">{template.subject}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">{template.topic}</div>
-                <Badge variant="secondary" className="mt-1 text-xs">
-                  {noteTypes.find(t => t.value === template.type)?.label}
-                </Badge>
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
+    <div className="space-y-6 p-4">
       {/* Notes Generator */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-blue-600" />
-            Enhanced Notes Generator
+      <Card className="border-2 border-blue-200 dark:border-blue-800 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <FileText className="h-6 w-6" />
+            📝 AI Notes Generator - उच्च गुणवत्ता के Study Notes बनाएं
           </CardTitle>
+          <p className="text-sm text-blue-100 mt-1">विस्तृत, organized और exam-ready notes तुरंत बनाएं</p>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6 p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">Notes Title</label>
-              <Input
-                placeholder="जैसे: Algebra Basics, Chemical Bonding..."
-                value={noteTitle}
-                onChange={(e) => setNoteTitle(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">विषय</label>
+              <label className="text-sm font-semibold mb-2 block text-gray-700 dark:text-gray-300">
+                📚 विषय चुनें *
+              </label>
               <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                <SelectTrigger>
-                  <SelectValue placeholder="विषय चुनें" />
+                <SelectTrigger className="border-2 border-blue-300 dark:border-blue-700">
+                  <SelectValue placeholder="अपना विषय चुनें" />
                 </SelectTrigger>
                 <SelectContent>
                   {subjects.map(subject => (
@@ -257,80 +216,105 @@ const EnhancedNotesGenerator: React.FC<EnhancedNotesGeneratorProps> = ({ onSendM
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <label className="text-sm font-semibold mb-2 block text-gray-700 dark:text-gray-300">
+                📖 अध्याय/टॉपिक का नाम *
+              </label>
+              <Input
+                placeholder="जैसे: द्विघात समीकरण, प्रकाश संश्लेषण..."
+                value={chapter}
+                onChange={(e) => setChapter(e.target.value)}
+                className="border-2 border-blue-300 dark:border-blue-700"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">Topic/Chapter</label>
-              <Input
-                placeholder="जैसे: Quadratic Equations, Photosynthesis..."
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-              />
+              <label className="text-sm font-semibold mb-2 block text-gray-700 dark:text-gray-300">
+                🎓 कक्षा *
+              </label>
+              <Select value={selectedClass} onValueChange={setSelectedClass}>
+                <SelectTrigger className="border-2 border-purple-300 dark:border-purple-700">
+                  <SelectValue placeholder="अपनी कक्षा चुनें" />
+                </SelectTrigger>
+                <SelectContent>
+                  {classes.map(cls => (
+                    <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
-              <label className="text-sm font-medium mb-2 block">Notes Type</label>
-              <Select value={noteType} onValueChange={setNoteType}>
-                <SelectTrigger>
+              <label className="text-sm font-semibold mb-2 block text-gray-700 dark:text-gray-300">
+                🌐 भाषा चुनें *
+              </label>
+              <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                <SelectTrigger className="border-2 border-purple-300 dark:border-purple-700">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {noteTypes.map(type => (
-                    <SelectItem key={type.value} value={type.value}>
-                      <div>
-                        <div className="font-medium">{type.label}</div>
-                        <div className="text-xs text-gray-500">{type.description}</div>
-                      </div>
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="hindi">🇮🇳 हिंदी (Hindi)</SelectItem>
+                  <SelectItem value="english">🇬🇧 अंग्रेजी (English)</SelectItem>
+                  <SelectItem value="mixed">🔀 मिक्स (Hindi + English)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-2 block">Additional Requirements (Optional)</label>
+            <label className="text-sm font-semibold mb-2 block text-gray-700 dark:text-gray-300">
+              📝 अतिरिक्त आवश्यकताएं (Optional)
+            </label>
             <Textarea
-              placeholder="जैसे: Include diagrams description, Focus on numerical problems, Add memory tricks..."
+              placeholder="जैसे: Diagrams की detail चाहिए, Numerical problems focus करें, Memory tricks add करें, Previous year questions include करें..."
               value={customRequirements}
               onChange={(e) => setCustomRequirements(e.target.value)}
-              rows={2}
+              rows={3}
+              className="border-2 border-green-300 dark:border-green-700"
             />
           </div>
 
           <Button 
             onClick={generateNotes} 
             disabled={isGenerating}
-            className="w-full"
+            className="w-full py-6 text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg"
           >
             {isGenerating ? (
               <>
-                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
-                AI Notes बना रहा है...
+                <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                🚀 AI आपके Notes बना रहा है...
               </>
             ) : (
               <>
-                <Brain className="h-4 w-4 mr-2" />
-                Smart Notes Generate करें
+                <Brain className="h-5 w-5 mr-2" />
+                ✨ High-Quality Notes Generate करें
               </>
             )}
           </Button>
+          
+          <div className="text-xs text-center text-gray-500 dark:text-gray-400">
+            💡 Tip: सभी fields सही से भरें ताकि best quality notes मिलें
+          </div>
         </CardContent>
       </Card>
 
       {/* Current Generated Notes */}
       {currentNote && (
-        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-900/20">
-          <CardHeader>
+        <Card className="border-2 border-green-300 dark:border-green-700 shadow-2xl bg-gradient-to-br from-white via-green-50 to-blue-50 dark:from-gray-800 dark:via-green-900/20 dark:to-blue-900/20">
+          <CardHeader className="bg-gradient-to-r from-green-600 to-blue-600 text-white pb-4">
             <div className="flex justify-between items-start">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
-                  <BookOpen className="h-5 w-5" />
-                  {currentNote.title}
+              <div className="flex-1">
+                <CardTitle className="flex items-center gap-2 text-2xl mb-2">
+                  <BookOpen className="h-6 w-6" />
+                  📚 {currentNote.title}
                 </CardTitle>
-                <div className="flex items-center gap-2 mt-2">
-                  <Badge variant="secondary">{currentNote.subject}</Badge>
-                  <Badge variant="outline">{currentNote.topic}</Badge>
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <Badge className="bg-white/20 text-white border-white/30">{currentNote.subject}</Badge>
+                  <Badge className="bg-white/20 text-white border-white/30">{currentNote.noteType}</Badge>
+                  <Badge className="bg-white/20 text-white border-white/30">
+                    {new Date(currentNote.timestamp).toLocaleDateString('hi-IN')}
+                  </Badge>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -338,13 +322,16 @@ const EnhancedNotesGenerator: React.FC<EnhancedNotesGeneratorProps> = ({ onSendM
                   variant="outline"
                   size="sm"
                   onClick={() => toggleFavorite(currentNote.id)}
+                  className="bg-white/20 border-white/30 text-white hover:bg-white/30"
                 >
-                  <Star className={`h-4 w-4 ${currentNote.isFavorite ? 'fill-yellow-500 text-yellow-500' : ''}`} />
+                  <Star className={`h-4 w-4 ${currentNote.isFavorite ? 'fill-yellow-300 text-yellow-300' : ''}`} />
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => copyToClipboard(currentNote.content)}
+                  className="bg-white/20 border-white/30 text-white hover:bg-white/30"
+                  title="Copy to Clipboard"
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -352,25 +339,27 @@ const EnhancedNotesGenerator: React.FC<EnhancedNotesGeneratorProps> = ({ onSendM
                   variant="outline"
                   size="sm"
                   onClick={() => downloadNotes(currentNote)}
+                  className="bg-white/20 border-white/30 text-white hover:bg-white/30"
+                  title="Download Notes"
                 >
                   <Download className="h-4 w-4" />
                 </Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-6">
             {/* Key Points Summary */}
             {currentNote.keyPoints.length > 0 && (
-              <div className="mb-4 p-3 bg-white dark:bg-gray-800 rounded-lg">
-                <h4 className="font-medium flex items-center gap-2 mb-2">
-                  <Target className="h-4 w-4 text-green-500" />
-                  Key Points
+              <div className="mb-6 p-5 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-xl border-2 border-yellow-300 dark:border-yellow-700 shadow-md">
+                <h4 className="font-bold text-lg flex items-center gap-2 mb-3 text-yellow-800 dark:text-yellow-300">
+                  <Target className="h-5 w-5" />
+                  ⭐ मुख्य बिंदु (Key Points)
                 </h4>
-                <ul className="text-sm space-y-1">
+                <ul className="space-y-2">
                   {currentNote.keyPoints.map((point, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <span className="text-green-500">•</span>
-                      {point}
+                    <li key={index} className="flex items-start gap-3 text-sm">
+                      <span className="text-yellow-600 dark:text-yellow-400 font-bold text-lg">•</span>
+                      <span className="text-gray-800 dark:text-gray-200">{point}</span>
                     </li>
                   ))}
                 </ul>
@@ -378,12 +367,41 @@ const EnhancedNotesGenerator: React.FC<EnhancedNotesGeneratorProps> = ({ onSendM
             )}
 
             {/* Full Notes Content */}
-            <div className="prose dark:prose-invert max-w-none">
-              <ScrollArea className="h-[400px]">
-                <div className="whitespace-pre-wrap text-sm p-3 bg-white dark:bg-gray-800 rounded-lg">
+            <div className="prose prose-lg dark:prose-invert max-w-none">
+              <ScrollArea className="h-[600px]">
+                <div className="whitespace-pre-wrap p-6 bg-white dark:bg-gray-800 rounded-xl shadow-inner border border-gray-200 dark:border-gray-700 leading-relaxed text-base">
+                  <style>
+                    {`
+                      .prose h1, .prose h2, .prose h3 { 
+                        color: #2563eb; 
+                        font-weight: bold; 
+                        margin-top: 1.5rem;
+                        margin-bottom: 0.75rem;
+                      }
+                      .prose h1 { font-size: 1.75rem; }
+                      .prose h2 { font-size: 1.5rem; }
+                      .prose h3 { font-size: 1.25rem; }
+                      .prose p { margin-bottom: 1rem; line-height: 1.8; }
+                      .prose ul, .prose ol { margin-left: 1.5rem; margin-bottom: 1rem; }
+                      .prose li { margin-bottom: 0.5rem; }
+                      .prose strong { color: #059669; font-weight: 700; }
+                      .prose code { 
+                        background: #f3f4f6; 
+                        padding: 0.2rem 0.4rem; 
+                        border-radius: 0.25rem;
+                        font-size: 0.9em;
+                      }
+                    `}
+                  </style>
                   {currentNote.content}
                 </div>
               </ScrollArea>
+            </div>
+            
+            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-sm text-blue-800 dark:text-blue-300 text-center">
+                💡 <strong>Tip:</strong> Copy button से notes copy करें या Download button से save करें
+              </p>
             </div>
           </CardContent>
         </Card>

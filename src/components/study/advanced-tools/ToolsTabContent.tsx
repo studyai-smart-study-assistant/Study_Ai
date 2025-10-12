@@ -2,7 +2,7 @@
 import React from 'react';
 import { TabsContent } from '@/components/ui/tabs';
 import QuizGenerator from '../QuizGenerator';
-
+import EnhancedNotesGenerator from '../EnhancedNotesGenerator';
 import StudyPlanner from '../StudyPlanner';
 import HomeworkAssistant from '../HomeworkAssistant';
 import MotivationSystem from '../MotivationSystem';
@@ -20,6 +20,9 @@ const ToolsTabContent: React.FC<ToolsTabContentProps> = ({ activeTab, onSendMess
         <TeacherMode onSendMessage={onSendMessage} />
       </TabsContent>
       
+      <TabsContent value="notes" className="mt-0">
+        <EnhancedNotesGenerator onSendMessage={onSendMessage} />
+      </TabsContent>
       
       <TabsContent value="planner" className="mt-0">
         <StudyPlanner onSendMessage={onSendMessage} />
