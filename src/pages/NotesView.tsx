@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ArrowLeft, Download, Copy, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface GeneratedNote {
   id: string;
@@ -157,140 +159,161 @@ const NotesView = () => {
 
         {/* Notes Content */}
         <div className="bg-background">
-          <div className="prose prose-sm sm:prose-base max-w-none">
-            <style>
-              {`
-                .notes-content {
-                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', sans-serif;
-                  line-height: 1.75;
-                  color: hsl(var(--foreground));
-                  font-size: 15px;
-                }
-                
-                .notes-content h1 {
-                  font-size: 1.5rem;
-                  font-weight: 700;
-                  color: hsl(var(--foreground));
-                  margin-top: 1.5rem;
-                  margin-bottom: 0.75rem;
-                  display: flex;
-                  align-items: center;
-                  gap: 0.5rem;
-                  padding-bottom: 0.5rem;
-                  border-bottom: 2px solid hsl(var(--border));
-                }
-                
-                .notes-content h2 {
-                  font-size: 1.25rem;
-                  font-weight: 700;
-                  color: hsl(var(--foreground));
-                  margin-top: 1.5rem;
-                  margin-bottom: 0.75rem;
-                  display: flex;
-                  align-items: center;
-                  gap: 0.5rem;
-                }
-                
-                .notes-content h3 {
-                  font-size: 1.125rem;
-                  font-weight: 600;
-                  color: hsl(var(--foreground));
-                  margin-top: 1.25rem;
-                  margin-bottom: 0.625rem;
-                  display: flex;
-                  align-items: center;
-                  gap: 0.5rem;
-                }
-                
-                .notes-content h4 {
-                  font-size: 1rem;
-                  font-weight: 600;
-                  color: hsl(var(--foreground));
-                  margin-top: 1rem;
-                  margin-bottom: 0.5rem;
-                }
-                
-                .notes-content p {
-                  margin-bottom: 0.875rem;
-                  line-height: 1.75;
-                  color: hsl(var(--foreground));
-                }
-                
-                .notes-content ul,
-                .notes-content ol {
-                  margin-left: 1.25rem;
-                  margin-bottom: 0.875rem;
-                  padding-left: 0.25rem;
-                }
-                
-                .notes-content li {
-                  margin-bottom: 0.5rem;
-                  line-height: 1.65;
-                  color: hsl(var(--foreground));
-                }
-                
-                .notes-content ul li {
-                  list-style-type: none;
-                  position: relative;
-                  padding-left: 1.25rem;
-                }
-                
-                .notes-content ul li::before {
-                  content: "◆";
-                  position: absolute;
-                  left: 0;
-                  color: hsl(var(--primary));
-                  font-size: 0.75rem;
-                }
-                
-                .notes-content ol li {
-                  list-style-type: decimal;
-                  padding-left: 0.5rem;
-                }
-                
-                .notes-content strong,
-                .notes-content b {
-                  font-weight: 700;
-                  color: hsl(var(--foreground));
-                }
-                
-                .notes-content em,
-                .notes-content i {
-                  font-style: italic;
-                  color: hsl(var(--muted-foreground));
-                }
-                
-                .notes-content code {
-                  background: hsl(var(--muted));
-                  padding: 0.125rem 0.375rem;
-                  border-radius: 0.25rem;
-                  font-family: 'Courier New', monospace;
-                  font-size: 0.875em;
-                  color: hsl(var(--foreground));
-                }
-                
-                .notes-content blockquote {
-                  border-left: 3px solid hsl(var(--primary));
-                  padding-left: 1rem;
-                  margin: 1rem 0;
-                  color: hsl(var(--muted-foreground));
-                  font-style: italic;
-                  background: hsl(var(--muted) / 0.3);
-                  padding: 0.75rem 1rem;
-                  border-radius: 0.25rem;
-                }
-                
-                .notes-content hr {
-                  border: none;
-                  border-top: 1px solid hsl(var(--border));
-                  margin: 1.5rem 0;
-                }
-              `}
-            </style>
-            <div 
-              className="notes-content whitespace-pre-wrap"
-              dangerouslySetInnerHTML={{ __html: note.content.replace(/\n/g, '<br />') }}
-            />
+          <style>
+            {`
+              .notes-content {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', sans-serif;
+                line-height: 1.75;
+                color: hsl(var(--foreground));
+                font-size: 15px;
+              }
+              
+              .notes-content h1 {
+                font-size: 1.75rem;
+                font-weight: 700;
+                color: hsl(var(--foreground));
+                margin-top: 2rem;
+                margin-bottom: 1rem;
+                padding-bottom: 0.5rem;
+                border-bottom: 2px solid hsl(var(--primary) / 0.3);
+              }
+              
+              .notes-content h2 {
+                font-size: 1.5rem;
+                font-weight: 700;
+                color: hsl(var(--foreground));
+                margin-top: 1.75rem;
+                margin-bottom: 0.875rem;
+                padding-bottom: 0.375rem;
+                border-bottom: 1px solid hsl(var(--border));
+              }
+              
+              .notes-content h3 {
+                font-size: 1.25rem;
+                font-weight: 600;
+                color: hsl(var(--foreground));
+                margin-top: 1.5rem;
+                margin-bottom: 0.75rem;
+              }
+              
+              .notes-content h4 {
+                font-size: 1.125rem;
+                font-weight: 600;
+                color: hsl(var(--foreground));
+                margin-top: 1.25rem;
+                margin-bottom: 0.625rem;
+              }
+              
+              .notes-content p {
+                margin-bottom: 1rem;
+                line-height: 1.8;
+                color: hsl(var(--foreground));
+              }
+              
+              .notes-content ul {
+                margin-left: 1.5rem;
+                margin-bottom: 1rem;
+                list-style-type: none;
+              }
+              
+              .notes-content ul li {
+                margin-bottom: 0.625rem;
+                line-height: 1.75;
+                color: hsl(var(--foreground));
+                position: relative;
+                padding-left: 1.5rem;
+              }
+              
+              .notes-content ul li::before {
+                content: "●";
+                position: absolute;
+                left: 0;
+                color: hsl(var(--primary));
+                font-size: 0.875rem;
+                font-weight: bold;
+              }
+              
+              .notes-content ol {
+                margin-left: 1.5rem;
+                margin-bottom: 1rem;
+                list-style-type: decimal;
+              }
+              
+              .notes-content ol li {
+                margin-bottom: 0.625rem;
+                line-height: 1.75;
+                color: hsl(var(--foreground));
+                padding-left: 0.5rem;
+              }
+              
+              .notes-content strong,
+              .notes-content b {
+                font-weight: 700;
+                color: hsl(var(--foreground));
+              }
+              
+              .notes-content em,
+              .notes-content i {
+                font-style: italic;
+              }
+              
+              .notes-content code {
+                background: hsl(var(--muted));
+                padding: 0.25rem 0.5rem;
+                border-radius: 0.25rem;
+                font-family: 'Courier New', monospace;
+                font-size: 0.875em;
+                color: hsl(var(--primary));
+              }
+              
+              .notes-content pre {
+                background: hsl(var(--muted));
+                padding: 1rem;
+                border-radius: 0.5rem;
+                overflow-x: auto;
+                margin: 1rem 0;
+              }
+              
+              .notes-content blockquote {
+                border-left: 4px solid hsl(var(--primary));
+                padding-left: 1rem;
+                margin: 1.25rem 0;
+                color: hsl(var(--muted-foreground));
+                font-style: italic;
+                background: hsl(var(--muted) / 0.3);
+                padding: 1rem 1rem 1rem 1.5rem;
+                border-radius: 0.375rem;
+              }
+              
+              .notes-content hr {
+                border: none;
+                border-top: 1px solid hsl(var(--border));
+                margin: 2rem 0;
+              }
+
+              .notes-content table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 1rem 0;
+              }
+
+              .notes-content th,
+              .notes-content td {
+                border: 1px solid hsl(var(--border));
+                padding: 0.5rem;
+                text-align: left;
+              }
+
+              .notes-content th {
+                background: hsl(var(--muted));
+                font-weight: 600;
+              }
+            `}
+          </style>
+          <div className="notes-content">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {note.content}
+            </ReactMarkdown>
           </div>
         </div>
 
