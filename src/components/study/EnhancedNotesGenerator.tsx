@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,7 @@ interface GeneratedNote {
 }
 
 const EnhancedNotesGenerator: React.FC<EnhancedNotesGeneratorProps> = ({ onSendMessage }) => {
+  const navigate = useNavigate();
   const [selectedSubject, setSelectedSubject] = useState('');
   const [chapter, setChapter] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
@@ -142,6 +144,9 @@ Notes में ये सभी sections शामिल करें:
       setCustomRequirements('');
       
       toast.success('📝 उच्च गुणवत्ता के Notes तैयार हैं!');
+      
+      // Navigate to notes view page
+      navigate('/notes-view', { state: { note: newNote } });
     } catch (error) {
       console.error('Error generating notes:', error);
       toast.error('Notes generate करने में error आया');
