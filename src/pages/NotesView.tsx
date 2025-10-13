@@ -66,47 +66,48 @@ const NotesView = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between gap-4">
+      <div className="sticky top-0 z-10 bg-background/98 backdrop-blur-sm border-b border-border/50 shadow-sm">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex items-center justify-between gap-3">
             <Button
               variant="ghost"
+              size="sm"
               onClick={() => navigate(-1)}
-              className="gap-2"
+              className="gap-2 hover:bg-muted"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">वापस जाएं</span>
+              <span className="hidden sm:inline">वापस</span>
             </Button>
             
             <div className="flex gap-2">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={copyToClipboard}
-                className="gap-2"
+                className="gap-1.5 hover:bg-muted"
               >
-                <Copy className="h-4 w-4" />
-                <span className="hidden sm:inline">Copy</span>
+                <Copy className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-sm">Copy</span>
               </Button>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={shareNotes}
-                className="gap-2"
+                className="gap-1.5 hover:bg-muted"
               >
-                <Share2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Share</span>
+                <Share2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-sm">Share</span>
               </Button>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={downloadNotes}
-                className="gap-2"
+                className="gap-1.5 hover:bg-muted"
               >
-                <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">Download</span>
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-sm">Download</span>
               </Button>
             </div>
           </div>
@@ -114,191 +115,188 @@ const NotesView = () => {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Title Section */}
-        <div className="mb-8 space-y-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="px-3 py-1 bg-primary/10 text-primary rounded-full font-medium">
+        <div className="mb-6 pb-4 border-b border-border/30">
+          <div className="flex items-center gap-2 text-xs mb-3">
+            <span className="px-2.5 py-1 bg-primary/10 text-primary rounded-md font-medium">
               {note.subject}
             </span>
-            <span className="px-3 py-1 bg-secondary/50 rounded-full">
+            <span className="px-2.5 py-1 bg-muted text-muted-foreground rounded-md">
               {note.noteType}
             </span>
+            <span className="text-muted-foreground ml-auto">
+              {new Date(note.timestamp).toLocaleDateString('hi-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })}
+            </span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-foreground leading-tight">
-            📘 {note.title}
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground leading-snug">
+            {note.title}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            {new Date(note.timestamp).toLocaleDateString('hi-IN', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-            })}
-          </p>
         </div>
 
         {/* Key Points Section */}
         {note.keyPoints.length > 0 && (
-          <div className="mb-8 p-6 bg-accent/30 border-l-4 border-primary rounded-lg">
-            <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-              🎯 मुख्य बिंदु
+          <div className="mb-6 p-5 bg-muted/40 border-l-4 border-primary rounded-md">
+            <h2 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
+              🎯 मुख्य परिचय:
             </h2>
-            <ul className="space-y-3">
+            <div className="space-y-2.5">
               {note.keyPoints.map((point, index) => (
-                <li key={index} className="flex items-start gap-3">
-                  <span className="text-primary font-bold text-lg mt-0.5">•</span>
-                  <span className="text-foreground leading-relaxed">{point}</span>
-                </li>
+                <div key={index} className="flex items-start gap-2.5">
+                  <span className="text-primary font-bold text-base mt-0.5">•</span>
+                  <p className="text-foreground leading-relaxed text-sm">{point}</p>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         )}
 
         {/* Notes Content */}
-        <div className="bg-card border border-border rounded-lg shadow-sm overflow-hidden">
-          <ScrollArea className="h-auto max-h-[70vh]">
-            <div className="p-6 sm:p-8 lg:p-10">
-              <style>
-                {`
-                  .notes-content {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans', sans-serif;
-                    line-height: 1.8;
-                    color: hsl(var(--foreground));
-                  }
-                  
-                  .notes-content h1 {
-                    font-size: 2rem;
-                    font-weight: 700;
-                    color: hsl(var(--primary));
-                    margin-top: 2rem;
-                    margin-bottom: 1rem;
-                    padding-bottom: 0.5rem;
-                    border-bottom: 2px solid hsl(var(--primary));
-                  }
-                  
-                  .notes-content h2 {
-                    font-size: 1.75rem;
-                    font-weight: 700;
-                    color: hsl(var(--primary));
-                    margin-top: 1.75rem;
-                    margin-bottom: 0.875rem;
-                  }
-                  
-                  .notes-content h3 {
-                    font-size: 1.5rem;
-                    font-weight: 600;
-                    color: hsl(var(--primary));
-                    margin-top: 1.5rem;
-                    margin-bottom: 0.75rem;
-                  }
-                  
-                  .notes-content h4 {
-                    font-size: 1.25rem;
-                    font-weight: 600;
-                    color: hsl(var(--foreground));
-                    margin-top: 1.25rem;
-                    margin-bottom: 0.625rem;
-                  }
-                  
-                  .notes-content p {
-                    margin-bottom: 1rem;
-                    line-height: 1.8;
-                    color: hsl(var(--foreground));
-                  }
-                  
-                  .notes-content ul,
-                  .notes-content ol {
-                    margin-left: 1.5rem;
-                    margin-bottom: 1rem;
-                    padding-left: 0.5rem;
-                  }
-                  
-                  .notes-content li {
-                    margin-bottom: 0.5rem;
-                    line-height: 1.7;
-                    color: hsl(var(--foreground));
-                  }
-                  
-                  .notes-content ul li {
-                    list-style-type: disc;
-                  }
-                  
-                  .notes-content ol li {
-                    list-style-type: decimal;
-                  }
-                  
-                  .notes-content strong,
-                  .notes-content b {
-                    font-weight: 700;
-                    color: hsl(var(--primary));
-                  }
-                  
-                  .notes-content em,
-                  .notes-content i {
-                    font-style: italic;
-                    color: hsl(var(--foreground));
-                  }
-                  
-                  .notes-content code {
-                    background: hsl(var(--muted));
-                    padding: 0.2rem 0.4rem;
-                    border-radius: 0.25rem;
-                    font-family: 'Courier New', monospace;
-                    font-size: 0.9em;
-                    color: hsl(var(--foreground));
-                  }
-                  
-                  .notes-content blockquote {
-                    border-left: 4px solid hsl(var(--primary));
-                    padding-left: 1rem;
-                    margin: 1rem 0;
-                    color: hsl(var(--muted-foreground));
-                    font-style: italic;
-                  }
-                  
-                  .notes-content hr {
-                    border: none;
-                    border-top: 1px solid hsl(var(--border));
-                    margin: 2rem 0;
-                  }
-                  
-                  .notes-content table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin: 1rem 0;
-                  }
-                  
-                  .notes-content th,
-                  .notes-content td {
-                    border: 1px solid hsl(var(--border));
-                    padding: 0.5rem;
-                    text-align: left;
-                  }
-                  
-                  .notes-content th {
-                    background: hsl(var(--muted));
-                    font-weight: 600;
-                  }
-                  
-                  /* Emoji and Icon Support */
-                  .notes-content h1::before,
-                  .notes-content h2::before,
-                  .notes-content h3::before {
-                    margin-right: 0.5rem;
-                  }
-                `}
-              </style>
-              <div 
-                className="notes-content whitespace-pre-wrap"
-                dangerouslySetInnerHTML={{ __html: note.content.replace(/\n/g, '<br />') }}
-              />
-            </div>
-          </ScrollArea>
+        <div className="bg-background">
+          <div className="prose prose-sm sm:prose-base max-w-none">
+            <style>
+              {`
+                .notes-content {
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', sans-serif;
+                  line-height: 1.75;
+                  color: hsl(var(--foreground));
+                  font-size: 15px;
+                }
+                
+                .notes-content h1 {
+                  font-size: 1.5rem;
+                  font-weight: 700;
+                  color: hsl(var(--foreground));
+                  margin-top: 1.5rem;
+                  margin-bottom: 0.75rem;
+                  display: flex;
+                  align-items: center;
+                  gap: 0.5rem;
+                  padding-bottom: 0.5rem;
+                  border-bottom: 2px solid hsl(var(--border));
+                }
+                
+                .notes-content h2 {
+                  font-size: 1.25rem;
+                  font-weight: 700;
+                  color: hsl(var(--foreground));
+                  margin-top: 1.5rem;
+                  margin-bottom: 0.75rem;
+                  display: flex;
+                  align-items: center;
+                  gap: 0.5rem;
+                }
+                
+                .notes-content h3 {
+                  font-size: 1.125rem;
+                  font-weight: 600;
+                  color: hsl(var(--foreground));
+                  margin-top: 1.25rem;
+                  margin-bottom: 0.625rem;
+                  display: flex;
+                  align-items: center;
+                  gap: 0.5rem;
+                }
+                
+                .notes-content h4 {
+                  font-size: 1rem;
+                  font-weight: 600;
+                  color: hsl(var(--foreground));
+                  margin-top: 1rem;
+                  margin-bottom: 0.5rem;
+                }
+                
+                .notes-content p {
+                  margin-bottom: 0.875rem;
+                  line-height: 1.75;
+                  color: hsl(var(--foreground));
+                }
+                
+                .notes-content ul,
+                .notes-content ol {
+                  margin-left: 1.25rem;
+                  margin-bottom: 0.875rem;
+                  padding-left: 0.25rem;
+                }
+                
+                .notes-content li {
+                  margin-bottom: 0.5rem;
+                  line-height: 1.65;
+                  color: hsl(var(--foreground));
+                }
+                
+                .notes-content ul li {
+                  list-style-type: none;
+                  position: relative;
+                  padding-left: 1.25rem;
+                }
+                
+                .notes-content ul li::before {
+                  content: "◆";
+                  position: absolute;
+                  left: 0;
+                  color: hsl(var(--primary));
+                  font-size: 0.75rem;
+                }
+                
+                .notes-content ol li {
+                  list-style-type: decimal;
+                  padding-left: 0.5rem;
+                }
+                
+                .notes-content strong,
+                .notes-content b {
+                  font-weight: 700;
+                  color: hsl(var(--foreground));
+                }
+                
+                .notes-content em,
+                .notes-content i {
+                  font-style: italic;
+                  color: hsl(var(--muted-foreground));
+                }
+                
+                .notes-content code {
+                  background: hsl(var(--muted));
+                  padding: 0.125rem 0.375rem;
+                  border-radius: 0.25rem;
+                  font-family: 'Courier New', monospace;
+                  font-size: 0.875em;
+                  color: hsl(var(--foreground));
+                }
+                
+                .notes-content blockquote {
+                  border-left: 3px solid hsl(var(--primary));
+                  padding-left: 1rem;
+                  margin: 1rem 0;
+                  color: hsl(var(--muted-foreground));
+                  font-style: italic;
+                  background: hsl(var(--muted) / 0.3);
+                  padding: 0.75rem 1rem;
+                  border-radius: 0.25rem;
+                }
+                
+                .notes-content hr {
+                  border: none;
+                  border-top: 1px solid hsl(var(--border));
+                  margin: 1.5rem 0;
+                }
+              `}
+            </style>
+            <div 
+              className="notes-content whitespace-pre-wrap"
+              dangerouslySetInnerHTML={{ __html: note.content.replace(/\n/g, '<br />') }}
+            />
+          </div>
         </div>
 
         {/* Footer Info */}
-        <div className="mt-8 p-4 bg-muted/50 rounded-lg text-center text-sm text-muted-foreground">
-          💡 <strong>Tip:</strong> आप इन notes को copy, share या download कर सकते हैं
+        <div className="mt-6 py-3 text-center text-xs text-muted-foreground">
+          💡 आप इन notes को copy, share या download कर सकते हैं
         </div>
       </div>
     </div>
