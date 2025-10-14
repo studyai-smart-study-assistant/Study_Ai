@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateResponse } from '@/lib/gemini';
+import { useNotesHistory } from '@/hooks/useNotesHistory';
 
 interface EnhancedNotesGeneratorProps {
   onSendMessage: (msg: string) => void;
@@ -40,6 +41,7 @@ interface GeneratedNote {
 
 const EnhancedNotesGenerator: React.FC<EnhancedNotesGeneratorProps> = ({ onSendMessage }) => {
   const navigate = useNavigate();
+  const { notes: savedNotes, saveNote, deleteNote } = useNotesHistory();
   const [selectedSubject, setSelectedSubject] = useState('');
   const [chapter, setChapter] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
@@ -139,11 +141,22 @@ Notes में ये सभी sections शामिल करें:
       setGeneratedNotes([newNote, ...generatedNotes.slice(0, 9)]);
       setCurrentNote(newNote);
       
+      // Save to localStorage history
+      saveNote({
+        title: newNote.title,
+        subject: selectedSubject,
+        chapter: chapter,
+        class: selectedClass,
+        language: selectedLanguage,
+        content: content,
+        keyPoints: keyPoints
+      });
+      
       // Clear form
       setChapter('');
       setCustomRequirements('');
       
-      toast.success('📝 उच्च गुणवत्ता के Notes तैयार हैं!');
+      toast.success('📝 उच्च गुणवत्ता के Notes तैयार और सहेजे गए!');
       
       // Navigate to notes view page
       navigate('/notes-view', { state: { note: newNote } });
@@ -412,48 +425,98 @@ Notes में ये सभी sections शामिल करें:
         </Card>
       )}
 
-      {/* Notes History */}
-      {generatedNotes.length > 0 && (
-        <Card>
-          <CardHeader>
+      {/* Saved Notes History */}
+      {savedNotes.length > 0 && (
+        <Card className="border-2 border-purple-200 dark:border-purple-800">
+          <CardHeader className="bg-gradient-to-r from-purple-500 to-pink-600 text-white">
             <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-purple-600" />
-              Generated Notes History
+              <FileText className="h-5 w-5" />
+              📚 सहेजे गए Notes की History
             </CardTitle>
+            <p className="text-sm text-purple-100 mt-1">आपके सभी पिछले notes यहाँ सुरक्षित हैं</p>
           </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[300px]">
+          <CardContent className="p-4">
+            <ScrollArea className="h-[400px]">
               <div className="space-y-3">
-                {generatedNotes.map(note => (
-                  <div key={note.id} className="border rounded-lg p-3 bg-gray-50 dark:bg-gray-800">
+                {savedNotes.map((note) => (
+                  <div key={note.id} className="border-2 rounded-lg p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 hover:shadow-lg transition-shadow">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <h4 className="font-medium text-sm flex items-center gap-2">
-                          {note.title}
-                          {note.isFavorite && <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />}
+                        <h4 className="font-bold text-base flex items-center gap-2 text-purple-800 dark:text-purple-300 mb-2">
+                          📖 {note.title}
                         </h4>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="secondary" className="text-xs">{note.subject}</Badge>
-                          <Badge variant="outline" className="text-xs">{note.topic}</Badge>
-                          <span className="text-xs text-gray-500">
-                            {new Date(note.timestamp).toLocaleDateString('hi-IN')}
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <Badge className="bg-purple-200 text-purple-800 dark:bg-purple-800 dark:text-purple-200 text-xs">
+                            {note.subject}
+                          </Badge>
+                          <Badge className="bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200 text-xs">
+                            {note.class}
+                          </Badge>
+                          <Badge className="bg-green-200 text-green-800 dark:bg-green-800 dark:text-green-200 text-xs">
+                            {note.language === 'hindi' ? '🇮🇳 हिंदी' : note.language === 'english' ? '🇬🇧 English' : '🔀 Mixed'}
+                          </Badge>
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                            📅 {new Date(note.timestamp).toLocaleDateString('hi-IN', { 
+                              day: 'numeric', 
+                              month: 'short', 
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
                           </span>
                         </div>
                       </div>
-                      <div className="flex gap-1">
+                      <div className="flex gap-2 ml-4">
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => setCurrentNote(note)}
+                          onClick={() => {
+                            const noteToView = {
+                              id: note.id,
+                              title: note.title,
+                              subject: note.subject,
+                              topic: note.chapter,
+                              noteType: note.class,
+                              content: note.content,
+                              keyPoints: note.keyPoints,
+                              timestamp: new Date(note.timestamp).toISOString(),
+                              isFavorite: false
+                            };
+                            navigate('/notes-view', { state: { note: noteToView } });
+                          }}
+                          className="bg-purple-100 hover:bg-purple-200 text-purple-800 dark:bg-purple-800 dark:text-purple-200"
                         >
-                          View
+                          👁️ देखें
                         </Button>
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => downloadNotes(note)}
+                          onClick={() => {
+                            const element = document.createElement('a');
+                            const file = new Blob([note.content], { type: 'text/plain' });
+                            element.href = URL.createObjectURL(file);
+                            element.download = `${note.title}.txt`;
+                            document.body.appendChild(element);
+                            element.click();
+                            document.body.removeChild(element);
+                            toast.success('📥 Notes download हो गए!');
+                          }}
+                          className="bg-green-100 hover:bg-green-200 text-green-800 dark:bg-green-800 dark:text-green-200"
                         >
                           <Download className="h-3 w-3" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            if (confirm('क्या आप इस note को delete करना चाहते हैं?')) {
+                              deleteNote(note.id);
+                              toast.success('🗑️ Note delete हो गया!');
+                            }
+                          }}
+                          className="bg-red-100 hover:bg-red-200 text-red-800 dark:bg-red-800 dark:text-red-200"
+                        >
+                          🗑️
                         </Button>
                       </div>
                     </div>
