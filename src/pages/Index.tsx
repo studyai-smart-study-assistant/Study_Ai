@@ -12,7 +12,6 @@ import LoadingScreen from '@/components/home/LoadingScreen';
 import BackgroundElements from '@/components/home/BackgroundElements';
 import HeaderActions from '@/components/home/HeaderActions';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import { LiveConversationButton } from '@/components/conversation/LiveConversationButton';
 
 import { useAutoLoginBonus } from '@/hooks/home/useAutoLoginBonus';
 import { useChatInitialization } from '@/hooks/home/useChatInitialization';
@@ -117,16 +116,6 @@ const Index = () => {
                 onSelectChat={handleChatSelectWithMobile}
               />
             </ChatHeader>
-          </motion.div>
-          
-          {/* Live Conversation Button - Floating */}
-          <motion.div 
-            className="absolute top-24 right-6 z-20"
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ delay: 0.5, type: "spring", damping: 15 }}
-          >
-            <LiveConversationButton />
           </motion.div>
           
           <div className="flex-1 flex overflow-hidden">
