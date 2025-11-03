@@ -9,7 +9,10 @@ import {
   Clock,
   CheckSquare,
   TrendingUp,
-  Calendar
+  Calendar,
+  ShoppingBag,
+  Share2,
+  Flame
 } from 'lucide-react';
 import StudentGoals from '@/components/student/StudentGoals';
 import StudentLeaderboard from '@/components/student/StudentLeaderboard';
@@ -17,6 +20,12 @@ import StudentTasks from '@/components/student/StudentTasks';
 import StudyTimerWidget from '@/components/student/StudyTimerWidget';
 import ActiveStudyPlanWidget from '@/components/study/ActiveStudyPlanWidget';
 import { useIsMobile } from '@/hooks/use-mobile';
+import StudentProfileCard from '@/components/student/StudentProfileCard';
+import PointsStore from '@/components/student/PointsStore';
+import EnhancedStreakDisplay from '@/components/student/EnhancedStreakDisplay';
+import UserConnectionsHub from '@/components/student/UserConnectionsHub';
+import { getCurrentStreakSync, getLongestStreakSync } from '@/utils/streakUtils';
+import { useState, useEffect } from 'react';
 
 interface StudentActivitiesTabsProps {
   currentUser: any;
@@ -40,10 +49,25 @@ const StudentActivitiesTabs: React.FC<StudentActivitiesTabsProps> = ({
   setActiveTab,
 }) => {
   const isMobile = useIsMobile();
+  const [streakDays, setStreakDays] = useState(0);
+  const [longestStreak, setLongestStreak] = useState(0);
+
+  useEffect(() => {
+    if (currentUser) {
+      setStreakDays(getCurrentStreakSync(currentUser.uid));
+      setLongestStreak(getLongestStreakSync(currentUser.uid));
+    }
+  }, [currentUser]);
+
+  const handlePurchase = (itemId: string, cost: number) => {
+    const newPoints = studentPoints - cost;
+    setStudentPoints(newPoints);
+    localStorage.setItem(`${currentUser.uid}_points`, newPoints.toString());
+  };
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-      <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3' : 'grid-cols-6'} mb-6`}>
+      <TabsList className={`grid w-full ${isMobile ? 'grid-cols-4' : 'grid-cols-8'} mb-6`}>
         <TabsTrigger value="goals" className="flex items-center gap-2">
           <Target className="h-4 w-4" />
           {!isMobile && <span>Goals</span>}
@@ -64,12 +88,18 @@ const StudentActivitiesTabs: React.FC<StudentActivitiesTabsProps> = ({
           <Clock className="h-4 w-4" />
           {!isMobile && <span>Timer</span>}
         </TabsTrigger>
-        {!isMobile && (
-          <TabsTrigger value="progress" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            <span>Progress</span>
-          </TabsTrigger>
-        )}
+        <TabsTrigger value="store" className="flex items-center gap-2">
+          <ShoppingBag className="h-4 w-4" />
+          {!isMobile && <span>Store</span>}
+        </TabsTrigger>
+        <TabsTrigger value="profile" className="flex items-center gap-2">
+          <Share2 className="h-4 w-4" />
+          {!isMobile && <span>Profile</span>}
+        </TabsTrigger>
+        <TabsTrigger value="connections" className="flex items-center gap-2">
+          <Users className="h-4 w-4" />
+          {!isMobile && <span>Connect</span>}
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="goals">
@@ -112,31 +142,33 @@ const StudentActivitiesTabs: React.FC<StudentActivitiesTabsProps> = ({
         />
       </TabsContent>
 
-      {!isMobile && (
-        <TabsContent value="progress">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-blue-600" />
-                Study Progress
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400">
-                Track your learning progress and achievements here.
-              </p>
-            </div>
-            
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-green-600" />
-                Performance Analytics
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400">
-                View detailed analytics of your study performance.
-              </p>
-            </div>
-          </div>
-        </TabsContent>
-      )}
+      <TabsContent value="store">
+        <PointsStore 
+          userId={currentUser.uid}
+          currentPoints={studentPoints}
+          onPurchase={handlePurchase}
+        />
+      </TabsContent>
+
+      <TabsContent value="profile">
+        <div className="space-y-6">
+          <StudentProfileCard
+            currentUser={currentUser}
+            studentPoints={studentPoints}
+            studentLevel={studentLevel}
+            streakDays={streakDays}
+          />
+          <EnhancedStreakDisplay
+            streakDays={streakDays}
+            longestStreak={longestStreak}
+            userId={currentUser.uid}
+          />
+        </div>
+      </TabsContent>
+
+      <TabsContent value="connections">
+        <UserConnectionsHub currentUserId={currentUser.uid} />
+      </TabsContent>
     </Tabs>
   );
 };
