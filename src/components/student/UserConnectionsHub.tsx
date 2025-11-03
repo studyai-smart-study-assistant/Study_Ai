@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Search, UserPlus, UserCheck, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { getLeaderboardData } from '@/lib/leaderboard/data-service';
+import { useConnectionNotifications } from '@/hooks/useConnectionNotifications';
 
 interface UserConnectionsHubProps {
   currentUserId: string;
@@ -18,6 +19,10 @@ const UserConnectionsHub: React.FC<UserConnectionsHubProps> = ({ currentUserId }
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [connections, setConnections] = useState<Set<string>>(new Set());
   const [pendingRequests, setPendingRequests] = useState<Set<string>>(new Set());
+  const [incomingRequests, setIncomingRequests] = useState<Set<string>>(new Set());
+
+  // Enable connection notifications
+  useConnectionNotifications(currentUserId);
 
   useEffect(() => {
     loadUsers();
@@ -36,15 +41,20 @@ const UserConnectionsHub: React.FC<UserConnectionsHubProps> = ({ currentUserId }
   const loadConnections = () => {
     const connectionsKey = `${currentUserId}_connections`;
     const requestsKey = `${currentUserId}_pending_requests`;
+    const incomingKey = `${currentUserId}_incoming_requests`;
     
     const savedConnections = localStorage.getItem(connectionsKey);
     const savedRequests = localStorage.getItem(requestsKey);
+    const savedIncoming = localStorage.getItem(incomingKey);
     
     if (savedConnections) {
       setConnections(new Set(JSON.parse(savedConnections)));
     }
     if (savedRequests) {
       setPendingRequests(new Set(JSON.parse(savedRequests)));
+    }
+    if (savedIncoming) {
+      setIncomingRequests(new Set(JSON.parse(savedIncoming)));
     }
   };
 
@@ -62,6 +72,16 @@ const UserConnectionsHub: React.FC<UserConnectionsHubProps> = ({ currentUserId }
     const key = `${currentUserId}_pending_requests`;
     localStorage.setItem(key, JSON.stringify(Array.from(newPending)));
     
+    // Add request to receiver's incoming requests
+    const receiverKey = `${userId}_incoming_requests`;
+    const existingRequests = localStorage.getItem(receiverKey);
+    const requests = existingRequests ? JSON.parse(existingRequests) : [];
+    
+    if (!requests.includes(currentUserId)) {
+      requests.push(currentUserId);
+      localStorage.setItem(receiverKey, JSON.stringify(requests));
+    }
+    
     toast.success('Connection request भेजा गया!');
   };
 
@@ -70,9 +90,33 @@ const UserConnectionsHub: React.FC<UserConnectionsHubProps> = ({ currentUserId }
     newConnections.add(userId);
     saveConnections(newConnections);
     
-    const newPending = new Set(pendingRequests);
-    newPending.delete(userId);
-    setPendingRequests(newPending);
+    // Also add to other user's connections
+    const otherUserKey = `${userId}_connections`;
+    const otherConnections = localStorage.getItem(otherUserKey);
+    const otherConnectionsArray = otherConnections ? JSON.parse(otherConnections) : [];
+    
+    if (!otherConnectionsArray.includes(currentUserId)) {
+      otherConnectionsArray.push(currentUserId);
+      localStorage.setItem(otherUserKey, JSON.stringify(otherConnectionsArray));
+    }
+    
+    // Remove from incoming requests
+    const incomingKey = `${currentUserId}_incoming_requests`;
+    const incoming = localStorage.getItem(incomingKey);
+    if (incoming) {
+      const incomingArray = JSON.parse(incoming);
+      const filtered = incomingArray.filter((id: string) => id !== userId);
+      localStorage.setItem(incomingKey, JSON.stringify(filtered));
+    }
+    
+    // Remove from sender's pending requests
+    const senderKey = `${userId}_pending_requests`;
+    const senderPending = localStorage.getItem(senderKey);
+    if (senderPending) {
+      const senderArray = JSON.parse(senderPending);
+      const filtered = senderArray.filter((id: string) => id !== currentUserId);
+      localStorage.setItem(senderKey, JSON.stringify(filtered));
+    }
     
     toast.success('Connection स्वीकार किया गया! 🎉');
   };
@@ -84,9 +128,10 @@ const UserConnectionsHub: React.FC<UserConnectionsHubProps> = ({ currentUserId }
 
   const connectedUsers = filteredUsers.filter(u => connections.has(u.id));
   const suggestedUsers = filteredUsers
-    .filter(u => !connections.has(u.id) && !pendingRequests.has(u.id))
+    .filter(u => !connections.has(u.id) && !pendingRequests.has(u.id) && !incomingRequests.has(u.id))
     .sort((a, b) => b.xp - a.xp)
     .slice(0, 10);
+  const incomingRequestUsers = filteredUsers.filter(u => incomingRequests.has(u.id));
 
   const renderUserCard = (user: any, action: 'connect' | 'connected' | 'pending') => (
     <Card key={user.id} className="hover:shadow-md transition-shadow">
@@ -179,7 +224,7 @@ const UserConnectionsHub: React.FC<UserConnectionsHubProps> = ({ currentUserId }
           </TabsTrigger>
           <TabsTrigger value="requests">
             <UserPlus className="h-4 w-4 mr-2" />
-            Requests ({pendingRequests.size})
+            Requests ({incomingRequests.size})
           </TabsTrigger>
         </TabsList>
 
@@ -206,18 +251,16 @@ const UserConnectionsHub: React.FC<UserConnectionsHubProps> = ({ currentUserId }
         </TabsContent>
 
         <TabsContent value="requests" className="space-y-4 mt-6">
-          <h3 className="text-lg font-semibold">Pending Requests</h3>
-          {pendingRequests.size === 0 ? (
+          <h3 className="text-lg font-semibold">Incoming Requests</h3>
+          {incomingRequests.size === 0 ? (
             <Card>
               <CardContent className="p-6 text-center text-muted-foreground">
-                कोई pending requests नहीं हैं
+                कोई incoming requests नहीं हैं
               </CardContent>
             </Card>
           ) : (
             <div className="grid gap-4">
-              {filteredUsers
-                .filter(u => pendingRequests.has(u.id))
-                .map(user => renderUserCard(user, 'pending'))}
+              {incomingRequestUsers.map(user => renderUserCard(user, 'pending'))}
             </div>
           )}
         </TabsContent>

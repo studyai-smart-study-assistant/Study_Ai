@@ -101,6 +101,25 @@ const PointsStore: React.FC<PointsStoreProps> = ({ userId, currentPoints, onPurc
     const key = `${userId}_unlocked_items`;
     localStorage.setItem(key, JSON.stringify(Array.from(newUnlocked)));
 
+    // Save purchased item with details for profile display
+    const purchasedItemsKey = `${userId}_purchased_items`;
+    const existingItems = localStorage.getItem(purchasedItemsKey);
+    const items = existingItems ? JSON.parse(existingItems) : [];
+    
+    const purchasedItem = {
+      id: item.id,
+      name: item.name,
+      type: item.category,
+      icon: item.name.split(' ')[0], // Extract emoji from name
+      purchasedAt: new Date().toISOString()
+    };
+    
+    // Check if item already purchased
+    if (!items.find((i: any) => i.id === item.id)) {
+      items.push(purchasedItem);
+      localStorage.setItem(purchasedItemsKey, JSON.stringify(items));
+    }
+
     onPurchase(item.id, item.cost);
     toast.success(`${item.name} successfully unlocked! 🎉`);
   };
