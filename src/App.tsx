@@ -25,7 +25,6 @@ const StudentActivities = lazy(() => import('@/pages/StudentActivities'));
 const AboutPage = lazy(() => import('@/pages/AboutPage'));
 const ChatSystem = lazy(() => import('@/pages/ChatSystem'));
 const SupabaseChatSystem = lazy(() => import('@/pages/SupabaseChatSystem'));
-const CampusTalks = lazy(() => import('@/pages/CampusTalks'));
 const TeacherChats = lazy(() => import('@/pages/TeacherChats'));
 const Leaderboard = lazy(() => import('@/pages/Leaderboard'));
 const Library = lazy(() => import('@/pages/Library'));
@@ -34,6 +33,7 @@ const SavedMessages = lazy(() => import('@/pages/SavedMessages'));
 const StudyTube = lazy(() => import('@/pages/StudyTube'));
 const InteractiveTeacher = lazy(() => import('@/pages/InteractiveTeacher'));
 const NotesView = lazy(() => import('@/pages/NotesView'));
+const PointsWalletPage = lazy(() => import('@/pages/PointsWalletPage'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 
 
@@ -77,7 +77,6 @@ function App() {
                               <Route path="/about" element={<AboutPage />} />
                               <Route path="/chat-system" element={<ChatSystem />} />
                               <Route path="/enhanced-chat" element={<SupabaseChatSystem />} />
-                              <Route path="/campus-talks" element={<CampusTalks />} />
                               <Route path="/teacher-chats" element={<TeacherChats />} />
                               <Route path="/leaderboard" element={<Leaderboard />} />
                               <Route path="/library" element={<Library />} />
@@ -86,6 +85,7 @@ function App() {
                               <Route path="/saved-messages" element={<SavedMessages />} />
                               <Route path="/interactive-teacher/:sessionId" element={<InteractiveTeacher />} />
                               <Route path="/notes-view" element={<NotesView />} />
+                              <Route path="/points-wallet" element={<PointsWalletPage />} />
                               <Route path="*" element={<NotFound />} />
                             </Routes>
                           </Suspense>

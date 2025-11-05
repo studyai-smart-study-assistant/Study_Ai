@@ -128,7 +128,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading = false 
               onKeyDown={handleKeyDown}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
-              placeholder="अपना संदेश लिखें या छवि चुनें..."
+              placeholder="Ask anything"
               className="min-h-[50px] max-h-[120px] resize-none border-0 bg-transparent focus:ring-2 focus:ring-purple-500/50 rounded-xl text-gray-800 dark:text-gray-200 placeholder:text-gray-500 dark:placeholder:text-gray-400"
               disabled={isLoading}
             />

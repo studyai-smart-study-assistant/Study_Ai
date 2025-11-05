@@ -1,6 +1,7 @@
 
 import { addPointsToUserDb, ensureUserExists } from '@/lib/firebase/points';
 import { PointRecord } from './types';
+import { logPointsTransaction } from './featureLocking';
 
 export async function addPointsToUser(
   userId: string,
@@ -53,6 +54,15 @@ export async function addPointsToUser(
       points,
       description,
       timestamp: new Date().toISOString()
+    });
+    
+    // Log transaction for wallet
+    logPointsTransaction(userId, {
+      type: 'credit',
+      amount: points,
+      description,
+      timestamp: new Date().toISOString(),
+      balanceAfter: result?.newPoints || (parseInt(localStorage.getItem(`${userId}_points`) || '0'))
     });
     
   } catch (error) {

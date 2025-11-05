@@ -17,7 +17,8 @@ import {
   User,
   Info,
   Settings, 
-  LogOut, 
+  LogOut,
+  Wallet,
   Moon, 
   Sun,
   Users,
@@ -100,16 +101,16 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       description: 'शिक्षक से पूछें'
     },
     { 
-      icon: MessageCircle, 
-      label: 'Campus Talks', 
-      path: '/campus-talks',
-      description: 'कैंपस चैट'
-    },
-    { 
       icon: Trophy, 
       label: 'Leaderboard', 
       path: '/leaderboard',
       description: 'लीडरबोर्ड'
+    },
+    { 
+      icon: Wallet, 
+      label: 'Points Wallet', 
+      path: '/points-wallet',
+      description: 'पॉइंट्स वॉलेट'
     },
     { 
       icon: User, 
