@@ -6,7 +6,6 @@ import ChatFooter from '../ChatFooter';
 import AlertHandler from './AlertHandler';
 import { useMessageHandler } from '@/hooks/chat/useMessageHandler';
 import { useScrollHandler } from '@/hooks/chat/useScrollHandler';
-import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
 
 interface PerformanceOptimizedChatContainerProps {
   chatId: string;
@@ -17,7 +16,6 @@ const PerformanceOptimizedChatContainer: React.FC<PerformanceOptimizedChatContai
   chatId, 
   onChatUpdated 
 }) => {
-  const performanceMetrics = usePerformanceMonitor('ChatContainer');
   const [isVisible, setIsVisible] = useState(true);
   
   const { 
@@ -112,17 +110,9 @@ const PerformanceOptimizedChatContainer: React.FC<PerformanceOptimizedChatContai
       
       <ChatBody {...chatBodyProps} />
       
-      <ChatFooter {...chatFooterProps} />
-      
-      {/* Performance debug info in development */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed bottom-4 right-4 bg-black bg-opacity-75 text-white text-xs p-2 rounded z-50">
-          Renders: {performanceMetrics.renderCount} | 
-          Avg: {performanceMetrics.averageRenderTime.toFixed(2)}ms
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default React.memo(PerformanceOptimizedChatContainer);
+        <ChatFooter {...chatFooterProps} />
+      </div>
+    );
+  };
+  
+  export default React.memo(PerformanceOptimizedChatContainer);

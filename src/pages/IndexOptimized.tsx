@@ -12,11 +12,9 @@ import LoadingScreen from '@/components/home/LoadingScreen';
 import BackgroundElements from '@/components/home/BackgroundElements';
 import HeaderActions from '@/components/home/HeaderActions';
 import FastErrorBoundary from '@/components/common/FastErrorBoundary';
-import AppPerformanceManager from '@/components/performance/AppPerformanceManager';
 import { useAutoLoginBonus } from '@/hooks/home/useAutoLoginBonus';
 import { useChatInitialization } from '@/hooks/home/useChatInitialization';
 import { useHomeEffects } from '@/hooks/home/useHomeEffects';
-import { initializeAppOptimizations } from '@/utils/appOptimization';
 
 const IndexOptimized = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -34,26 +32,6 @@ const IndexOptimized = () => {
     handleNewChat,
     handleChatSelect
   } = useChatInitialization();
-
-  // Initialize app optimizations
-  useEffect(() => {
-    const optimizer = initializeAppOptimizations();
-    
-    // Fix login page issues if on auth pages
-    if (location.pathname.includes('login') || location.pathname.includes('signup')) {
-      optimizer.fixLoginPageIssues();
-    }
-    
-    // Student-specific optimizations
-    optimizer.optimizeForStudents();
-    
-    // Prevent auto-scroll issues
-    document.body.style.overflow = 'hidden';
-    
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
-  }, [location.pathname]);
 
   useHomeEffects({
     authLoading,
@@ -87,8 +65,7 @@ const IndexOptimized = () => {
 
   return (
     <FastErrorBoundary>
-      <AppPerformanceManager />
-      <motion.div 
+      <motion.div
         className="flex h-screen overflow-hidden bg-gradient-to-br from-white via-purple-50 to-indigo-50 dark:from-gray-900 dark:via-purple-950 dark:to-indigo-950 relative"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
