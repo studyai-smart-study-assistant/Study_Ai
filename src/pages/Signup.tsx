@@ -37,6 +37,7 @@ const Signup = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [userCategory, setUserCategory] = useState('');
   const [educationLevel, setEducationLevel] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { language, setLanguage } = useLanguage();
@@ -64,7 +65,7 @@ const Signup = () => {
     
     try {
       setIsLoading(true);
-      await registerUser(email, password, name, userCategory, educationLevel);
+      await registerUser(email, password, name, userCategory, educationLevel, referralCode);
       
       toast.success(language === 'hi' ? "अकाउंट सफलतापूर्वक बन गया!" : "Account created successfully!");
       navigate('/');
@@ -230,6 +231,23 @@ const Signup = () => {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="referralCode">
+              {language === 'hi' ? 'रेफरल कोड (वैकल्पिक)' : 'Referral Code (Optional)'}
+            </Label>
+            <Input
+              id="referralCode"
+              value={referralCode}
+              onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+              placeholder={language === 'hi' ? "जैसे: REF12345678" : "e.g., REF12345678"}
+            />
+            <p className="text-xs text-gray-500">
+              {language === 'hi' 
+                ? '✨ रेफरल कोड से आपको 200 बोनस पॉइंट्स मिलेंगे!' 
+                : '✨ Get 200 bonus points with referral code!'}
+            </p>
           </div>
           
           <Button type="submit" className="w-full" disabled={isLoading}>

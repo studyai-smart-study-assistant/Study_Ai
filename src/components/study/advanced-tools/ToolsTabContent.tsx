@@ -1,11 +1,11 @@
 
 import React from 'react';
 import { TabsContent } from '@/components/ui/tabs';
-import QuizGenerator from '../QuizGenerator';
-import EnhancedNotesGenerator from '../EnhancedNotesGenerator';
-import StudyPlanner from '../StudyPlanner';
-import HomeworkAssistant from '../HomeworkAssistant';
-import MotivationSystem from '../MotivationSystem';
+import QuizGeneratorWrapper from '../QuizGeneratorWrapper';
+import EnhancedNotesGeneratorWrapper from '../EnhancedNotesGeneratorWrapper';
+import StudyPlannerWrapper from '../StudyPlannerWrapper';
+import HomeworkAssistantWrapper from '../HomeworkAssistantWrapper';
+import MotivationSystemWrapper from '../MotivationSystemWrapper';
 import TeacherMode from '../TeacherMode';
 
 interface ToolsTabContentProps {
@@ -21,23 +21,23 @@ const ToolsTabContent: React.FC<ToolsTabContentProps> = ({ activeTab, onSendMess
       </TabsContent>
       
       <TabsContent value="notes" className="mt-0">
-        <EnhancedNotesGenerator onSendMessage={onSendMessage} />
+        <EnhancedNotesGeneratorWrapper onSendMessage={onSendMessage} />
       </TabsContent>
       
       <TabsContent value="planner" className="mt-0">
-        <StudyPlanner onSendMessage={onSendMessage} />
+        <StudyPlannerWrapper onSendMessage={onSendMessage} />
       </TabsContent>
       
       <TabsContent value="homework" className="mt-0">
-        <HomeworkAssistant onSendMessage={onSendMessage} />
+        <HomeworkAssistantWrapper onSendMessage={onSendMessage} />
       </TabsContent>
       
       <TabsContent value="motivation" className="mt-0">
-        <MotivationSystem onSendMessage={onSendMessage} />
+        <MotivationSystemWrapper onSendMessage={onSendMessage} />
       </TabsContent>
       
       <TabsContent value="quiz" className="mt-0">
-        <QuizGenerator onSendMessage={onSendMessage} />
+        <QuizGeneratorWrapper onSendMessage={onSendMessage} />
       </TabsContent>
     </div>
   );

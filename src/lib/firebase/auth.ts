@@ -9,6 +9,8 @@ import {
 } from "firebase/auth";
 import { ref, set, get } from "firebase/database";
 import { auth, database } from "./config";
+import { applyReferralCode, generateReferralCode } from "@/utils/points/referralSystem";
+import { addPointsToUser } from "@/utils/points/core";
 
 // Login with email/password
 export const loginUser = async (email: string, password: string) => {
@@ -27,7 +29,8 @@ export const registerUser = async (
   password: string, 
   displayName: string,
   userCategory?: string,
-  educationLevel?: string
+  educationLevel?: string,
+  referralCode?: string
 ) => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -46,6 +49,18 @@ export const registerUser = async (
       ...(userCategory && { category: userCategory }),
       ...(educationLevel && { education: educationLevel })
     });
+    
+    // Generate referral code for new user
+    await generateReferralCode(user.uid);
+    
+    // Give welcome bonus
+    await addPointsToUser(user.uid, 50, 'achievement', 'स्वागत बोनस - 50 पॉइंट्स! 🎉');
+    
+    // Apply referral code if provided
+    if (referralCode && referralCode.trim()) {
+      const result = await applyReferralCode(user.uid, referralCode.trim());
+      console.log('Referral code application result:', result);
+    }
     
     return user;
   } catch (error) {
