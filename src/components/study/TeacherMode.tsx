@@ -15,15 +15,7 @@ const TeacherMode: React.FC<TeacherModeProps> = ({ onSendMessage }) => {
   const [selectedDifficulty, setSelectedDifficulty] = useState('medium');
   const [learningMode, setLearningMode] = useState('interactive');
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
-  const [hasAccess, setHasAccess] = useState(false);
   const { currentUser } = useAuth();
-
-  useEffect(() => {
-    if (currentUser) {
-      const access = canAccessFeature(currentUser.uid, 'teacher_mode');
-      setHasAccess(access);
-    }
-  }, [currentUser]);
 
   const handleSendMessage = async (message: string) => {
     if (!currentUser) {
@@ -86,22 +78,6 @@ const TeacherMode: React.FC<TeacherModeProps> = ({ onSendMessage }) => {
     );
   }
 
-  if (!hasAccess) {
-    const currentPoints = parseInt(localStorage.getItem(`${currentUser.uid}_points`) || '0');
-    return (
-      <div className="w-full p-6 text-center bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-        <Lock className="h-12 w-12 mx-auto mb-4 text-purple-600" />
-        <h3 className="text-lg font-semibold mb-2">पर्याप्त पॉइंट्स नहीं हैं</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Teacher Mode का उपयोग करने के लिए 10 पॉइंट्स चाहिए।<br />
-          आपके पास: {currentPoints} पॉइंट्स
-        </p>
-        <Button onClick={() => window.location.href = '/points-wallet'} variant="outline">
-          Points Wallet देखें
-        </Button>
-      </div>
-    );
-  }
 
   return (
     <div className="w-full space-y-6">
