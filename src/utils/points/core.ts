@@ -19,7 +19,7 @@ export async function addPointsToUser(
         userId,
         amount: points,
         reason: description,
-        transactionType: type === 'quiz' ? 'achievement' : type,
+        transactionType: type,
         metadata: { type }
       }
     });

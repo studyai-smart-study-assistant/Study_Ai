@@ -9,7 +9,7 @@ interface AddPointsRequest {
   userId: string;
   amount: number;
   reason: string;
-  transactionType: 'credit' | 'bonus' | 'referral' | 'login' | 'achievement';
+  transactionType: 'credit' | 'bonus' | 'referral' | 'login' | 'achievement' | 'task' | 'activity' | 'streak' | 'goal' | 'quiz' | 'deduction';
   metadata?: Record<string, any>;
 }
 
