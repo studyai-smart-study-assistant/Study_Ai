@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth } from '@/lib/firebase/config';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, User } from 'firebase/auth';
+import { syncUserPoints } from '@/utils/points/core';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -31,6 +32,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      
+      // Migrate and sync points when user logs in
+      if (user) {
+        await syncUserPoints(user.uid);
+      }
+      
       setIsLoading(false);
     });
 
