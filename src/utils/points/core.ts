@@ -16,6 +16,7 @@ export async function addPointsToUser(
     // Call secure edge function to add points
     const { data, error } = await supabase.functions.invoke('points-add', {
       body: {
+        userId,
         amount: points,
         reason: description,
         transactionType: type === 'quiz' ? 'achievement' : type,
@@ -68,7 +69,9 @@ export async function syncUserPoints(userId: string): Promise<void> {
   
   try {
     // Fetch current balance from server
-    const { data, error } = await supabase.functions.invoke('points-balance');
+    const { data, error } = await supabase.functions.invoke('points-balance', {
+      body: { userId }
+    });
     
     if (error) {
       console.error('Error fetching points balance:', error);

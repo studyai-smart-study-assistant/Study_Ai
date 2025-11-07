@@ -64,6 +64,7 @@ export async function deductPointsForFeature(
     // Call secure edge function to deduct points
     const { data, error } = await supabase.functions.invoke('points-deduct', {
       body: {
+        userId,
         featureKey,
         amount: feature.cost,
         reason: `${feature.description} के लिए`
@@ -152,7 +153,9 @@ export async function canAccessFeature(userId: string, featureKey: string): Prom
   
   try {
     // Check server balance
-    const { data, error } = await supabase.functions.invoke('points-balance');
+    const { data, error } = await supabase.functions.invoke('points-balance', {
+      body: { userId }
+    });
     
     if (error || !data) {
       // Fallback to localStorage

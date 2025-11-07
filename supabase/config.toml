@@ -12,3 +12,12 @@ verify_jwt = false
 
 [functions.generate-image]
 verify_jwt = false
+
+[functions.points-add]
+verify_jwt = false
+
+[functions.points-deduct]
+verify_jwt = false
+
+[functions.points-balance]
+verify_jwt = false

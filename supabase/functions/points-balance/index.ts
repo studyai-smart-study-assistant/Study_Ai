@@ -11,27 +11,23 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Missing authorization header');
+    const { userId } = await req.json();
+
+    if (!userId) {
+      throw new Error('Missing userId');
     }
 
-    const supabaseClient = createClient(
+    // Use service role client for database operations
+    const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      throw new Error('Unauthorized');
-    }
-
-    // Get user points (RLS will ensure user can only see their own)
-    const { data: userPoints, error: fetchError } = await supabaseClient
+    // Get user points
+    const { data: userPoints, error: fetchError } = await supabaseAdmin
       .from('user_points')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .maybeSingle();
 
     if (fetchError) {
@@ -41,10 +37,10 @@ Deno.serve(async (req) => {
 
     // If no record exists, create one
     if (!userPoints) {
-      const { data: newPoints, error: insertError } = await supabaseClient
+      const { data: newPoints, error: insertError } = await supabaseAdmin
         .from('user_points')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           balance: 0,
           level: 1,
         })

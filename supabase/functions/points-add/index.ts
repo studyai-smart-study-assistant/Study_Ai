@@ -6,6 +6,7 @@ const corsHeaders = {
 };
 
 interface AddPointsRequest {
+  userId: string;
   amount: number;
   reason: string;
   transactionType: 'credit' | 'bonus' | 'referral' | 'login' | 'achievement';
@@ -18,23 +19,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Missing authorization header');
+    const { userId, amount, reason, transactionType, metadata }: AddPointsRequest = await req.json();
+
+    if (!userId) {
+      throw new Error('Missing userId');
     }
-
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      throw new Error('Unauthorized');
-    }
-
-    const { amount, reason, transactionType, metadata }: AddPointsRequest = await req.json();
 
     if (!amount || amount <= 0) {
       throw new Error('Invalid amount');
@@ -54,7 +43,7 @@ Deno.serve(async (req) => {
     const { data: userPoints, error: fetchError } = await supabaseAdmin
       .from('user_points')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .maybeSingle();
 
     if (fetchError) {
@@ -70,7 +59,7 @@ Deno.serve(async (req) => {
     const { error: upsertError } = await supabaseAdmin
       .from('user_points')
       .upsert({
-        user_id: user.id,
+        user_id: userId,
         balance: newBalance,
         level: newLevel,
         updated_at: new Date().toISOString(),
@@ -85,7 +74,7 @@ Deno.serve(async (req) => {
     const { error: transactionError } = await supabaseAdmin
       .from('points_transactions')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         transaction_type: transactionType,
         amount,
         balance_after: newBalance,
@@ -98,7 +87,7 @@ Deno.serve(async (req) => {
       throw transactionError;
     }
 
-    console.log(`Points added: ${amount} to user ${user.id}. New balance: ${newBalance}`);
+    console.log(`Points added: ${amount} to user ${userId}. New balance: ${newBalance}`);
 
     return new Response(
       JSON.stringify({

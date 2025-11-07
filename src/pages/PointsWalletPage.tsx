@@ -21,7 +21,9 @@ const PointsWalletPage = () => {
 
   const fetchPointsFromServer = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('points-balance');
+      const { data, error } = await supabase.functions.invoke('points-balance', {
+        body: { userId: currentUser?.uid }
+      });
       
       if (error) {
         console.error('Error fetching points:', error);
