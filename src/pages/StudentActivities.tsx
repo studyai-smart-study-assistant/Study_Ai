@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import StudentActivitiesContainer from './student-activities/StudentActivitiesContainer';
 import StudentActivitiesLoading from './student-activities/StudentActivitiesLoading';
-import { syncUserToFirebase } from '@/utils/points/core';
+import { syncUserPoints } from '@/utils/points/core';
 
 const StudentActivities = () => {
   const { currentUser, isLoading } = useAuth();
@@ -26,8 +26,8 @@ const StudentActivities = () => {
         setStudentLevel(parseInt(savedLevel));
       }
 
-      // Sync user to Firebase
-      syncUserToFirebase(currentUser);
+      // Sync user points from server
+      syncUserPoints(currentUser.uid);
     }
   }, [currentUser]);
 

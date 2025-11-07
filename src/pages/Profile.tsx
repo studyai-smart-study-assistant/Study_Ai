@@ -18,7 +18,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { logoutUser } from '@/lib/firebase';
-import { syncUserToFirebase } from '@/utils/points/core';
+import { syncUserPoints } from '@/utils/points/core';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -45,13 +45,12 @@ const Profile = () => {
     }
     
     if (currentUser && !userSynced) {
-      console.log('Syncing user to Firebase...');
-      // Sync user to Firebase when viewing profile
-      syncUserToFirebase(currentUser).then(() => {
+      // Sync user points from server when viewing profile
+      syncUserPoints(currentUser.uid).then(() => {
         setUserSynced(true);
         loadStudentData();
       }).catch(error => {
-        console.error("Error syncing user to Firebase:", error);
+        console.error("Error syncing user points:", error);
         loadStudentData(); // Continue with localStorage as fallback
       });
       

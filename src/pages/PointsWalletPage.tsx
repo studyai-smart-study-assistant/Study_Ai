@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import PointsWallet from '@/components/student/PointsWallet';
 import { motion } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
 
 const PointsWalletPage = () => {
   const { currentUser, isLoading } = useAuth();
@@ -14,29 +15,44 @@ const PointsWalletPage = () => {
 
   useEffect(() => {
     if (currentUser) {
-      const savedPoints = localStorage.getItem(`${currentUser.uid}_points`);
-      if (savedPoints) {
-        setCurrentPoints(parseInt(savedPoints));
-      }
+      fetchPointsFromServer();
     }
   }, [currentUser]);
+
+  const fetchPointsFromServer = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('points-balance');
+      
+      if (error) {
+        console.error('Error fetching points:', error);
+        // Fallback to localStorage
+        const savedPoints = localStorage.getItem(`${currentUser?.uid}_points`);
+        if (savedPoints) {
+          setCurrentPoints(parseInt(savedPoints));
+        }
+        return;
+      }
+
+      if (data) {
+        setCurrentPoints(data.balance);
+        // Update localStorage for offline access
+        if (currentUser) {
+          localStorage.setItem(`${currentUser.uid}_points`, data.balance.toString());
+          localStorage.setItem(`${currentUser.uid}_level`, data.level.toString());
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching points:', error);
+    }
+  };
 
   // Update points when they change
   useEffect(() => {
     if (!currentUser) return;
 
-    const handleStorageChange = () => {
-      const savedPoints = localStorage.getItem(`${currentUser.uid}_points`);
-      if (savedPoints) {
-        setCurrentPoints(parseInt(savedPoints));
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    const interval = setInterval(handleStorageChange, 1000);
+    const interval = setInterval(fetchPointsFromServer, 5000);
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
       clearInterval(interval);
     };
   }, [currentUser]);

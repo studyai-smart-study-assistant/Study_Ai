@@ -1,5 +1,5 @@
 
-import { addPointsToUser, syncUserToFirebase } from './core';
+import { addPointsToUser, syncUserPoints } from './core';
 import { updateDailyStreak } from '../streakUtils';
 
 export async function awardDailyLoginBonus(userId: string): Promise<boolean> {

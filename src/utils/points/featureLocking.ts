@@ -1,4 +1,5 @@
 // Feature locking system based on points
+import { supabase } from '@/integrations/supabase/client';
 
 export interface FeatureCost {
   name: string;
@@ -59,36 +60,48 @@ export async function deductPointsForFeature(
     return { success: false, message: 'Invalid feature' };
   }
 
-  // Get current points
-  const currentPoints = parseInt(localStorage.getItem(`${userId}_points`) || '0');
+  try {
+    // Call secure edge function to deduct points
+    const { data, error } = await supabase.functions.invoke('points-deduct', {
+      body: {
+        featureKey,
+        amount: feature.cost,
+        reason: `${feature.description} के लिए`
+      }
+    });
 
-  // Check if user has enough points
-  if (currentPoints < feature.cost) {
+    if (error) {
+      console.error('Error calling points-deduct:', error);
+      return {
+        success: false,
+        message: 'पॉइंट्स काटने में त्रुटि हुई'
+      };
+    }
+
+    if (!data?.success) {
+      return {
+        success: false,
+        message: data?.message || `आपके पास पर्याप्त पॉइंट्स नहीं हैं। आवश्यक: ${feature.cost}`
+      };
+    }
+
+    // Update localStorage for optimistic UI
+    localStorage.setItem(`${userId}_points`, data.balance.toString());
+
+    console.log(`Points deducted: ${feature.cost}. New balance: ${data.balance}`);
+
+    return {
+      success: true,
+      message: `${feature.cost} पॉइंट्स कटे। शेष: ${data.balance}`,
+      remainingPoints: data.balance
+    };
+  } catch (error) {
+    console.error('Error in deductPointsForFeature:', error);
     return {
       success: false,
-      message: `आपके पास पर्याप्त पॉइंट्स नहीं हैं। आवश्यक: ${feature.cost}, उपलब्ध: ${currentPoints}`
+      message: 'पॉइंट्स काटने में त्रुटि हुई'
     };
   }
-
-  // Deduct points
-  const newPoints = currentPoints - feature.cost;
-  localStorage.setItem(`${userId}_points`, newPoints.toString());
-
-  // Log transaction
-  logPointsTransaction(userId, {
-    type: 'deduction',
-    amount: feature.cost,
-    feature: feature.name,
-    description: `${feature.description} के लिए`,
-    timestamp: new Date().toISOString(),
-    balanceAfter: newPoints
-  });
-
-  return {
-    success: true,
-    message: `${feature.cost} पॉइंट्स कटे। शेष: ${newPoints}`,
-    remainingPoints: newPoints
-  };
 }
 
 export interface PointsTransaction {
@@ -133,10 +146,25 @@ export function getPointsTransactions(userId: string, limit: number = 50): Point
     .slice(0, limit);
 }
 
-export function canAccessFeature(userId: string, featureKey: string): boolean {
+export async function canAccessFeature(userId: string, featureKey: string): Promise<boolean> {
   const feature = FEATURE_COSTS[featureKey];
   if (!feature) return false;
   
-  const currentPoints = parseInt(localStorage.getItem(`${userId}_points`) || '0');
-  return currentPoints >= feature.cost;
+  try {
+    // Check server balance
+    const { data, error } = await supabase.functions.invoke('points-balance');
+    
+    if (error || !data) {
+      // Fallback to localStorage
+      const currentPoints = parseInt(localStorage.getItem(`${userId}_points`) || '0');
+      return currentPoints >= feature.cost;
+    }
+    
+    return data.balance >= feature.cost;
+  } catch (error) {
+    console.error('Error checking feature access:', error);
+    // Fallback to localStorage
+    const currentPoints = parseInt(localStorage.getItem(`${userId}_points`) || '0');
+    return currentPoints >= feature.cost;
+  }
 }
