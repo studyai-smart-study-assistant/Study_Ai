@@ -12,8 +12,8 @@ import {
   Sparkles
 } from 'lucide-react';
 import ExamPlannerMain from './examplanner/ExamPlannerMain';
-import SmartHomeworkAssistant from './SmartHomeworkAssistant';
-import EnhancedNotesGenerator from './EnhancedNotesGenerator';
+import HomeworkAssistantWrapper from './HomeworkAssistantWrapper';
+import EnhancedNotesGeneratorWrapper from './EnhancedNotesGeneratorWrapper';
 
 interface StudyPlannerProps {
   onSendMessage: (msg: string) => void;
@@ -38,7 +38,7 @@ const StudyPlanner: React.FC<StudyPlannerProps> = ({ onSendMessage }) => {
       shortLabel: 'होमवर्क',
       icon: Calculator,
       description: 'Step-by-step homework solutions',
-      component: SmartHomeworkAssistant,
+      component: HomeworkAssistantWrapper,
       category: 'core'
     },
     {
@@ -47,7 +47,7 @@ const StudyPlanner: React.FC<StudyPlannerProps> = ({ onSendMessage }) => {
       shortLabel: 'नोट्स',
       icon: FileText,
       description: 'AI-powered notes generation',
-      component: EnhancedNotesGenerator,
+      component: EnhancedNotesGeneratorWrapper,
       category: 'core'
     }
   ];

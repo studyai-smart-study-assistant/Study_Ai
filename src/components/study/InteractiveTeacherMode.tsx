@@ -3,6 +3,8 @@ import React from 'react';
 import { useInteractiveTeacher } from '@/hooks/interactive-teacher';
 import { useAuth } from '@/contexts/AuthContext';
 import { ComprehensiveActivityTracker } from '@/utils/comprehensiveActivityTracker';
+import { deductPointsForFeature } from '@/utils/points/featureLocking';
+import { toast } from 'sonner';
 import InteractiveTeacherSetup from './interactive-teacher/InteractiveTeacherSetup';
 import InteractiveTeacherLesson from './interactive-teacher/InteractiveTeacherLesson';
 import InteractiveTeacherHistory from './interactive-teacher/InteractiveTeacherHistory';
@@ -23,15 +25,28 @@ const InteractiveTeacherMode: React.FC<InteractiveTeacherModeProps> = ({ onSendM
     resetLesson
   } = useInteractiveTeacher();
 
-  const handleStartLesson = (prompt: string, context: any) => {
-    // Track lesson start
-    if (currentUser) {
-      ComprehensiveActivityTracker.trackInteractiveTeaching(
-        currentUser.uid,
-        prompt,
-        0 // Initial tracking
-      );
+  const handleStartLesson = async (prompt: string, context: any) => {
+    if (!currentUser) {
+      toast.error('कृपया लॉगिन करें');
+      return;
     }
+
+    // Deduct points before starting lesson
+    const result = await deductPointsForFeature(currentUser.uid, 'teacher_mode');
+    
+    if (!result.success) {
+      toast.error(result.message);
+      return;
+    }
+    
+    toast.success(result.message);
+
+    // Track lesson start
+    ComprehensiveActivityTracker.trackInteractiveTeaching(
+      currentUser.uid,
+      prompt,
+      0 // Initial tracking
+    );
     
     startLesson(prompt, context);
     console.log('Interactive lesson started and tracked');

@@ -17,8 +17,8 @@ import {
 
 // Lazy load heavy components to improve performance
 const ExamPlannerMain = React.lazy(() => import('./examplanner/ExamPlannerMain'));
-const SmartHomeworkAssistant = React.lazy(() => import('./SmartHomeworkAssistant'));
-const EnhancedNotesGenerator = React.lazy(() => import('./EnhancedNotesGenerator'));
+const HomeworkAssistantWrapper = React.lazy(() => import('./HomeworkAssistantWrapper'));
+const EnhancedNotesGeneratorWrapper = React.lazy(() => import('./EnhancedNotesGeneratorWrapper'));
 const SmartContentLibrary = React.lazy(() => import('./content-library/SmartContentLibrary'));
 const AdvancedGamificationSystem = React.lazy(() => import('./gamification/AdvancedGamificationSystem'));
 const StudyGroupsCollaboration = React.lazy(() => import('./collaboration/StudyGroupsCollaboration'));
@@ -45,7 +45,7 @@ const StudyPlannerOptimized: React.FC<StudyPlannerProps> = ({ onSendMessage }) =
       label: 'होमवर्क हेल्प',
       icon: Calculator,
       description: 'Step-by-step homework solutions',
-      component: SmartHomeworkAssistant,
+      component: HomeworkAssistantWrapper,
       category: 'core'
     },
     {
@@ -53,7 +53,7 @@ const StudyPlannerOptimized: React.FC<StudyPlannerProps> = ({ onSendMessage }) =
       label: 'स्मार्ट नोट्स',
       icon: FileText,
       description: 'AI-powered notes generation',
-      component: EnhancedNotesGenerator,
+      component: EnhancedNotesGeneratorWrapper,
       category: 'core'
     },
     {

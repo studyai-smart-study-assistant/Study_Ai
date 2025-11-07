@@ -121,6 +121,10 @@ Notes में ये सभी sections शामिल करें:
     
     try {
       const prompt = generateSmartPrompt(selectedSubject, chapter, selectedClass, selectedLanguage, customRequirements);
+      
+      // Call onSendMessage to trigger point deduction via wrapper
+      onSendMessage(prompt);
+      
       const content = await generateResponse(prompt);
 
       // Extract key points from the generated content
