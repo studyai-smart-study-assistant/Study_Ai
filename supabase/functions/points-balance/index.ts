@@ -55,6 +55,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           balance: 0,
+          xp: 0,
           level: 1,
           created_at: newPoints.created_at,
           updated_at: newPoints.updated_at,
@@ -66,6 +67,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         balance: userPoints.balance,
+        xp: userPoints.xp || 0,
         level: userPoints.level,
         created_at: userPoints.created_at,
         updated_at: userPoints.updated_at,

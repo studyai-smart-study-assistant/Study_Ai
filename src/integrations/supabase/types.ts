@@ -220,6 +220,7 @@ export type Database = {
           level: number
           updated_at: string
           user_id: string
+          xp: number
         }
         Insert: {
           balance?: number
@@ -227,6 +228,7 @@ export type Database = {
           level?: number
           updated_at?: string
           user_id: string
+          xp?: number
         }
         Update: {
           balance?: number
@@ -234,6 +236,7 @@ export type Database = {
           level?: number
           updated_at?: string
           user_id?: string
+          xp?: number
         }
         Relationships: []
       }

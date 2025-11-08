@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import PointsWallet from '@/components/student/PointsWallet';
+import PointsSystemDialog from '@/components/dialogs/PointsSystemDialog';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -12,6 +13,25 @@ const PointsWalletPage = () => {
   const { currentUser, isLoading } = useAuth();
   const navigate = useNavigate();
   const [currentPoints, setCurrentPoints] = useState(0);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Check if user has seen the points system explanation
+  useEffect(() => {
+    const hasSeenOnboarding = localStorage.getItem('hasSeenPointsOnboarding');
+    if (!hasSeenOnboarding) {
+      setShowOnboarding(true);
+    }
+  }, []);
+
+  const handleAcceptOnboarding = () => {
+    localStorage.setItem('hasSeenPointsOnboarding', 'true');
+    setShowOnboarding(false);
+  };
+
+  const handleCancelOnboarding = () => {
+    setShowOnboarding(false);
+    navigate(-1);
+  };
 
   useEffect(() => {
     if (currentUser) {
@@ -73,8 +93,15 @@ const PointsWalletPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 dark:from-gray-900 dark:via-purple-950 dark:to-indigo-950">
-      <div className="max-w-4xl mx-auto p-4 py-8">
+    <>
+      <PointsSystemDialog
+        open={showOnboarding}
+        onAccept={handleAcceptOnboarding}
+        onCancel={handleCancelOnboarding}
+      />
+      
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 dark:from-gray-900 dark:via-purple-950 dark:to-indigo-950">
+        <div className="max-w-4xl mx-auto p-4 py-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -105,8 +132,9 @@ const PointsWalletPage = () => {
         >
           <PointsWallet userId={currentUser.uid} currentPoints={currentPoints} />
         </motion.div>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

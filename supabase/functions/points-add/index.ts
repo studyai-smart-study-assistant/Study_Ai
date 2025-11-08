@@ -52,8 +52,10 @@ Deno.serve(async (req) => {
     }
 
     const currentBalance = userPoints?.balance ?? 0;
+    const currentXP = userPoints?.xp ?? 0;
     const newBalance = currentBalance + amount;
-    const newLevel = Math.floor(newBalance / 100) + 1;
+    const newXP = currentXP + amount; // XP increases with points earned (permanent)
+    const newLevel = Math.floor(newXP / 100) + 1; // Level based on XP, not spendable balance
 
     // Update or insert user points
     const { error: upsertError } = await supabaseAdmin
@@ -61,6 +63,7 @@ Deno.serve(async (req) => {
       .upsert({
         user_id: userId,
         balance: newBalance,
+        xp: newXP,
         level: newLevel,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' });
@@ -93,6 +96,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         balance: newBalance,
+        xp: newXP,
         level: newLevel,
         previousBalance: currentBalance,
       }),

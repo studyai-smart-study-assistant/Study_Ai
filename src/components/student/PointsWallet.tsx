@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Wallet, TrendingUp, TrendingDown, Clock, Gift, Share2, Copy } from 'lucide-react';
-import { getPointsTransactions, PointsTransaction } from '@/utils/points/featureLocking';
+import { fetchUserTransactions, DisplayTransaction } from '@/utils/points/transactions';
 import { generateReferralCode, getReferralCode, getTotalReferrals, REFERRAL_REWARDS } from '@/utils/points/referralSystem';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,9 +18,10 @@ interface PointsWalletProps {
 }
 
 const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints }) => {
-  const [transactions, setTransactions] = useState<PointsTransaction[]>([]);
+  const [transactions, setTransactions] = useState<DisplayTransaction[]>([]);
   const [referralCode, setReferralCode] = useState<string>('');
   const [totalReferrals, setTotalReferrals] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (userId) {
@@ -29,7 +30,8 @@ const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints }) =>
   }, [userId]);
 
   const loadData = async () => {
-    const txns = getPointsTransactions(userId, 50);
+    setIsLoading(true);
+    const txns = await fetchUserTransactions(userId, 50);
     setTransactions(txns);
     
     let code = getReferralCode(userId);
@@ -40,6 +42,7 @@ const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints }) =>
     
     const referrals = getTotalReferrals(userId);
     setTotalReferrals(referrals);
+    setIsLoading(false);
   };
 
   const copyReferralCode = () => {
@@ -64,7 +67,7 @@ const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints }) =>
     }
   };
 
-  const getTransactionIcon = (txn: PointsTransaction) => {
+  const getTransactionIcon = (txn: DisplayTransaction) => {
     return txn.type === 'credit' ? (
       <TrendingUp className="h-5 w-5 text-green-500" />
     ) : (
@@ -109,7 +112,12 @@ const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints }) =>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[400px]">
-                {transactions.length === 0 ? (
+                {isLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                    <p className="text-muted-foreground mt-2">लोड हो रहा है...</p>
+                  </div>
+                ) : transactions.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     अभी तक कोई लेन-देन नहीं
                   </div>
