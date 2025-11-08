@@ -22,24 +22,22 @@ export interface DisplayTransaction {
 
 export async function fetchUserTransactions(userId: string, limit: number = 50): Promise<DisplayTransaction[]> {
   try {
-    const { data, error } = await supabase
-      .from('points_transactions')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    // Use edge function to fetch transactions (bypasses RLS issues with Firebase auth)
+    const { data, error } = await supabase.functions.invoke('points-transactions', {
+      body: { userId, limit }
+    });
 
     if (error) {
       console.error('Error fetching transactions:', error);
       return [];
     }
 
-    if (!data || data.length === 0) {
+    if (!data?.transactions || data.transactions.length === 0) {
       return [];
     }
 
     // Transform Supabase transactions to display format
-    return data.map((txn: SupabasePointsTransaction) => ({
+    return data.transactions.map((txn: SupabasePointsTransaction) => ({
       type: txn.amount > 0 ? 'credit' : 'deduction',
       amount: Math.abs(txn.amount),
       feature: txn.metadata?.featureKey,

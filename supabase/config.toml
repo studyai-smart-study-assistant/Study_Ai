@@ -21,3 +21,6 @@ verify_jwt = false
 
 [functions.points-balance]
 verify_jwt = false
+
+[functions.points-transactions]
+verify_jwt = false

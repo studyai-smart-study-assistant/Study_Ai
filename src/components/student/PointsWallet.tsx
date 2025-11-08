@@ -91,9 +91,9 @@ const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints }) =>
         </CardContent>
       </Card>
 
-      {/* Tabs for History and Referral */}
+      {/* Tabs for History, Referral, and Store */}
       <Tabs defaultValue="history" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="history">
             <Clock className="h-4 w-4 mr-2" />
             इतिहास
@@ -101,6 +101,10 @@ const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints }) =>
           <TabsTrigger value="referral">
             <Gift className="h-4 w-4 mr-2" />
             रेफरल
+          </TabsTrigger>
+          <TabsTrigger value="store">
+            <Wallet className="h-4 w-4 mr-2" />
+            स्टोर
           </TabsTrigger>
         </TabsList>
 
@@ -235,6 +239,102 @@ const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints }) =>
                     <li>• आपको {REFERRAL_REWARDS.REFERRER} पॉइंट्स मिलेंगे</li>
                     <li>• उन्हें {REFERRAL_REWARDS.REFERRED} पॉइंट्स मिलेंगे</li>
                   </ul>
+                </CardContent>
+              </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Store Tab */}
+        <TabsContent value="store">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">पॉइंट्स स्टोर</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                पॉइंट्स खरीदें और अपनी सीखने की यात्रा जारी रखें
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Points Packages */}
+              <div className="space-y-3">
+                {[
+                  { points: 100, price: '₹49', bonus: 0 },
+                  { points: 500, price: '₹199', bonus: 50 },
+                  { points: 1000, price: '₹349', bonus: 150 },
+                  { points: 2500, price: '₹799', bonus: 500 },
+                ].map((pkg) => (
+                  <Card 
+                    key={pkg.points}
+                    className="border-2 border-dashed border-muted hover:border-primary/50 transition-colors opacity-60"
+                  >
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-baseline gap-2">
+                            <h3 className="text-2xl font-bold text-primary">
+                              {pkg.points.toLocaleString()}
+                            </h3>
+                            <span className="text-sm text-muted-foreground">पॉइंट्स</span>
+                          </div>
+                          {pkg.bonus > 0 && (
+                            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                              + {pkg.bonus} बोनस पॉइंट्स
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold">{pkg.price}</p>
+                          <Button 
+                            disabled 
+                            className="mt-2"
+                            variant="outline"
+                          >
+                            जल्द आ रहा है
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Payment Gateway Info */}
+              <Card className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200 dark:border-amber-800">
+                <CardContent className="pt-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                      <Wallet className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">
+                        पेमेंट गेटवे सेटअप हो रहा है
+                      </h4>
+                      <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                        हम एक सुरक्षित पेमेंट सिस्टम की व्यवस्था कर रहे हैं। बहुत जल्द आप पॉइंट्स खरीद सकेंगे।
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white/50 dark:bg-gray-900/50 rounded-lg p-3 space-y-2">
+                    <h5 className="text-xs font-semibold text-amber-900 dark:text-amber-100">
+                      Beta अवधि के दौरान:
+                    </h5>
+                    <ul className="text-xs text-amber-700 dark:text-amber-300 space-y-1">
+                      <li>• प्रतिदिन लॉगिन करें और पॉइंट्स कमाएं</li>
+                      <li>• दोस्तों को रेफर करें (प्रत्येक रेफरल पर {REFERRAL_REWARDS.REFERRER} पॉइंट्स)</li>
+                      <li>• नियमित रूप से ऐप का उपयोग करें और बोनस पाएं</li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Beta Notice */}
+              <Card className="bg-muted/50">
+                <CardContent className="pt-4">
+                  <p className="text-xs text-center text-muted-foreground">
+                    🎉 <strong>Beta उपयोगकर्ता विशेष:</strong> अभी सभी फीचर्स के लिए 
+                    अतिरिक्त मुफ्त पॉइंट्स मिल रहे हैं। इस अवसर का लाभ उठाएं!
+                  </p>
                 </CardContent>
               </Card>
             </CardContent>
