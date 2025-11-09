@@ -1,5 +1,6 @@
-// Feature locking system based on points
+// Feature locking system based on credits (not points)
 import { supabase } from '@/integrations/supabase/client';
+import { deductCreditsForFeature, FEATURE_COSTS, FeatureType } from './credits';
 
 export interface FeatureCost {
   name: string;
@@ -8,99 +9,97 @@ export interface FeatureCost {
   icon: string;
 }
 
-export const FEATURE_COSTS: Record<string, FeatureCost> = {
+// Export feature costs for UI display
+export const FEATURE_COSTS_DISPLAY: Record<string, FeatureCost> = {
   teacher_mode: {
     name: 'Teacher Mode',
-    cost: 10,
+    cost: FEATURE_COSTS.teacher_mode,
     description: 'शिक्षक मोड एक्सेस',
     icon: '👨‍🏫'
   },
   notes_generation: {
     name: 'Notes Generation',
-    cost: 10,
+    cost: FEATURE_COSTS.notes_generator,
     description: 'नोट्स जेनरेशन',
     icon: '📝'
   },
   quiz_generation: {
     name: 'Quiz Generation',
-    cost: 5,
+    cost: FEATURE_COSTS.quiz_generator,
     description: 'क्विज़ जेनरेशन',
     icon: '📋'
   },
   homework: {
     name: 'Homework',
-    cost: 3,
+    cost: FEATURE_COSTS.homework_assistant,
     description: 'होमवर्क सहायता',
     icon: '📚'
   },
   motivation: {
     name: 'Motivation',
-    cost: 2,
+    cost: FEATURE_COSTS.motivation_system,
     description: 'प्रेरणा संदेश',
     icon: '💪'
   },
   study_plan: {
     name: 'Study Plan',
-    cost: 5,
+    cost: FEATURE_COSTS.study_planner,
     description: 'अध्ययन योजना',
     icon: '📅'
   }
 };
 
+// Map old feature keys to new FeatureType keys
+const FEATURE_KEY_MAP: Record<string, FeatureType> = {
+  'teacher_mode': 'teacher_mode',
+  'notes_generation': 'notes_generator',
+  'quiz_generation': 'quiz_generator',
+  'homework': 'homework_assistant',
+  'motivation': 'motivation_system',
+  'study_plan': 'study_planner'
+};
+
 export async function deductPointsForFeature(
   userId: string,
   featureKey: string
-): Promise<{ success: boolean; message: string; remainingPoints?: number }> {
+): Promise<{ success: boolean; message: string; remainingCredits?: number }> {
   if (!userId) {
     return { success: false, message: 'User ID required' };
   }
 
-  const feature = FEATURE_COSTS[featureKey];
+  const mappedKey = FEATURE_KEY_MAP[featureKey];
+  if (!mappedKey) {
+    return { success: false, message: 'Invalid feature' };
+  }
+
+  const feature = FEATURE_COSTS_DISPLAY[featureKey];
   if (!feature) {
     return { success: false, message: 'Invalid feature' };
   }
 
   try {
-    // Call secure edge function to deduct points
-    const { data, error } = await supabase.functions.invoke('points-deduct', {
-      body: {
-        userId,
-        featureKey,
-        amount: feature.cost,
-        reason: `${feature.description} के लिए`
-      }
-    });
-
-    if (error) {
-      console.error('Error calling points-deduct:', error);
+    const success = await deductCreditsForFeature(userId, mappedKey);
+    
+    if (!success) {
       return {
         success: false,
-        message: 'पॉइंट्स काटने में त्रुटि हुई'
+        message: `आपके पास पर्याप्त क्रेडिट नहीं हैं। आवश्यक: ${feature.cost}`
       };
     }
 
-    if (!data?.success) {
-      return {
-        success: false,
-        message: data?.message || `आपके पास पर्याप्त पॉइंट्स नहीं हैं। आवश्यक: ${feature.cost}`
-      };
-    }
-
-    // Update localStorage for optimistic UI
-    localStorage.setItem(`${userId}_points`, data.balance.toString());
-
-    console.log(`Points deducted: ${feature.cost}. New balance: ${data.balance}`);
+    // Get updated balance
+    const currentCredits = parseInt(localStorage.getItem(`${userId}_credits`) || '0');
 
     return {
       success: true,
-      message: `${feature.cost} पॉइंट्स कटे। शेष: ${data.balance}`,
-      remainingPoints: data.balance
+      message: `${feature.cost} क्रेडिट कटे। शेष: ${currentCredits}`,
+      remainingCredits: currentCredits
     };
   } catch (error) {
     console.error('Error in deductPointsForFeature:', error);
     return {
       success: false,
-      message: 'पॉइंट्स काटने में त्रुटि हुई'
+      message: 'क्रेडिट काटने में त्रुटि हुई'
     };
   }
 }
@@ -148,8 +147,10 @@ export function getPointsTransactions(userId: string, limit: number = 50): Point
 }
 
 export async function canAccessFeature(userId: string, featureKey: string): Promise<boolean> {
-  const feature = FEATURE_COSTS[featureKey];
-  if (!feature) return false;
+  const mappedKey = FEATURE_KEY_MAP[featureKey];
+  if (!mappedKey) return false;
+  
+  const cost = FEATURE_COSTS[mappedKey];
   
   try {
     // Check server balance
@@ -159,15 +160,15 @@ export async function canAccessFeature(userId: string, featureKey: string): Prom
     
     if (error || !data) {
       // Fallback to localStorage
-      const currentPoints = parseInt(localStorage.getItem(`${userId}_points`) || '0');
-      return currentPoints >= feature.cost;
+      const currentCredits = parseInt(localStorage.getItem(`${userId}_credits`) || '0');
+      return currentCredits >= cost;
     }
     
-    return data.balance >= feature.cost;
+    return (data.credits || 0) >= cost;
   } catch (error) {
     console.error('Error checking feature access:', error);
     // Fallback to localStorage
-    const currentPoints = parseInt(localStorage.getItem(`${userId}_points`) || '0');
-    return currentPoints >= feature.cost;
+    const currentCredits = parseInt(localStorage.getItem(`${userId}_credits`) || '0');
+    return currentCredits >= cost;
   }
 }

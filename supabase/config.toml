@@ -24,3 +24,12 @@ verify_jwt = false
 
 [functions.points-transactions]
 verify_jwt = false
+
+[functions.credits-add]
+verify_jwt = false
+
+[functions.credits-deduct]
+verify_jwt = false
+
+[functions.points-to-credits]
+verify_jwt = false

@@ -13,6 +13,7 @@ const PointsWalletPage = () => {
   const { currentUser, isLoading } = useAuth();
   const navigate = useNavigate();
   const [currentPoints, setCurrentPoints] = useState(0);
+  const [currentCredits, setCurrentCredits] = useState(0);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   // Check if user has seen the points system explanation
@@ -57,10 +58,12 @@ const PointsWalletPage = () => {
 
       if (data) {
         setCurrentPoints(data.balance);
+        setCurrentCredits(data.credits || 0);
         // Update localStorage for offline access
         if (currentUser) {
           localStorage.setItem(`${currentUser.uid}_points`, data.balance.toString());
           localStorage.setItem(`${currentUser.uid}_level`, data.level.toString());
+          localStorage.setItem(`${currentUser.uid}_credits`, (data.credits || 0).toString());
         }
       }
     } catch (error) {
@@ -130,7 +133,12 @@ const PointsWalletPage = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <PointsWallet userId={currentUser.uid} currentPoints={currentPoints} />
+          <PointsWallet 
+            userId={currentUser.uid} 
+            currentPoints={currentPoints}
+            currentCredits={currentCredits}
+            onRefresh={fetchPointsFromServer}
+          />
         </motion.div>
         </div>
       </div>

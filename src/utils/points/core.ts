@@ -1,6 +1,6 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { PointRecord } from './types';
+import { toast } from 'sonner';
 
 export async function addPointsToUser(
   userId: string,
@@ -151,5 +151,106 @@ export async function syncUserPoints(userId: string): Promise<void> {
     }
   } catch (error) {
     console.error('Error syncing user points:', error);
+  }
+}
+
+// Credits functions
+export async function addCreditsToUser(
+  userId: string,
+  credits: number,
+  reason: string,
+  metadata?: Record<string, any>
+): Promise<void> {
+  try {
+    const { data, error } = await supabase.functions.invoke('credits-add', {
+      body: { userId, credits, reason, metadata }
+    });
+
+    if (error) {
+      console.error('Error adding credits:', error);
+      throw error;
+    }
+
+    if (data?.success) {
+      console.log(`Successfully added ${credits} credits. New balance: ${data.credits}`);
+      // Update localStorage for offline access
+      localStorage.setItem(`${userId}_credits`, data.credits.toString());
+    }
+  } catch (error) {
+    console.error('Error adding credits:', error);
+    throw error;
+  }
+}
+
+export async function deductCreditsFromUser(
+  userId: string,
+  credits: number,
+  feature: string,
+  description: string
+): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.functions.invoke('credits-deduct', {
+      body: { userId, credits, feature, description }
+    });
+
+    if (error) {
+      if (error.message?.includes('Insufficient credits')) {
+        toast.error('क्रेडिट कम हैं! कृपया क्रेडिट खरीदें या पॉइंट्स को कन्वर्ट करें।');
+        return false;
+      }
+      console.error('Error deducting credits:', error);
+      return false;
+    }
+
+    if (data?.success) {
+      console.log(`Successfully deducted ${credits} credits. New balance: ${data.credits}`);
+      // Update localStorage for offline access
+      localStorage.setItem(`${userId}_credits`, data.credits.toString());
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Error deducting credits:', error);
+    if (error.message?.includes('Insufficient credits')) {
+      toast.error('क्रेडिट कम हैं! कृपया क्रेडिट खरीदें या पॉइंट्स को कन्वर्ट करें।');
+    }
+    return false;
+  }
+}
+
+export async function convertPointsToCredits(
+  userId: string,
+  points: number
+): Promise<boolean> {
+  try {
+    if (points < 1000) {
+      toast.error('कम से कम 1000 पॉइंट्स की आवश्यकता है!');
+      return false;
+    }
+
+    const { data, error } = await supabase.functions.invoke('points-to-credits', {
+      body: { userId, points }
+    });
+
+    if (error) {
+      console.error('Error converting points:', error);
+      toast.error('पॉइंट्स कन्वर्ट करने में त्रुटि!');
+      return false;
+    }
+
+    if (data?.success) {
+      toast.success(`${data.creditsAdded} क्रेडिट प्राप्त हुए!`);
+      // Update localStorage
+      localStorage.setItem(`${userId}_credits`, data.newCreditsBalance.toString());
+      localStorage.setItem(`${userId}_points`, data.newPointsBalance.toString());
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Error converting points:', error);
+    toast.error('पॉइंट्स कन्वर्ट करने में त्रुटि!');
+    return false;
   }
 }

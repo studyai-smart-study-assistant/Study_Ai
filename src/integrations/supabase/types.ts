@@ -217,6 +217,7 @@ export type Database = {
         Row: {
           balance: number
           created_at: string
+          credits: number
           level: number
           updated_at: string
           user_id: string
@@ -225,6 +226,7 @@ export type Database = {
         Insert: {
           balance?: number
           created_at?: string
+          credits?: number
           level?: number
           updated_at?: string
           user_id: string
@@ -233,6 +235,7 @@ export type Database = {
         Update: {
           balance?: number
           created_at?: string
+          credits?: number
           level?: number
           updated_at?: string
           user_id?: string

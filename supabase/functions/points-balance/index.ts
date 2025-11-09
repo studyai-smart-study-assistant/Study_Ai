@@ -23,10 +23,10 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get user points
+    // Get user points including credits
     const { data: userPoints, error: fetchError } = await supabaseAdmin
       .from('user_points')
-      .select('*')
+      .select('balance, xp, level, credits, created_at, updated_at')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -41,8 +41,10 @@ Deno.serve(async (req) => {
         .from('user_points')
         .insert({
           user_id: userId,
-          balance: 0,
+          balance: 1000,
           level: 1,
+          xp: 0,
+          credits: 100,
         })
         .select()
         .single();
@@ -54,9 +56,10 @@ Deno.serve(async (req) => {
 
       return new Response(
         JSON.stringify({
-          balance: 0,
+          balance: 1000,
           xp: 0,
           level: 1,
+          credits: 100,
           created_at: newPoints.created_at,
           updated_at: newPoints.updated_at,
         }),
@@ -69,6 +72,7 @@ Deno.serve(async (req) => {
         balance: userPoints.balance,
         xp: userPoints.xp || 0,
         level: userPoints.level,
+        credits: userPoints.credits || 0,
         created_at: userPoints.created_at,
         updated_at: userPoints.updated_at,
       }),

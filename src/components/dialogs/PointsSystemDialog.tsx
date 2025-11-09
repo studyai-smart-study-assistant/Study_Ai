@@ -9,8 +9,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Coins, TrendingUp, TrendingDown, Sparkles, Gift, Zap } from 'lucide-react';
-import { FEATURE_COSTS } from '@/utils/points/featureLocking';
+import { Coins, CreditCard, TrendingUp, TrendingDown, Sparkles, Gift, Zap } from 'lucide-react';
+import { FEATURE_COSTS_DISPLAY } from '@/utils/points/featureLocking';
 
 interface PointsSystemDialogProps {
   open: boolean;
@@ -28,7 +28,7 @@ const PointsSystemDialog: React.FC<PointsSystemDialogProps> = ({ open, onAccept,
     { icon: '👥', title: 'रेफरल करें', points: '50', color: 'text-pink-600' },
   ];
 
-  const featureCosts = Object.entries(FEATURE_COSTS).map(([key, feature]) => ({
+  const featureCosts = Object.entries(FEATURE_COSTS_DISPLAY).map(([key, feature]) => ({
     icon: feature.icon,
     name: feature.description,
     cost: feature.cost,
@@ -39,35 +39,47 @@ const PointsSystemDialog: React.FC<PointsSystemDialogProps> = ({ open, onAccept,
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
-            <Coins className="h-6 w-6 text-yellow-500" />
-            पॉइंट्स सिस्टम - बहुत महत्वपूर्ण! 💎
+            <CreditCard className="h-6 w-6 text-emerald-500" />
+            क्रेडिट्स सिस्टम - बहुत महत्वपूर्ण! 💎
           </DialogTitle>
           <DialogDescription className="text-base">
-            पॉइंट्स इस एप्लिकेशन की मुद्रा हैं। हर फीचर उपयोग करने के लिए पॉइंट्स चाहिए।
+            क्रेडिट्स इस एप्लिकेशन की मुद्रा हैं। हर फीचर उपयोग करने के लिए क्रेडिट्स चाहिए।
+            पॉइंट्स अलग हैं - वे लीडरबोर्ड रैंकिंग के लिए हैं।
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Why Points Matter */}
-          <Card className="border-2 border-yellow-500 bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20">
-            <CardContent className="pt-6">
+          {/* Why Credits Matter */}
+          <Card className="border-2 border-emerald-500 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20">
+            <CardContent className="pt-6 space-y-3">
               <div className="flex items-start gap-3">
-                <Sparkles className="h-6 w-6 text-yellow-600 flex-shrink-0 mt-1" />
+                <Sparkles className="h-6 w-6 text-emerald-600 flex-shrink-0 mt-1" />
                 <div>
-                  <h3 className="font-bold text-lg mb-2">पॉइंट्स क्यों महत्वपूर्ण हैं?</h3>
+                  <h3 className="font-bold text-lg mb-2">क्रेडिट्स क्यों महत्वपूर्ण हैं?</h3>
                   <p className="text-sm text-muted-foreground">
-                    बिना पॉइंट्स के, आप कोई भी AI फीचर उपयोग नहीं कर सकते। पॉइंट्स कमाना और सही तरीके से खर्च करना आपकी सीखने की यात्रा का महत्वपूर्ण हिस्सा है।
+                    बिना क्रेडिट्स के, आप कोई भी AI फीचर उपयोग नहीं कर सकते। क्रेडिट्स हर बार फीचर उपयोग करने पर खर्च होते हैं।
                   </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 pt-2 border-t">
+                <Coins className="h-6 w-6 text-purple-600 flex-shrink-0 mt-1" />
+                <div>
+                  <h3 className="font-bold text-lg mb-2">पॉइंट्स vs क्रेडिट्स</h3>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• <strong>क्रेडिट्स:</strong> फीचर्स उपयोग करने के लिए (खर्च होते हैं)</li>
+                    <li>• <strong>पॉइंट्स:</strong> लीडरबोर्ड रैंकिंग के लिए (कभी खर्च नहीं होते)</li>
+                    <li>• आप पॉइंट्स को क्रेडिट्स में बदल सकते हैं!</li>
+                  </ul>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Earn Points Section */}
+          {/* Earn Points/Credits Section */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <TrendingUp className="h-5 w-5 text-green-600" />
-              <h3 className="font-bold text-lg">पॉइंट्स कैसे कमाएं 💰</h3>
+              <h3 className="font-bold text-lg">पॉइंट्स/क्रेडिट्स कैसे कमाएं 💰</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {earnMethods.map((method, index) => (
@@ -91,11 +103,11 @@ const PointsSystemDialog: React.FC<PointsSystemDialogProps> = ({ open, onAccept,
             </div>
           </div>
 
-          {/* Spend Points Section */}
+          {/* Spend Credits Section */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <TrendingDown className="h-5 w-5 text-red-600" />
-              <h3 className="font-bold text-lg">फीचर्स की कीमत 🎯</h3>
+              <h3 className="font-bold text-lg">फीचर्स की कीमत (क्रेडिट्स में) 🎯</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {featureCosts.map((feature, index) => (
@@ -107,7 +119,7 @@ const PointsSystemDialog: React.FC<PointsSystemDialogProps> = ({ open, onAccept,
                         <div>
                           <p className="font-medium text-sm">{feature.name}</p>
                           <p className="text-xs text-red-600 font-bold">
-                            -{feature.cost} पॉइंट्स/उपयोग
+                            -{feature.cost} क्रेडिट्स/उपयोग
                           </p>
                         </div>
                       </div>
@@ -126,10 +138,11 @@ const PointsSystemDialog: React.FC<PointsSystemDialogProps> = ({ open, onAccept,
                 <div>
                   <h3 className="font-bold text-base mb-2">💡 महत्वपूर्ण नोट</h3>
                   <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• हर फीचर उपयोग करने से पहले पॉइंट्स काटे जाएंगे</li>
-                    <li>• अगर पॉइंट्स कम हैं, तो फीचर काम नहीं करेगा</li>
-                    <li>• नियमित रूप से एक्टिविटी करें और पॉइंट्स कमाते रहें</li>
-                    <li>• रेफरल सबसे तेज़ तरीका है पॉइंट्स कमाने का!</li>
+                    <li>• हर फीचर उपयोग करने से पहले क्रेडिट्स काटे जाएंगे</li>
+                    <li>• अगर क्रेडिट्स कम हैं, तो फीचर काम नहीं करेगा</li>
+                    <li>• पॉइंट्स को क्रेडिट्स में बदल सकते हैं (1000 पॉइंट्स = 100 क्रेडिट्स)</li>
+                    <li>• रेफरल करें या क्रेडिट्स खरीदें!</li>
+                    <li>• पहली बार लॉगिन पर 100 मुफ्त क्रेडिट्स!</li>
                   </ul>
                 </div>
               </div>
