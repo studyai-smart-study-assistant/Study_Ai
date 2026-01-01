@@ -1,145 +1,126 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import EmptyChatUI from '../EmptyChatUI';
+import AdvancedStudyTools from '../study/AdvancedStudyTools';
 import { motion } from 'framer-motion';
-import { 
-  Calculator, FileText, HelpCircle, BookOpen,
-  GraduationCap, Trophy, Zap, Brain, Flame, Target, Lightbulb, Sparkles
-} from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { getTimeBasedGreeting } from '@/utils/timeUtils';
-import { supabase } from '@/integrations/supabase/client';
+import { GraduationCap, Sparkles, BookOpen, Zap } from 'lucide-react';
 
 interface EmptyChatStateProps {
   onSendMessage: (message: string) => void;
 }
 
 const EmptyChatState: React.FC<EmptyChatStateProps> = ({ onSendMessage }) => {
-  const { currentUser } = useAuth();
-  const navigate = useNavigate();
-  const greeting = getTimeBasedGreeting();
-  const displayName = currentUser?.displayName?.split(' ')[0] || '';
-  
-  const [stats, setStats] = useState({ credits: 0, streak: 0, xp: 0, level: 1 });
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      if (!currentUser?.uid) return;
-      try {
-        const { data } = await supabase.functions.invoke('points-balance', {
-          body: { userId: currentUser.uid }
-        });
-        if (data) {
-          setStats({ credits: data.credits || 0, streak: data.streak || 0, xp: data.xp || 0, level: data.level || 1 });
-        }
-      } catch (error) {
-        console.error('Error fetching stats:', error);
-      }
-    };
-    fetchStats();
-  }, [currentUser?.uid]);
-
-  const quickPrompts = [
-    { icon: Calculator, text: 'Math Problem solve करो', prompt: 'मुझे इस math problem को solve करके समझाओ:', gradient: 'from-blue-500 to-cyan-500' },
-    { icon: BookOpen, text: 'Topic explain करो', prompt: 'मुझे इस topic को आसान भाषा में समझाओ:', gradient: 'from-purple-500 to-pink-500' },
-    { icon: FileText, text: 'Notes बनाकर दो', prompt: 'मुझे इस विषय पर notes बनाकर दो:', gradient: 'from-amber-500 to-orange-500' },
-    { icon: HelpCircle, text: 'Homework help करो', prompt: 'मेरे homework में मदद करो:', gradient: 'from-emerald-500 to-teal-500' }
-  ];
-
-  const studyTools = [
-    { icon: GraduationCap, label: 'Activities', path: '/student-activities', color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-950/30' },
-    { icon: Trophy, label: 'Leaderboard', path: '/leaderboard', color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-950/30' },
-    { icon: Zap, label: 'Credits', path: '/points-wallet', color: 'text-cyan-500', bg: 'bg-cyan-50 dark:bg-cyan-950/30' },
-    { icon: Brain, label: 'Teacher', path: '/teacher-chats', color: 'text-pink-500', bg: 'bg-pink-50 dark:bg-pink-950/30' }
-  ];
-
   return (
-    <motion.div 
-      className="flex flex-col items-center justify-start min-h-full px-4 py-6 pb-32 overflow-y-auto"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.4 }}
-    >
-      <div className="w-full max-w-2xl mx-auto space-y-6">
-        {/* Greeting */}
-        <div className="text-center space-y-2 animate-slide-up">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
-            <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse-soft" />
-            <span className="text-xs font-medium text-primary">{greeting}</span>
+    <div className="pb-48 px-4 pt-4 overflow-x-hidden">
+      <EmptyChatUI 
+        onCreateImage={() => onSendMessage("Help me understand quantum physics concepts")}
+        onSurpriseMe={() => onSendMessage("Explain machine learning in simple terms")}
+        onAnalyzeImages={() => onSendMessage("Give me a study plan for IELTS exam")}
+        onSummarizeText={() => onSendMessage("Summarize the key concepts of organic chemistry")}
+        onMore={() => {}}
+      />
+      
+      {/* Enhanced Study Tools Section */}
+      <motion.div 
+        className="my-8 max-w-5xl mx-auto"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.6 }}
+      >
+        {/* Study Tools Header */}
+        <motion.div 
+          className="text-center mb-8"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <motion.div 
+              className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-indigo-600 flex items-center justify-center shadow-xl"
+              whileHover={{ scale: 1.1, rotate: 5 }}
+              transition={{ type: "spring", damping: 25, stiffness: 400 }}
+            >
+              <GraduationCap className="w-8 h-8 text-white" />
+            </motion.div>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold">
-            {displayName ? (
-              <><span className="text-foreground">नमस्ते, </span><span className="text-gradient">{displayName}!</span></>
-            ) : (
-              <span className="text-gradient">Study AI में स्वागत है!</span>
-            )}
-          </h1>
-          <p className="text-muted-foreground">Homework, Exam Prep, या कोई भी सवाल पूछें!</p>
-        </div>
-
-        {/* Stats Row */}
-        {currentUser && (
-          <div className="grid grid-cols-4 gap-2 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-            {[
-              { icon: Flame, value: stats.streak, label: 'Streak', color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-950/30' },
-              { icon: Zap, value: stats.credits, label: 'Credits', color: 'text-cyan-500', bg: 'bg-cyan-50 dark:bg-cyan-950/30' },
-              { icon: Target, value: stats.xp, label: 'XP', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
-              { icon: Trophy, value: stats.level, label: 'Level', color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-950/30' }
-            ].map((stat) => (
-              <div key={stat.label} className={`${stat.bg} rounded-xl p-3 text-center border border-border/50`}>
-                <stat.icon className={`w-4 h-4 ${stat.color} mx-auto mb-1`} />
-                <div className={`text-lg font-bold ${stat.color}`}>{stat.value}</div>
-                <div className="text-[10px] text-muted-foreground">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Quick Prompts */}
-        <div className="space-y-3 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quick Start</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {quickPrompts.map((item, i) => (
-              <button
-                key={i}
-                onClick={() => onSendMessage(item.prompt)}
-                className="group flex items-center gap-3 p-4 rounded-xl bg-card border border-border/50 hover:border-primary/30 hover:shadow-study transition-all duration-300 text-left"
-              >
-                <div className={`p-2.5 rounded-lg bg-gradient-to-br ${item.gradient} shadow-md group-hover:scale-110 transition-transform`}>
-                  <item.icon className="w-4 h-4 text-white" />
-                </div>
-                <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">{item.text}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Study Tools */}
-        <div className="space-y-3 animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Study Tools</h3>
-          <div className="grid grid-cols-4 gap-2">
-            {studyTools.map((tool) => (
-              <button
-                key={tool.label}
-                onClick={() => navigate(tool.path)}
-                className={`flex flex-col items-center gap-2 p-3 rounded-xl ${tool.bg} border border-border/50 hover:border-primary/30 transition-all duration-300 hover:scale-105`}
-              >
-                <tool.icon className={`w-5 h-5 ${tool.color}`} />
-                <span className="text-xs font-medium text-foreground">{tool.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Tip */}
-        <div className="glass-card p-3 border-l-4 border-primary flex items-start gap-3 animate-slide-up" style={{ animationDelay: '0.4s' }}>
-          <Lightbulb className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">Pro Tip:</span> Hindi या English में पूछें। Images भी upload कर सकते हैं!
+          <h2 className="text-4xl font-bold text-gradient mb-3">
+            Study AI Tools
+          </h2>
+          <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+            शक्तिशाली AI टूल्स के साथ अपने अध्ययन को अगले स्तर पर ले जाएं
           </p>
+          <div className="flex items-center justify-center gap-2 mt-3">
+            <Sparkles className="w-5 h-5 text-purple-500" />
+            <span className="text-purple-600 dark:text-purple-400 font-medium">
+              Advanced • Interactive • Intelligent
+            </span>
+            <Zap className="w-5 h-5 text-purple-500" />
+          </div>
+        </motion.div>
+
+        {/* Advanced Study Tools */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
+          className="shadow-2xl rounded-3xl overflow-hidden bg-white dark:bg-gray-800 border border-purple-100 dark:border-purple-800"
+        >
+          <AdvancedStudyTools onSendMessage={onSendMessage} />
+        </motion.div>
+      </motion.div>
+      
+      {/* Getting Started Section */}
+      <motion.div 
+        className="max-w-4xl mx-auto mt-8"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+      >
+        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 rounded-2xl p-6 border border-purple-100 dark:border-purple-800">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+              <BookOpen className="w-5 h-5 text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-purple-800 dark:text-purple-300">
+              Getting Started
+            </h3>
+          </div>
+          <p className="text-gray-700 dark:text-gray-300 mb-4">
+            Welcome to Study AI! आप कोई भी अध्ययन संबंधी प्रश्न पूछ सकते हैं, या इनमें से कोई भी कोशिश करें:
+          </p>
+          <div className="grid md:grid-cols-2 gap-3">
+            <div className="space-y-2 text-gray-600 dark:text-gray-400">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                <span>"मेरी अंतिम परीक्षाओं के लिए अध्ययन कार्यक्रम बनाएं"</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
+                <span>"प्रकाश संश्लेषण की प्रक्रिया समझाएं"</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
+                <span>"द्वितीय विश्व युद्ध की मुख्य घटनाएं क्या हैं?"</span>
+              </div>
+            </div>
+            <div className="space-y-2 text-gray-600 dark:text-gray-400">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-cyan-500 rounded-full"></div>
+                <span>"इस गणित की समस्या को हल करने में मदद करें"</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                <span>"जीव विज्ञान परीक्षा के लिए अभ्यास प्रश्न दें"</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                <span>"भौतिकी के न्यूटन के नियम समझाएं"</span>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 };
 
