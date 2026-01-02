@@ -33,3 +33,6 @@ verify_jwt = false
 
 [functions.points-to-credits]
 verify_jwt = false
+
+[functions.ad-reward]
+verify_jwt = false

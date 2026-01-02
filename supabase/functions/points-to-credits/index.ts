@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const CONVERSION_RATE = 10; // 1000 points = 100 credits (10:1 ratio)
+const CONVERSION_RATE = 50; // 5000 points = 100 credits (50:1 ratio)
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -26,9 +26,9 @@ Deno.serve(async (req) => {
 
     const { userId, points } = await req.json();
 
-    if (!userId || !points || points < 1000) {
+    if (!userId || !points || points < 5000) {
       return new Response(
-        JSON.stringify({ error: 'Minimum 1000 points required for conversion' }),
+        JSON.stringify({ error: 'Minimum 5000 points required for conversion' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

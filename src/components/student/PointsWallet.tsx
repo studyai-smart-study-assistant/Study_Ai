@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Wallet, TrendingUp, TrendingDown, Clock, Gift, Share2, Copy, ArrowRightLeft, Coins, CreditCard } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, Clock, Gift, Share2, Copy, ArrowRightLeft, Coins, CreditCard, Play } from 'lucide-react';
 import { fetchUserTransactions, DisplayTransaction } from '@/utils/points/transactions';
 import { generateReferralCode, getReferralCode, getTotalReferrals, REFERRAL_REWARDS } from '@/utils/points/referralSystem';
 import { convertPointsToCredits } from '@/utils/points/core';
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { hi } from 'date-fns/locale';
+import AdRewardButton from './AdRewardButton';
 
 interface PointsWalletProps {
   userId: string;
@@ -25,7 +26,7 @@ const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints, curr
   const [referralCode, setReferralCode] = useState<string>('');
   const [totalReferrals, setTotalReferrals] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [convertAmount, setConvertAmount] = useState('1000');
+  const [convertAmount, setConvertAmount] = useState('5000');
   const [isConverting, setIsConverting] = useState(false);
 
   useEffect(() => {
@@ -74,8 +75,8 @@ const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints, curr
 
   const handleConvertPoints = async () => {
     const points = parseInt(convertAmount);
-    if (isNaN(points) || points < 1000) {
-      toast.error('कम से कम 1000 पॉइंट्स डालें!');
+    if (isNaN(points) || points < 5000) {
+      toast.error('कम से कम 5000 पॉइंट्स डालें!');
       return;
     }
 
@@ -89,7 +90,7 @@ const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints, curr
     setIsConverting(false);
 
     if (success) {
-      setConvertAmount('1000');
+      setConvertAmount('5000');
       // Refresh data
       if (onRefresh) {
         onRefresh();
@@ -303,7 +304,7 @@ const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints, curr
             <CardHeader>
               <CardTitle className="text-lg">पॉइंट्स को क्रेडिट्स में बदलें</CardTitle>
               <p className="text-sm text-muted-foreground">
-                1000 पॉइंट्स = 100 क्रेडिट्स
+                5000 पॉइंट्स = 100 क्रेडिट्स (50:1 अनुपात)
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -313,119 +314,142 @@ const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints, curr
                   type="number"
                   value={convertAmount}
                   onChange={(e) => setConvertAmount(e.target.value)}
-                  placeholder="1000"
-                  min="1000"
+                  placeholder="5000"
+                  min="5000"
                   step="1000"
                 />
                 <p className="text-xs text-muted-foreground">
-                  आपको मिलेंगे: {Math.floor(parseInt(convertAmount || '0') / 10)} क्रेडिट्स
+                  आपको मिलेंगे: {Math.floor(parseInt(convertAmount || '0') / 50)} क्रेडिट्स
                 </p>
               </div>
               <Button
                 onClick={handleConvertPoints}
-                disabled={isConverting || parseInt(convertAmount) < 1000}
+                disabled={isConverting || parseInt(convertAmount) < 5000}
                 className="w-full bg-gradient-to-r from-purple-500 to-emerald-600"
               >
                 {isConverting ? 'कन्वर्ट हो रहा है...' : 'कन्वर्ट करें'}
               </Button>
+              
+              <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+                <CardContent className="pt-4">
+                  <p className="text-xs text-amber-700 dark:text-amber-300 text-center">
+                    💡 <strong>टिप:</strong> प्रचार देखकर क्रेडिट्स कमाना ज़्यादा तेज़ और आसान है!
+                  </p>
+                </CardContent>
+              </Card>
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* Store Tab */}
         <TabsContent value="store">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">क्रेडिट्स स्टोर</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                क्रेडिट्स खरीदें और फीचर्स का उपयोग करें
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Credits Packages */}
-              <div className="space-y-3">
-                {[
-                  { credits: 90, price: '₹9', bonus: 0 },
-                  { credits: 490, price: '₹49', bonus: 10 },
-                  { credits: 990, price: '₹99', bonus: 100 },
-                  { credits: 2490, price: '₹249', bonus: 500 },
-                ].map((pkg) => (
-                  <Card 
-                    key={pkg.credits}
-                    className="border-2 border-dashed border-muted hover:border-primary/50 transition-colors opacity-60"
-                  >
-                    <CardContent className="pt-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="flex items-baseline gap-2">
-                            <h3 className="text-2xl font-bold text-emerald-600">
-                              {pkg.credits.toLocaleString()}
-                            </h3>
-                            <span className="text-sm text-muted-foreground">क्रेडिट्स</span>
+          <div className="space-y-4">
+            {/* Ad Reward Button - Most Prominent */}
+            <AdRewardButton 
+              userId={userId} 
+              onCreditsEarned={() => {
+                if (onRefresh) onRefresh();
+                loadData();
+              }} 
+            />
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  क्रेडिट्स स्टोर
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  क्रेडिट्स खरीदें और फीचर्स का उपयोग करें
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Credits Packages */}
+                <div className="space-y-3">
+                  {[
+                    { credits: 90, price: '₹9', bonus: 0 },
+                    { credits: 490, price: '₹49', bonus: 10 },
+                    { credits: 990, price: '₹99', bonus: 100 },
+                    { credits: 2490, price: '₹249', bonus: 500 },
+                  ].map((pkg) => (
+                    <Card 
+                      key={pkg.credits}
+                      className="border-2 border-dashed border-muted hover:border-primary/50 transition-colors opacity-60"
+                    >
+                      <CardContent className="pt-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-baseline gap-2">
+                              <h3 className="text-2xl font-bold text-emerald-600">
+                                {pkg.credits.toLocaleString()}
+                              </h3>
+                              <span className="text-sm text-muted-foreground">क्रेडिट्स</span>
+                            </div>
+                            {pkg.bonus > 0 && (
+                              <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                + {pkg.bonus} बोनस क्रेडिट्स
+                              </p>
+                            )}
                           </div>
-                          {pkg.bonus > 0 && (
-                            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                              + {pkg.bonus} बोनस क्रेडिट्स
-                            </p>
-                          )}
+                          <div className="text-right">
+                            <p className="text-2xl font-bold">{pkg.price}</p>
+                            <Button 
+                              disabled 
+                              className="mt-2"
+                              variant="outline"
+                            >
+                              जल्द आ रहा है
+                            </Button>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold">{pkg.price}</p>
-                          <Button 
-                            disabled 
-                            className="mt-2"
-                            variant="outline"
-                          >
-                            जल्द आ रहा है
-                          </Button>
-                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Payment Gateway Info */}
+                <Card className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200 dark:border-amber-800">
+                  <CardContent className="pt-4 space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                        <Wallet className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Payment Gateway Info */}
-              <Card className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200 dark:border-amber-800">
-                <CardContent className="pt-4 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                      <Wallet className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">
+                          पेमेंट गेटवे सेटअप हो रहा है
+                        </h4>
+                        <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                          हम एक सुरक्षित पेमेंट सिस्टम की व्यवस्था कर रहे हैं। बहुत जल्द आप क्रेडिट्स खरीद सकेंगे।
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">
-                        पेमेंट गेटवे सेटअप हो रहा है
-                      </h4>
-                      <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                        हम एक सुरक्षित पेमेंट सिस्टम की व्यवस्था कर रहे हैं। बहुत जल्द आप क्रेडिट्स खरीद सकेंगे।
-                      </p>
+                    
+                    <div className="bg-white/50 dark:bg-gray-900/50 rounded-lg p-3 space-y-2">
+                      <h5 className="text-xs font-semibold text-amber-900 dark:text-amber-100">
+                        अभी क्रेडिट्स कमाने के तरीके:
+                      </h5>
+                      <ul className="text-xs text-amber-700 dark:text-amber-300 space-y-1">
+                        <li>• <strong>प्रचार देखें:</strong> हर प्रचार पर 20 क्रेडिट्स (प्रति दिन 20 प्रचार)</li>
+                        <li>• पहली बार लॉगिन: 100 मुफ्त क्रेडिट्स</li>
+                        <li>• दोस्तों को रेफर करें और पॉइंट्स कमाएं</li>
+                        <li>• पॉइंट्स को क्रेडिट्स में बदलें (50:1 ratio)</li>
+                      </ul>
                     </div>
-                  </div>
-                  
-                  <div className="bg-white/50 dark:bg-gray-900/50 rounded-lg p-3 space-y-2">
-                    <h5 className="text-xs font-semibold text-amber-900 dark:text-amber-100">
-                      Beta अवधि के दौरान:
-                    </h5>
-                    <ul className="text-xs text-amber-700 dark:text-amber-300 space-y-1">
-                      <li>• पहली बार लॉगिन: 100 मुफ्त क्रेडिट्स + 1000 पॉइंट्स</li>
-                      <li>• दोस्तों को रेफर करें और पॉइंट्स कमाएं</li>
-                      <li>• पॉइंट्स को क्रेडिट्स में बदलें (10:1 ratio)</li>
-                    </ul>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              {/* Beta Notice */}
-              <Card className="bg-muted/50">
-                <CardContent className="pt-4">
-                  <p className="text-xs text-center text-muted-foreground">
-                    🎉 <strong>Beta उपयोगकर्ता विशेष:</strong> अभी सभी फीचर्स के लिए 
-                    अतिरिक्त मुफ्त क्रेडिट्स मिल रहे हैं। इस अवसर का लाभ उठाएं!
-                  </p>
-                </CardContent>
-              </Card>
-            </CardContent>
-          </Card>
+                {/* Beta Notice */}
+                <Card className="bg-muted/50">
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-center text-muted-foreground">
+                      🎉 <strong>Beta उपयोगकर्ता विशेष:</strong> अभी प्रचार देखकर मुफ्त क्रेडिट्स कमाएं!
+                      प्रति दिन 400 क्रेडिट्स तक कमा सकते हैं।
+                    </p>
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
