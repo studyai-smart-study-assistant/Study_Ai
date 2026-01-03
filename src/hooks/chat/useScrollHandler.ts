@@ -18,13 +18,29 @@ export const useScrollHandler = (ref: React.RefObject<HTMLDivElement>) => {
     }
   }, [ref]);
 
-  // Set scroll permission after initial load
+  // Enable scrolling only after the user interacts (prevents auto-scroll on page load)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      document.body.dataset.allowScroll = 'true';
-    }, 1000); // Allow scrolling after 1 second of page load
+    document.body.dataset.allowScroll = 'false';
 
-    return () => clearTimeout(timer);
+    const enable = () => {
+      document.body.dataset.allowScroll = 'true';
+      window.removeEventListener('pointerdown', enable);
+      window.removeEventListener('keydown', enable);
+      window.removeEventListener('wheel', enable);
+      window.removeEventListener('touchstart', enable);
+    };
+
+    window.addEventListener('pointerdown', enable, { once: true });
+    window.addEventListener('keydown', enable, { once: true });
+    window.addEventListener('wheel', enable, { once: true, passive: true } as AddEventListenerOptions);
+    window.addEventListener('touchstart', enable, { once: true, passive: true } as AddEventListenerOptions);
+
+    return () => {
+      window.removeEventListener('pointerdown', enable);
+      window.removeEventListener('keydown', enable);
+      window.removeEventListener('wheel', enable);
+      window.removeEventListener('touchstart', enable);
+    };
   }, []);
 
   return { scrollToBottom };
