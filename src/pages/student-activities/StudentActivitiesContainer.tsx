@@ -13,7 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { getCurrentStreakSync, updateDailyStreak } from '@/utils/streakUtils';
 import { awardDailyLoginBonus } from '@/utils/points/bonusPoints';
 import { toast } from 'sonner';
-import { BannerAd } from '@/components/ads';
+import { BannerAd, NativeAd } from '@/components/ads';
 
 interface StudentActivitiesContainerProps {
   currentUser: any;
@@ -132,9 +132,10 @@ const StudentActivitiesContainer: React.FC<StudentActivitiesContainerProps> = ({
         setActiveTab={setActiveTab}
       />
       
-      {/* Banner Ad */}
-      <div className="my-4">
+      {/* Ads */}
+      <div className="my-4 space-y-3">
         <BannerAd className="mx-auto" />
+        <NativeAd className="mx-auto max-w-md" />
       </div>
       
       <ScrollArea className={isMobile ? 'h-[calc(100vh-9rem)]' : 'h-[calc(100vh-8rem)]'}>
