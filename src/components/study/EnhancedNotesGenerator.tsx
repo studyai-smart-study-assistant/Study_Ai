@@ -162,8 +162,8 @@ Notes में ये सभी sections शामिल करें:
       
       toast.success('📝 उच्च गुणवत्ता के Notes तैयार और सहेजे गए!');
       
-      // Navigate to notes view page
-      navigate('/notes-view', { state: { note: newNote } });
+      // Show ad gate between generation and notes view
+      navigate('/notes-ad', { state: { note: newNote } });
     } catch (error) {
       console.error('Error generating notes:', error);
       toast.error('Notes generate करने में error आया');
@@ -486,7 +486,7 @@ Notes में ये सभी sections शामिल करें:
                               timestamp: new Date(note.timestamp).toISOString(),
                               isFavorite: false
                             };
-                            navigate('/notes-view', { state: { note: noteToView } });
+                            navigate('/notes-ad', { state: { note: noteToView } });
                           }}
                           className="bg-purple-100 hover:bg-purple-200 text-purple-800 dark:bg-purple-800 dark:text-purple-200"
                         >

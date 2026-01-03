@@ -33,6 +33,7 @@ const SavedMessages = lazy(() => import('@/pages/SavedMessages'));
 const StudyTube = lazy(() => import('@/pages/StudyTube'));
 const InteractiveTeacher = lazy(() => import('@/pages/InteractiveTeacher'));
 const NotesView = lazy(() => import('@/pages/NotesView'));
+const NotesAdGate = lazy(() => import('@/pages/NotesAdGate'));
 const PointsWalletPage = lazy(() => import('@/pages/PointsWalletPage'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 
@@ -84,6 +85,7 @@ function App() {
                               <Route path="/chat-history" element={<ChatHistory />} />
                               <Route path="/saved-messages" element={<SavedMessages />} />
                               <Route path="/interactive-teacher/:sessionId" element={<InteractiveTeacher />} />
+                              <Route path="/notes-ad" element={<NotesAdGate />} />
                               <Route path="/notes-view" element={<NotesView />} />
                               <Route path="/points-wallet" element={<PointsWalletPage />} />
                               <Route path="*" element={<NotFound />} />

@@ -16,41 +16,41 @@ declare global {
   }
 }
 
+const BANNER_SCRIPT_SRC =
+  'https://www.highperformanceformat.com/6a7327b72f3ae30271eb8567f9e02b11/invoke.js';
+
 const BannerAd: React.FC<BannerAdProps> = ({ className = '' }) => {
   const adContainerRef = useRef<HTMLDivElement>(null);
-  const scriptLoadedRef = useRef(false);
 
   useEffect(() => {
-    if (scriptLoadedRef.current || !adContainerRef.current) return;
+    const container = adContainerRef.current;
+    if (!container) return;
 
-    // Set ad options
+    // Avoid duplicating script inside the same container on re-renders
+    if (container.querySelector('script[data-studyai-ad="banner"]')) return;
+
     window.atOptions = {
-      'key': '6a7327b72f3ae30271eb8567f9e02b11',
-      'format': 'iframe',
-      'height': 50,
-      'width': 320,
-      'params': {}
+      key: '6a7327b72f3ae30271eb8567f9e02b11',
+      format: 'iframe',
+      height: 50,
+      width: 320,
+      params: {},
     };
 
-    // Create script element
     const script = document.createElement('script');
-    script.src = 'https://www.highperformanceformat.com/6a7327b72f3ae30271eb8567f9e02b11/invoke.js';
-    script.async = true;
-    
-    adContainerRef.current.appendChild(script);
-    scriptLoadedRef.current = true;
+    script.setAttribute('data-studyai-ad', 'banner');
+    script.setAttribute('data-cfasync', 'false');
+    script.src = BANNER_SCRIPT_SRC;
 
-    return () => {
-      // Cleanup on unmount
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
-      }
-    };
+    // Important: keep it synchronous (matches the provided Adsterra snippet)
+    script.async = false;
+
+    container.appendChild(script);
   }, []);
 
   return (
-    <div className={`banner-ad-container flex justify-center items-center ${className}`}>
-      <div 
+    <div className={`flex justify-center items-center ${className}`}>
+      <div
         ref={adContainerRef}
         className="w-full max-w-[320px] h-[50px] overflow-hidden rounded-lg bg-muted/30"
       />

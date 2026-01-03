@@ -193,10 +193,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             </Button>
           </div>
           
-          {/* Banner Ad in Sidebar */}
-          <div className="px-4 py-2">
-            <BannerAd className="mx-auto" />
-          </div>
+          {/* Banner Ad removed from Sidebar to avoid conflicts and ensure ads render reliably per-page */}
         </ScrollArea>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
