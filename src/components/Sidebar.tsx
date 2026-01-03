@@ -37,6 +37,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useAvatarUrl } from '@/hooks/useAvatarUrl';
+import { BannerAd } from '@/components/ads';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -190,6 +191,11 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 View Leaderboard
               </Link>
             </Button>
+          </div>
+          
+          {/* Banner Ad in Sidebar */}
+          <div className="px-4 py-2">
+            <BannerAd className="mx-auto" />
           </div>
         </ScrollArea>
 

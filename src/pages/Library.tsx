@@ -12,6 +12,7 @@ import { BookCategory } from '@/types/library';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { BannerAd } from '@/components/ads';
 
 const Library: React.FC = () => {
   const { currentUser } = useAuth();
@@ -104,6 +105,11 @@ const Library: React.FC = () => {
                 books={getDisplayBooks()} 
                 isLoading={isLoading} 
               />
+              
+              {/* Banner Ad at bottom of book list */}
+              <div className="mt-6 mb-4">
+                <BannerAd className="mx-auto" />
+              </div>
             </TabsContent>
           </Tabs>
         </div>

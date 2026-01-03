@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Search, Trophy, Medal, Award } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { BannerAd, NativeAd } from '@/components/ads';
 
 const LeaderboardPage = () => {
   const { currentUser } = useAuth();
@@ -34,6 +35,11 @@ const LeaderboardPage = () => {
       <div className="max-w-4xl mx-auto p-4">
         {/* Header */}
         <LeaderboardHeader />
+        
+        {/* Banner Ad at top */}
+        <div className="mb-4">
+          <BannerAd className="mx-auto" />
+        </div>
         
         <div className="flex flex-col lg:flex-row gap-6 items-start">
           {/* Main Content */}
@@ -110,33 +116,43 @@ const LeaderboardPage = () => {
           </div>
           
           {/* Side Panel */}
-          <LeaderboardSidePanel
-            topUsers={topUsers.map(user => ({
-              id: user.id,
-              name: user.name,
-              avatar: user.avatar,
-              rank: user.rank,
-              xp: user.xp,
-              streakDays: 0,
-              studyHours: 0,
-              level: user.level,
-              badges: [],
-              lastActive: new Date().toISOString(),
-            }))}
-            currentUserData={currentUserData ? {
-              id: currentUserData.id,
-              name: currentUserData.name,
-              avatar: currentUserData.avatar,
-              rank: currentUserData.rank,
-              xp: currentUserData.xp,
-              streakDays: 0,
-              studyHours: 0,
-              level: currentUserData.level,
-              badges: [],
-              lastActive: new Date().toISOString(),
-            } : null}
-            isLoggedIn={!!currentUser}
-          />
+          <div className="lg:w-80 space-y-4">
+            <LeaderboardSidePanel
+              topUsers={topUsers.map(user => ({
+                id: user.id,
+                name: user.name,
+                avatar: user.avatar,
+                rank: user.rank,
+                xp: user.xp,
+                streakDays: 0,
+                studyHours: 0,
+                level: user.level,
+                badges: [],
+                lastActive: new Date().toISOString(),
+              }))}
+              currentUserData={currentUserData ? {
+                id: currentUserData.id,
+                name: currentUserData.name,
+                avatar: currentUserData.avatar,
+                rank: currentUserData.rank,
+                xp: currentUserData.xp,
+                streakDays: 0,
+                studyHours: 0,
+                level: currentUserData.level,
+                badges: [],
+                lastActive: new Date().toISOString(),
+              } : null}
+              isLoggedIn={!!currentUser}
+            />
+            
+            {/* Native Ad in sidebar */}
+            <Card className="border border-dashed">
+              <CardContent className="pt-4">
+                <p className="text-xs text-center text-muted-foreground mb-2">प्रायोजित</p>
+                <NativeAd />
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

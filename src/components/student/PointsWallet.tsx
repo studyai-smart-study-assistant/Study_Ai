@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Wallet, TrendingUp, TrendingDown, Clock, Gift, Share2, Copy, ArrowRightLeft, Coins, CreditCard, Play } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, Clock, Gift, Share2, Copy, ArrowRightLeft, Coins, CreditCard } from 'lucide-react';
 import { fetchUserTransactions, DisplayTransaction } from '@/utils/points/transactions';
 import { generateReferralCode, getReferralCode, getTotalReferrals, REFERRAL_REWARDS } from '@/utils/points/referralSystem';
 import { convertPointsToCredits } from '@/utils/points/core';
@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { hi } from 'date-fns/locale';
-import AdRewardButton from './AdRewardButton';
+import { NativeAd, BannerAd } from '@/components/ads';
 
 interface PointsWalletProps {
   userId: string;
@@ -344,14 +344,13 @@ const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints, curr
         {/* Store Tab */}
         <TabsContent value="store">
           <div className="space-y-4">
-            {/* Ad Reward Button - Most Prominent */}
-            <AdRewardButton 
-              userId={userId} 
-              onCreditsEarned={() => {
-                if (onRefresh) onRefresh();
-                loadData();
-              }} 
-            />
+            {/* Native Ad */}
+            <Card className="border-2 border-dashed border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20">
+              <CardContent className="pt-4">
+                <p className="text-xs text-center text-muted-foreground mb-3">प्रायोजित</p>
+                <NativeAd className="mb-2" />
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>
@@ -429,7 +428,6 @@ const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints, curr
                         अभी क्रेडिट्स कमाने के तरीके:
                       </h5>
                       <ul className="text-xs text-amber-700 dark:text-amber-300 space-y-1">
-                        <li>• <strong>प्रचार देखें:</strong> हर प्रचार पर 20 क्रेडिट्स (प्रति दिन 20 प्रचार)</li>
                         <li>• पहली बार लॉगिन: 100 मुफ्त क्रेडिट्स</li>
                         <li>• दोस्तों को रेफर करें और पॉइंट्स कमाएं</li>
                         <li>• पॉइंट्स को क्रेडिट्स में बदलें (50:1 ratio)</li>
@@ -438,15 +436,8 @@ const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints, curr
                   </CardContent>
                 </Card>
 
-                {/* Beta Notice */}
-                <Card className="bg-muted/50">
-                  <CardContent className="pt-4">
-                    <p className="text-xs text-center text-muted-foreground">
-                      🎉 <strong>Beta उपयोगकर्ता विशेष:</strong> अभी प्रचार देखकर मुफ्त क्रेडिट्स कमाएं!
-                      प्रति दिन 400 क्रेडिट्स तक कमा सकते हैं।
-                    </p>
-                  </CardContent>
-                </Card>
+                {/* Banner Ad */}
+                <BannerAd className="my-4" />
               </CardContent>
             </Card>
           </div>
