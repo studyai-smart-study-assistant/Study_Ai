@@ -77,12 +77,10 @@ const NotesAdGate = () => {
               <CardTitle className="text-base">प्रायोजित</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex justify-center">
-                <BannerAd className="mx-auto" />
-              </div>
+              <BannerAd className="mx-auto" />
               <NativeAd className="rounded-lg overflow-hidden" />
 
-              <div className="pt-2 flex items-center justify-between gap-3">
+              <div className="pt-4 flex items-center justify-between gap-3">
                 <Button variant="outline" onClick={() => navigate(-1)}>
                   वापस
                 </Button>

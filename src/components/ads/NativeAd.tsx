@@ -1,56 +1,49 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface NativeAdProps {
   className?: string;
 }
 
-declare global {
-  interface Window {
-    __studyai_native_ad_mounted?: boolean;
-    __studyai_native_ad_script_loaded?: boolean;
-  }
-}
-
-const NATIVE_CONTAINER_ID = 'container-e9a21b3e7364d13bbd61a09df9d425a6';
-const NATIVE_SCRIPT_SRC =
-  'https://pl28384008.effectivegatecpm.com/e9a21b3e7364d13bbd61a09df9d425a6/invoke.js';
+const CONTAINER_ID = 'container-e9a21b3e7364d13bbd61a09df9d425a6';
 
 const NativeAd: React.FC<NativeAdProps> = ({ className = '' }) => {
-  const adContainerRef = useRef<HTMLDivElement>(null);
-  const [enabled, setEnabled] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const scriptInjected = useRef(false);
 
   useEffect(() => {
-    // Prevent multiple instances on the same page (duplicate IDs will break Adsterra rendering)
-    if (window.__studyai_native_ad_mounted) {
-      setEnabled(false);
+    // Only inject once and only if container exists
+    if (!containerRef.current || scriptInjected.current) return;
+    
+    // Check if container already has the ad div
+    if (document.getElementById(CONTAINER_ID)) {
       return;
     }
+    
+    scriptInjected.current = true;
 
-    window.__studyai_native_ad_mounted = true;
+    // Create the container div that Adsterra expects
+    const adContainer = document.createElement('div');
+    adContainer.id = CONTAINER_ID;
+    containerRef.current.appendChild(adContainer);
 
-    // Load script once globally
-    if (!window.__studyai_native_ad_script_loaded) {
-      const script = document.createElement('script');
-      script.async = true;
-      script.setAttribute('data-cfasync', 'false');
-      script.src = NATIVE_SCRIPT_SRC;
-      document.body.appendChild(script);
-      window.__studyai_native_ad_script_loaded = true;
-    }
+    // Create and inject the script
+    const script = document.createElement('script');
+    script.src = 'https://pl28384008.effectivegatecpm.com/e9a21b3e7364d13bbd61a09df9d425a6/invoke.js';
+    script.async = true;
+    script.setAttribute('data-cfasync', 'false');
+    
+    containerRef.current.appendChild(script);
 
     return () => {
-      window.__studyai_native_ad_mounted = false;
+      scriptInjected.current = false;
     };
   }, []);
 
-  if (!enabled) return null;
-
   return (
-    <div className={className}>
+    <div className={`w-full ${className}`}>
       <div
-        ref={adContainerRef}
-        id={NATIVE_CONTAINER_ID}
-        className="w-full overflow-hidden rounded-lg"
+        ref={containerRef}
+        className="w-full min-h-[100px] overflow-hidden rounded-lg"
       />
     </div>
   );
