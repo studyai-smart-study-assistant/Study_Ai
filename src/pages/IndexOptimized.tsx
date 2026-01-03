@@ -11,7 +11,7 @@ import DailyLoginBonus from '@/components/student/DailyLoginBonus';
 import LoadingScreen from '@/components/home/LoadingScreen';
 import BackgroundElements from '@/components/home/BackgroundElements';
 import HeaderActions from '@/components/home/HeaderActions';
-import { BannerAd } from '@/components/ads';
+import { NativeAd } from '@/components/ads';
 import FastErrorBoundary from '@/components/common/FastErrorBoundary';
 import { useAutoLoginBonus } from '@/hooks/home/useAutoLoginBonus';
 import { useChatInitialization } from '@/hooks/home/useChatInitialization';
@@ -107,9 +107,9 @@ const IndexOptimized = () => {
             </ChatHeader>
           </motion.div>
 
-          {/* Banner Ad (always visible on Home) */}
+          {/* Native Ad (always visible on Home) */}
           <div className="px-4 py-2 flex justify-center">
-            <BannerAd className="mx-auto" />
+            <NativeAd className="max-w-md mx-auto" />
           </div>
           
           <div className="flex-1 flex overflow-hidden">

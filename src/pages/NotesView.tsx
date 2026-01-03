@@ -5,7 +5,7 @@ import { ArrowLeft, Download, Copy, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { BannerAd } from '@/components/ads';
+import { NativeAd } from '@/components/ads';
 
 interface GeneratedNote {
   id: string;
@@ -158,9 +158,9 @@ const NotesView = () => {
           </div>
         )}
 
-        {/* Banner Ad (between summary and content) */}
-        <div className="mb-6 flex justify-center">
-          <BannerAd className="mx-auto" />
+        {/* Native Ad (between summary and content) */}
+        <div className="mb-6">
+          <NativeAd className="max-w-md mx-auto" />
         </div>
 
         {/* Notes Content */}

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BannerAd, NativeAd } from '@/components/ads';
+import { NativeAd } from '@/components/ads';
 
 interface GeneratedNote {
   id: string;
@@ -77,7 +77,6 @@ const NotesAdGate = () => {
               <CardTitle className="text-base">प्रायोजित</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <BannerAd className="mx-auto" />
               <NativeAd className="rounded-lg overflow-hidden" />
 
               <div className="pt-4 flex items-center justify-between gap-3">
