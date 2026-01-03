@@ -61,13 +61,9 @@ const Index = () => {
     }
   };
 
-  // Prevent auto-scroll on load
+  // Prevent auto-scroll on load but allow scrolling
   React.useEffect(() => {
     window.scrollTo(0, 0);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
   }, []);
 
   if (isLoading || authLoading) {
@@ -77,11 +73,10 @@ const Index = () => {
   return (
     <ErrorBoundary>
       <motion.div 
-        className="flex h-screen overflow-hidden bg-gradient-to-br from-white via-purple-50 to-indigo-50 dark:from-gray-900 dark:via-purple-950 dark:to-indigo-950 relative"
+        className="flex min-h-screen flex-col bg-gradient-to-br from-white via-purple-50 to-indigo-50 dark:from-gray-900 dark:via-purple-950 dark:to-indigo-950 relative overflow-auto"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        style={{ height: '100vh', maxHeight: '100vh' }}
       >
         <BackgroundElements />
 
@@ -100,7 +95,7 @@ const Index = () => {
           </motion.div>
         </AnimatePresence>
         
-        <main className="flex-1 flex flex-col h-full w-full overflow-hidden relative z-10">
+        <main className="flex-1 flex flex-col w-full relative z-10">
           <motion.div
             initial={{ y: -50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
