@@ -6,7 +6,7 @@ interface UseMessageHandlerProps {
   loadMessages: () => Promise<void>;
   onChatUpdated?: () => void;
   scrollToBottom: () => void;
-  sendMessage: (input: string, imageUrl?: string) => void;
+  sendMessage: (input: string, imageUrl?: string, skipAIResponse?: boolean) => void;
 }
 
 export const useMessageHandler = ({
@@ -16,11 +16,13 @@ export const useMessageHandler = ({
   scrollToBottom,
   sendMessage
 }: UseMessageHandlerProps) => {
-  
-  const handleSend = useCallback((input: string, imageUrl?: string) => {
-    sendMessage(input, imageUrl);
-    scrollToBottom();
-  }, [sendMessage, scrollToBottom]);
+  const handleSend = useCallback(
+    (input: string, imageUrl?: string, skipAIResponse?: boolean) => {
+      sendMessage(input, imageUrl, skipAIResponse);
+      scrollToBottom();
+    },
+    [sendMessage, scrollToBottom]
+  );
 
   const handleMessageEdited = useCallback(async () => {
     await loadMessages();

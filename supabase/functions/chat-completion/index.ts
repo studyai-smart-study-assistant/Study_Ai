@@ -94,10 +94,15 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const generatedText = data.choices[0].message.content;
-    
-    console.log('✅ Successfully generated response, length:', generatedText?.length);
 
+    const generatedText = data?.choices?.[0]?.message?.content;
+    if (!generatedText) {
+      console.error('❌ Unexpected AI Gateway response (no text). Keys:', Object.keys(data || {}));
+      console.error('❌ Full response snippet:', JSON.stringify(data).slice(0, 800));
+      throw new Error('AI response missing text');
+    }
+
+    console.log('✅ Successfully generated response, length:', generatedText.length);
     return new Response(JSON.stringify({ 
       response: generatedText,
       model: model 

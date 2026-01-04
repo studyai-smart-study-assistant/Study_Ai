@@ -11,17 +11,29 @@ export async function generateResponse(
 ): Promise<string> {
   try {
     console.log(`🚀 Calling Lovable AI Gateway with model:`, model);
-    
-    // Convert history to the format expected by the edge function
-    const formattedHistory = history.map(msg => ({
+
+    const sanitizeForAI = (text: string) => {
+      // Remove/shorten embedded image payloads to avoid huge prompts + gateway failures
+      return (text || '')
+        // Remove base64/data-url image blocks like: [Image: data:image/...]
+        .replace(/\[Image:\s*data:image\/[^\]]+\]/g, '[Image attached]')
+        // Remove inline image links like: [image:https://...]
+        .replace(/\[image:[^\]]+\]/gi, '[Image attached]')
+        .trim();
+    };
+
+    // Convert history to the format expected by the edge function (sanitized)
+    const formattedHistory = history.map((msg) => ({
       role: msg.role,
-      content: msg.content
+      content: sanitizeForAI(msg.content)
     }));
+
+    const sanitizedPrompt = sanitizeForAI(prompt);
 
     // Call the Lovable AI edge function
     const { data, error } = await supabase.functions.invoke('chat-completion', {
       body: {
-        prompt,
+        prompt: sanitizedPrompt,
         history: formattedHistory,
         model
       }
