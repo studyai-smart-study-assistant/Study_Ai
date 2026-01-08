@@ -36,6 +36,8 @@ const NotesView = lazy(() => import('@/pages/NotesView'));
 const NotesAdGate = lazy(() => import('@/pages/NotesAdGate'));
 const PointsWalletPage = lazy(() => import('@/pages/PointsWalletPage'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
+const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('@/pages/TermsOfService'));
 
 
 const queryClient = new QueryClient({
@@ -88,6 +90,8 @@ function App() {
                               <Route path="/notes-ad" element={<NotesAdGate />} />
                               <Route path="/notes-view" element={<NotesView />} />
                               <Route path="/points-wallet" element={<PointsWalletPage />} />
+                              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                              <Route path="/terms-of-service" element={<TermsOfService />} />
                               <Route path="*" element={<NotFound />} />
                             </Routes>
                           </Suspense>

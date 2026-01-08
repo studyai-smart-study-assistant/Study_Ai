@@ -21,7 +21,7 @@ import { logoutUser } from '@/lib/firebase';
 import { syncUserPoints } from '@/utils/points/core';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { NativeAd } from '@/components/ads';
+
 
 const Profile = () => {
   const { currentUser, isLoading } = useAuth();
@@ -202,11 +202,6 @@ const Profile = () => {
                     </Button>
                   </div>
                   
-                  {/* Native Ad */}
-                  <div className="my-4">
-                    <p className="text-xs text-center text-muted-foreground mb-2">प्रायोजित</p>
-                    <NativeAd />
-                  </div>
                   
                   {/* User Info Cards */}
                   <div>
@@ -257,11 +252,6 @@ const Profile = () => {
                     <BackupCard />
                   </div>
                   
-                  {/* Native Ad */}
-                  <div className="mt-4">
-                    <p className="text-xs text-center text-muted-foreground mb-2">प्रायोजित</p>
-                    <NativeAd />
-                  </div>
                   
                   <Separator className="my-6" />
                   
