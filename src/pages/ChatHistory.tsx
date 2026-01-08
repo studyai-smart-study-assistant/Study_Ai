@@ -10,7 +10,7 @@ import { ArrowLeft, Search, MessageSquare, Calendar, Trash2, Edit3, Check, X } f
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { NativeAd } from '@/components/ads';
+
 
 const ChatHistory = () => {
   const { currentUser, isLoading } = useAuth();
@@ -174,11 +174,6 @@ const ChatHistory = () => {
           </div>
         </div>
 
-        {/* Native Ad */}
-        <div className="mb-4">
-          <p className="text-xs text-center text-muted-foreground mb-1">प्रायोजित</p>
-          <NativeAd />
-        </div>
 
         {/* Search and Stats Card */}
         <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-purple-100 dark:border-purple-800 overflow-hidden mb-6">

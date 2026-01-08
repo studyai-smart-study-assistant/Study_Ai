@@ -5,7 +5,7 @@ import { ArrowLeft, Download, Copy, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { BannerAd } from '@/components/ads';
+
 
 interface GeneratedNote {
   id: string;
@@ -158,11 +158,6 @@ const NotesView = () => {
           </div>
         )}
 
-        {/* Banner Ad (between summary and content) */}
-        <div className="mb-6">
-          <p className="text-xs text-center text-muted-foreground mb-1">प्रायोजित</p>
-          <BannerAd className="mx-auto" />
-        </div>
 
         {/* Notes Content */}
         <div className="bg-background">

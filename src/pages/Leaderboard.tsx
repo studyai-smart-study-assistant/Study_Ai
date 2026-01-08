@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Search, Trophy, Medal, Award } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { NativeAd } from '@/components/ads';
+
 
 const LeaderboardPage = () => {
   const { currentUser } = useAuth();
@@ -36,11 +36,6 @@ const LeaderboardPage = () => {
         {/* Header */}
         <LeaderboardHeader />
         
-        {/* Native Ad at top */}
-        <div className="mb-4">
-          <p className="text-xs text-center text-muted-foreground mb-1">प्रायोजित</p>
-          <NativeAd />
-        </div>
         
         <div className="flex flex-col lg:flex-row gap-6 items-start">
           {/* Main Content */}
@@ -146,13 +141,6 @@ const LeaderboardPage = () => {
               isLoggedIn={!!currentUser}
             />
             
-            {/* Native Ad in sidebar */}
-            <Card className="border border-dashed">
-              <CardContent className="pt-4">
-                <p className="text-xs text-center text-muted-foreground mb-2">प्रायोजित</p>
-                <NativeAd />
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>

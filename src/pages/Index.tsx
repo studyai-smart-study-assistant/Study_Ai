@@ -11,7 +11,7 @@ import DailyLoginBonus from '@/components/student/DailyLoginBonus';
 import LoadingScreen from '@/components/home/LoadingScreen';
 import BackgroundElements from '@/components/home/BackgroundElements';
 import HeaderActions from '@/components/home/HeaderActions';
-import { BannerAd } from '@/components/ads';
+
 import ErrorBoundary from '@/components/ErrorBoundary';
 
 import { useAutoLoginBonus } from '@/hooks/home/useAutoLoginBonus';
@@ -114,11 +114,6 @@ const Index = () => {
             </ChatHeader>
           </motion.div>
 
-          {/* Banner Ad (always visible on Home) */}
-          <div className="px-4 py-2">
-            <p className="text-xs text-center text-muted-foreground mb-1">प्रायोजित</p>
-            <BannerAd className="mx-auto" />
-          </div>
           
           <div className="flex-1 flex overflow-hidden">
             {currentChatId && (
