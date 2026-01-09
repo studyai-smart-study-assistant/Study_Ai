@@ -6,19 +6,16 @@ import { LogOut, Trash2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { deleteUser, EmailAuthProvider, reauthenticateWithCredential, User as FirebaseUser } from 'firebase/auth';
-import { ref, remove } from 'firebase/database';
-import { database } from '@/lib/firebase/config';
+import { User } from '@/contexts/AuthContext';
 
 interface DangerZoneProps {
-  currentUser: FirebaseUser;
+  currentUser: User;
   onLogout: () => Promise<void> | void;
 }
 
 const DangerZone: React.FC<DangerZoneProps> = ({ currentUser, onLogout }) => {
   const [open, setOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
-  const [password, setPassword] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const navigate = useNavigate();
 
@@ -26,7 +23,6 @@ const DangerZone: React.FC<DangerZoneProps> = ({ currentUser, onLogout }) => {
     try {
       localStorage.removeItem(`${uid}_points`);
       localStorage.removeItem(`${uid}_level`);
-      // Remove any other keys starting with uid_
       const toRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -34,13 +30,6 @@ const DangerZone: React.FC<DangerZoneProps> = ({ currentUser, onLogout }) => {
       }
       toRemove.forEach((k) => localStorage.removeItem(k));
     } catch {}
-  };
-
-  const purgeSupabaseData = async (uid: string) => {
-    const { error } = await supabase.functions.invoke('account-purge', {
-      body: { uid },
-    });
-    if (error) throw error;
   };
 
   const handleAccountDelete = async () => {
@@ -52,30 +41,21 @@ const DangerZone: React.FC<DangerZoneProps> = ({ currentUser, onLogout }) => {
 
     setIsDeleting(true);
     try {
-      // Re-authenticate with password for security
-      if (currentUser.email) {
-        const cred = EmailAuthProvider.credential(currentUser.email, password);
-        await reauthenticateWithCredential(currentUser, cred);
-      }
-
-      // Clean up backend data first
-      await purgeSupabaseData(currentUser.uid);
-      await remove(ref(database, `users/${currentUser.uid}`)).catch(() => {});
+      // Clean up local data
       clearLocalData(currentUser.uid);
 
-      // Finally delete auth user
-      await deleteUser(currentUser);
+      // Delete Supabase data via edge function
+      await supabase.functions.invoke('account-purge', {
+        body: { uid: currentUser.uid },
+      });
 
       toast.success('Account deleted successfully');
       setOpen(false);
+      await onLogout();
       navigate('/');
     } catch (err: any) {
-      if (err?.code === 'auth/requires-recent-login') {
-        toast.error('Please log in again and retry account deletion');
-      } else {
-        toast.error('Failed to delete account');
-        console.error('Delete account error:', err);
-      }
+      toast.error('Failed to delete account');
+      console.error('Delete account error:', err);
     } finally {
       setIsDeleting(false);
     }
@@ -118,23 +98,13 @@ const DangerZone: React.FC<DangerZoneProps> = ({ currentUser, onLogout }) => {
                 onChange={(e) => setConfirmText(e.target.value)}
               />
             </div>
-            <div>
-              <label className="text-sm font-medium">Confirm your password</label>
-              <input
-                type="password"
-                className="mt-2 w-full rounded-md border px-3 py-2 bg-background"
-                placeholder="Your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
           </div>
 
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)} disabled={isDeleting}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleAccountDelete} disabled={isDeleting || confirmText !== 'DELETE' || !password}>
+            <Button variant="destructive" onClick={handleAccountDelete} disabled={isDeleting || confirmText !== 'DELETE'}>
               {isDeleting ? 'Deleting…' : 'Delete Account'}
             </Button>
           </DialogFooter>

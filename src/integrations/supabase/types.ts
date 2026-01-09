@@ -190,25 +190,61 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string | null
+          current_streak: number | null
           display_name: string | null
+          education_level: string | null
+          email: string | null
           id: string
+          last_login: string | null
+          level: number | null
+          longest_streak: number | null
+          photo_url: string | null
+          points: number | null
+          provider: string | null
+          referral_code: string | null
+          referred_by: string | null
           updated_at: string | null
+          user_category: string | null
           user_id: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string | null
+          current_streak?: number | null
           display_name?: string | null
+          education_level?: string | null
+          email?: string | null
           id?: string
+          last_login?: string | null
+          level?: number | null
+          longest_streak?: number | null
+          photo_url?: string | null
+          points?: number | null
+          provider?: string | null
+          referral_code?: string | null
+          referred_by?: string | null
           updated_at?: string | null
+          user_category?: string | null
           user_id: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string | null
+          current_streak?: number | null
           display_name?: string | null
+          education_level?: string | null
+          email?: string | null
           id?: string
+          last_login?: string | null
+          level?: number | null
+          longest_streak?: number | null
+          photo_url?: string | null
+          points?: number | null
+          provider?: string | null
+          referral_code?: string | null
+          referred_by?: string | null
           updated_at?: string | null
+          user_category?: string | null
           user_id?: string
         }
         Relationships: []
