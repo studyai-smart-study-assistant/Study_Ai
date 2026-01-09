@@ -1,110 +1,83 @@
 
-import { database } from '../firebase/config';
-import { ref, get, onValue } from 'firebase/database';
+import { supabase } from '@/integrations/supabase/client';
 import { LeaderboardUser } from './types';
 import { generateBadges } from './badge-service';
 import { getLastActiveText } from './utils';
 import { getAllUsersUsage, formatUsageTime } from '@/utils/realTimeUsageTracker';
-import { supabase } from '@/integrations/supabase/client';
 
-// Get user avatar from Supabase
-const getUserAvatar = async (userId: string): Promise<string | undefined> => {
-  try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('avatar_url')
-      .eq('user_id', userId)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching user avatar:', error);
-      return undefined;
-    }
-
-    return data?.avatar_url || undefined;
-  } catch (error) {
-    console.error('Error in getUserAvatar:', error);
-    return undefined;
-  }
-};
-
-// Convert Firebase user data to LeaderboardUser format
-const transformUserData = async (userId: string, userData: any, rank: number): Promise<LeaderboardUser> => {
-  // Get streak data directly from Firebase - this is now the primary source
-  const streakDays = userData.currentStreak || 0;
-  const longestStreak = userData.longestStreak || 0;
-
-  console.log(`🔥 Transform user ${userData.displayName}: currentStreak=${userData.currentStreak}, longestStreak=${userData.longestStreak}`);
-
-  // Get real usage time from Firebase instead of calculating from points
-  const allUsersUsage = await getAllUsersUsage();
-  const userUsage = allUsersUsage[userId];
-  const actualStudyMinutes = userUsage?.totalMinutes || 0;
-  const studyHours = Math.floor(actualStudyMinutes / 60);
-
-  console.log(`⏰ User ${userData.displayName}: Real usage time=${actualStudyMinutes} minutes (${studyHours} hours)`);
-
-  // Get recent activity timestamp
-  const lastLoginTime = userData.lastLogin || userData.createdAt || Date.now();
-  const lastActive = getLastActiveText(lastLoginTime);
-
-  // Create badges based on achievements - returns string array
-  const badges = generateBadges(userData);
-
-  // Get avatar from Supabase profiles
-  const avatarUrl = await getUserAvatar(userId);
-
-  return {
-    id: userId,
-    name: userData.displayName || userData.name || `User_${userId.substring(0, 5)}`,
-    avatar: avatarUrl || userData.photoURL || undefined,
-    rank,
-    xp: userData.points || 0,
-    streakDays, // Now from Firebase
-    studyHours, // Now from real usage tracking
-    level: userData.level || 1,
-    badges, // Now correct string array type
-    lastActive,
-    // Add usage details for competition
-    usageMinutes: actualStudyMinutes,
-    sessionsCount: userUsage?.sessionsCount || 0,
-    isActive: userUsage?.isActive || false
-  };
-};
-
-// Get leaderboard data from Firebase with real usage time
+// Get leaderboard data from Supabase
 export const getLeaderboardData = async (): Promise<LeaderboardUser[]> => {
   try {
-    const usersRef = ref(database, 'users');
-    const snapshot = await get(usersRef);
+    // Get all user points with profiles
+    const { data: pointsData, error: pointsError } = await supabase
+      .from('user_points')
+      .select('user_id, balance, xp, level')
+      .order('xp', { ascending: false });
     
-    if (!snapshot.exists()) {
+    if (pointsError) {
+      console.error('Error fetching user points:', pointsError);
       return [];
     }
-    
-    const users: any[] = [];
-    snapshot.forEach((childSnapshot) => {
-      const userData = childSnapshot.val();
-      users.push({
-        id: childSnapshot.key,
-        ...userData
+
+    if (!pointsData || pointsData.length === 0) {
+      return [];
+    }
+
+    // Get profiles for all users
+    const userIds = pointsData.map(p => p.user_id);
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('user_id, display_name, avatar_url, current_streak, longest_streak, last_login')
+      .in('user_id', userIds);
+
+    if (profilesError) {
+      console.error('Error fetching profiles:', profilesError);
+    }
+
+    const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+
+    // Get real usage time
+    const allUsersUsage = await getAllUsersUsage();
+
+    // Transform to LeaderboardUser format
+    const transformedUsers: LeaderboardUser[] = pointsData.map((userData, index) => {
+      const profile = profileMap.get(userData.user_id);
+      const userUsage = allUsersUsage[userData.user_id];
+      const actualStudyMinutes = userUsage?.totalMinutes || 0;
+      const studyHours = Math.floor(actualStudyMinutes / 60);
+
+      const streakDays = profile?.current_streak || 0;
+      const longestStreak = profile?.longest_streak || 0;
+
+      const lastLoginTime = profile?.last_login ? new Date(profile.last_login).getTime() : Date.now();
+      const lastActive = getLastActiveText(lastLoginTime);
+
+      // Create badges based on achievements
+      const badges = generateBadges({
+        points: userData.xp || 0,
+        level: userData.level || 1,
+        currentStreak: streakDays,
+        longestStreak: longestStreak
       });
+
+      return {
+        id: userData.user_id,
+        name: profile?.display_name || `User_${userData.user_id.substring(0, 5)}`,
+        avatar: profile?.avatar_url || undefined,
+        rank: index + 1,
+        xp: userData.xp || 0,
+        streakDays,
+        studyHours,
+        level: userData.level || 1,
+        badges,
+        lastActive,
+        usageMinutes: actualStudyMinutes,
+        sessionsCount: userUsage?.sessionsCount || 0,
+        isActive: userUsage?.isActive || false
+      };
     });
-    
-    // Sort by points (and then by level if points are equal)
-    users.sort((a, b) => {
-      if (b.points !== a.points) {
-        return b.points - a.points;
-      }
-      return b.level - a.level;
-    });
-    
-    // Transform to LeaderboardUser format with ranks and real usage time
-    const transformedUsers = await Promise.all(
-      users.map((user, index) => transformUserData(user.id, user, index + 1))
-    );
-    
-    console.log('📊 Leaderboard with real usage time:', transformedUsers.slice(0, 3));
+
+    console.log('📊 Leaderboard from Supabase:', transformedUsers.slice(0, 3));
     
     return transformedUsers;
   } catch (error) {
@@ -113,45 +86,44 @@ export const getLeaderboardData = async (): Promise<LeaderboardUser[]> => {
   }
 };
 
-// Real-time leaderboard data listener with usage time
+// Real-time leaderboard data listener using Supabase realtime
 export const observeLeaderboardData = (callback: (data: LeaderboardUser[]) => void): (() => void) => {
-  const usersRef = ref(database, 'users');
-  
-  const listener = onValue(usersRef, async (snapshot) => {
-    if (!snapshot.exists()) {
-      callback([]);
-      return;
-    }
-    
-    const users: any[] = [];
-    snapshot.forEach((childSnapshot) => {
-      const userData = childSnapshot.val();
-      users.push({
-        id: childSnapshot.key,
-        ...userData
-      });
-    });
-    
-    // Sort by points (and then by level if points are equal)
-    users.sort((a, b) => {
-      if (b.points !== a.points) {
-        return b.points - a.points;
+  // Initial fetch
+  getLeaderboardData().then(callback);
+
+  // Subscribe to changes on user_points table
+  const channel = supabase
+    .channel('leaderboard-changes')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'user_points'
+      },
+      async () => {
+        // Re-fetch leaderboard data on any change
+        const data = await getLeaderboardData();
+        callback(data);
       }
-      return b.level - a.level;
-    });
-    
-    // Transform to LeaderboardUser format with ranks and real usage time
-    const transformedUsers = await Promise.all(
-      users.map((user, index) => transformUserData(user.id, user, index + 1))
-    );
-    
-    console.log('📊 Real-time leaderboard with real usage time:', transformedUsers.slice(0, 3));
-    
-    callback(transformedUsers);
-  });
-  
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'profiles'
+      },
+      async () => {
+        // Re-fetch leaderboard data on profile change
+        const data = await getLeaderboardData();
+        callback(data);
+      }
+    )
+    .subscribe();
+
+  // Return unsubscribe function
   return () => {
-    // Return unsubscribe function
-    listener();
+    supabase.removeChannel(channel);
   };
 };
