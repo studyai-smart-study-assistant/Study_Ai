@@ -38,6 +38,10 @@ const PointsWalletPage = lazy(() => import('@/pages/PointsWalletPage'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('@/pages/TermsOfService'));
+const NotesCreator = lazy(() => import('@/pages/NotesCreator'));
+const QuizGeneratorPage = lazy(() => import('@/pages/QuizGeneratorPage'));
+const StudyPlannerPage = lazy(() => import('@/pages/StudyPlannerPage'));
+const HomeworkHelperPage = lazy(() => import('@/pages/HomeworkHelperPage'));
 
 
 const queryClient = new QueryClient({
@@ -92,6 +96,10 @@ function App() {
                               <Route path="/points-wallet" element={<PointsWalletPage />} />
                               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                               <Route path="/terms-of-service" element={<TermsOfService />} />
+                              <Route path="/notes-creator" element={<NotesCreator />} />
+                              <Route path="/quiz-generator" element={<QuizGeneratorPage />} />
+                              <Route path="/study-planner" element={<StudyPlannerPage />} />
+                              <Route path="/homework-helper" element={<HomeworkHelperPage />} />
                               <Route path="*" element={<NotFound />} />
                             </Routes>
                           </Suspense>

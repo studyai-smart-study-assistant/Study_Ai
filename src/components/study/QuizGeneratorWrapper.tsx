@@ -7,7 +7,7 @@ import { Lock } from 'lucide-react';
 import QuizGenerator from './QuizGenerator';
 
 interface QuizGeneratorWrapperProps {
-  onSendMessage: (message: string) => void;
+  onSendMessage?: (message: string) => void;
 }
 
 const QuizGeneratorWrapper: React.FC<QuizGeneratorWrapperProps> = ({ onSendMessage }) => {
