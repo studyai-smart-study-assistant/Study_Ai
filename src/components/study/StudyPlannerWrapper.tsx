@@ -7,7 +7,7 @@ import { Lock } from 'lucide-react';
 import StudyPlanner from './StudyPlanner';
 
 interface StudyPlannerWrapperProps {
-  onSendMessage: (message: string) => void;
+  onSendMessage?: (message: string) => void;
 }
 
 const StudyPlannerWrapper: React.FC<StudyPlannerWrapperProps> = ({ onSendMessage }) => {

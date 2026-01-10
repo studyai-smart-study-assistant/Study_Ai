@@ -7,7 +7,7 @@ import { Lock } from 'lucide-react';
 import EnhancedNotesGenerator from './EnhancedNotesGenerator';
 
 interface EnhancedNotesGeneratorWrapperProps {
-  onSendMessage: (message: string) => void;
+  onSendMessage?: (message: string) => void;
 }
 
 const EnhancedNotesGeneratorWrapper: React.FC<EnhancedNotesGeneratorWrapperProps> = ({ onSendMessage }) => {

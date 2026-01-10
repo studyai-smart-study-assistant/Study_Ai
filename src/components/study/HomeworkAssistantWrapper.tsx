@@ -7,7 +7,7 @@ import { Lock } from 'lucide-react';
 import HomeworkAssistant from './HomeworkAssistant';
 
 interface HomeworkAssistantWrapperProps {
-  onSendMessage: (message: string) => void;
+  onSendMessage?: (message: string) => void;
 }
 
 const HomeworkAssistantWrapper: React.FC<HomeworkAssistantWrapperProps> = ({ onSendMessage }) => {
