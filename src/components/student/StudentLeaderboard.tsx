@@ -1,26 +1,14 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Trophy, Medal, Star, Share2, MessageCircle, Flame } from 'lucide-react';
+import { Users, Trophy, Medal, Star, Share2, Flame } from 'lucide-react';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
-import { observeLeaderboardData, startChat } from '@/lib/firebase';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-
-interface Student {
-  id: string;
-  name: string;
-  points: number;
-  level: number;
-  rank: number;
-  photoURL?: string;
-  isCurrentUser?: boolean;
-  streak?: number;
-}
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useSupabaseLeaderboard } from '@/hooks/useSupabaseLeaderboard';
 
 interface StudentLeaderboardProps {
   currentUser: any;
@@ -38,21 +26,20 @@ const getUserInitials = (name: string): string => {
 // Function to generate a deterministic color based on user id
 const getAvatarColor = (userId: string): string => {
   const colors = [
-    "bg-purple-500 text-white", // Primary purple
-    "bg-indigo-500 text-white", // Indigo
-    "bg-blue-500 text-white",   // Blue
-    "bg-green-500 text-white",  // Green
-    "bg-yellow-500 text-white", // Yellow
-    "bg-orange-500 text-white", // Orange
-    "bg-red-500 text-white",    // Red
-    "bg-pink-500 text-white",   // Pink
-    "bg-violet-500 text-white", // Violet
-    "bg-emerald-500 text-white", // Emerald
-    "bg-teal-500 text-white",   // Teal
-    "bg-cyan-500 text-white",   // Cyan
+    "bg-purple-500 text-white",
+    "bg-indigo-500 text-white",
+    "bg-blue-500 text-white",
+    "bg-green-500 text-white",
+    "bg-yellow-500 text-white",
+    "bg-orange-500 text-white",
+    "bg-red-500 text-white",
+    "bg-pink-500 text-white",
+    "bg-violet-500 text-white",
+    "bg-emerald-500 text-white",
+    "bg-teal-500 text-white",
+    "bg-cyan-500 text-white",
   ];
   
-  // Use the sum of character codes to pick a color
   let sum = 0;
   for (let i = 0; i < userId.length; i++) {
     sum += userId.charCodeAt(i);
@@ -62,64 +49,8 @@ const getAvatarColor = (userId: string): string => {
 };
 
 const StudentLeaderboard: React.FC<StudentLeaderboardProps> = ({ currentUser }) => {
-  const [students, setStudents] = useState<Student[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentUserRank, setCurrentUserRank] = useState<number | null>(null);
-  const navigate = useNavigate();
   const { t, language } = useLanguage();
-  
-  useEffect(() => {
-    if (currentUser) {
-      const unsubscribe = observeLeaderboardData((leaderboardData) => {
-        const studentsWithCurrentUser = leaderboardData.map(student => {
-          // Get streak information directly from Firebase - no localStorage needed
-          const streakValue = student.currentStreak || student.streak || 0;
-          
-          console.log(`🔥 Leaderboard - User ${student.name}: Firebase streak=${streakValue}`);
-          
-          return {
-            ...student,
-            // Ensure name is never undefined
-            name: student.name || 'Unknown',
-            isCurrentUser: student.id === currentUser.uid,
-            streak: streakValue
-          }
-        });
-        
-        setStudents(studentsWithCurrentUser);
-        
-        const currentUserRecord = studentsWithCurrentUser.find(s => s.isCurrentUser);
-        if (currentUserRecord) {
-          setCurrentUserRank(currentUserRecord.rank);
-          
-          if (currentUserRecord.rank <= 10 && leaderboardData.length > 5) {
-            const bonusKey = `${currentUser.uid}_top10_bonus`;
-            if (!localStorage.getItem(bonusKey)) {
-              localStorage.setItem(bonusKey, 'true');
-              
-              import('@/utils/points').then(({ addPointsToUser }) => {
-                addPointsToUser(
-                  currentUser.uid,
-                  20,
-                  'achievement',
-                  language === 'hi' ? 'टॉप 10 लीडरबोर्ड बोनस' : 'Top 10 Leaderboard Bonus'
-                );
-                toast.success(language === 'hi' ? 'आप टॉप 10 में हैं! +20 पॉइंट्स मिले' : 'You are in Top 10! +20 points awarded');
-              });
-            }
-          }
-        }
-        
-        setLoading(false);
-      });
-      
-      return () => {
-        if (typeof unsubscribe === 'function') {
-          unsubscribe();
-        }
-      };
-    }
-  }, [currentUser, language]);
+  const { users, isLoading, currentUserData } = useSupabaseLeaderboard(currentUser?.uid);
   
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Trophy className="h-5 w-5 text-yellow-500" />;
@@ -147,26 +78,6 @@ const StudentLeaderboard: React.FC<StudentLeaderboardProps> = ({ currentUser }) 
     }
   };
   
-  const handleMessageStudent = async (studentId: string) => {
-    if (!currentUser) {
-      toast.error(language === 'hi' ? 'आपको मैसेज भेजने के लिए लॉगिन करना होगा' : 'You need to login to send messages');
-      return;
-    }
-    
-    if (studentId === currentUser.uid) {
-      toast.error(language === 'hi' ? 'आप अपने आप को मैसेज नहीं भेज सकते' : 'You cannot message yourself');
-      return;
-    }
-    
-    try {
-      const chatId = await startChat(currentUser.uid, studentId);
-      navigate('/chat', { state: { activeChatId: chatId, recipientId: studentId, isGroup: false } });
-    } catch (error) {
-      console.error('Error starting chat:', error);
-      toast.error(language === 'hi' ? 'चैट शुरू करने में त्रुटि' : 'Error starting chat');
-    }
-  };
-  
   return (
     <CardContent className="p-2 sm:p-4">
       <div className="space-y-4">
@@ -186,98 +97,76 @@ const StudentLeaderboard: React.FC<StudentLeaderboardProps> = ({ currentUser }) 
           </Button>
         </div>
         
-        {currentUserRank && (
+        {currentUserData && (
           <div className="bg-purple-100 dark:bg-purple-900/20 rounded-lg p-3 mb-4">
             <p className="text-sm font-medium">
-              {language === 'hi' ? 'आपका रैंक:' : 'Your Rank:'} <Badge className="ml-2">{currentUserRank}</Badge>
+              {language === 'hi' ? 'आपका रैंक:' : 'Your Rank:'} <Badge className="ml-2">{currentUserData.rank}</Badge>
             </p>
           </div>
         )}
         
-        {loading ? (
+        {isLoading ? (
           <div className="flex justify-center py-8">
             <div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div>
           </div>
-        ) : students.length > 0 ? (
+        ) : users.length > 0 ? (
           <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12 text-center p-2 sm:p-4">{language === 'hi' ? 'रैंक' : 'Rank'}</TableHead>
                   <TableHead className="p-2 sm:p-4">{language === 'hi' ? 'छात्र' : 'Student'}</TableHead>
-                  <TableHead className="text-right p-2 sm:p-4">{language === 'hi' ? 'पॉइंट्स' : 'Points'}</TableHead>
+                  <TableHead className="text-right p-2 sm:p-4">{language === 'hi' ? 'XP' : 'XP'}</TableHead>
                   <TableHead className="text-right w-20 p-2 sm:p-4">{language === 'hi' ? 'लेवल' : 'Level'}</TableHead>
-                  <TableHead className="text-center w-24 p-2 sm:p-4">{language === 'hi' ? 'स्ट्रीक' : 'Streak'}</TableHead>
-                  <TableHead className="w-20 p-2 sm:p-4"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {students.map((student) => (
-                  <TableRow 
-                    key={student.id}
-                    className={student.isCurrentUser ? "bg-purple-50 dark:bg-purple-900/20" : ""}
-                  >
-                    <TableCell className="text-center p-2 sm:p-4">
-                      <div className="flex justify-center">
-                        {getRankIcon(student.rank)}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium p-2 sm:p-4">
-                      <div className="flex items-center gap-2">
-                        <Avatar className={`w-6 h-6 sm:w-7 sm:h-7 ${student.isCurrentUser ? 'ring-1 ring-purple-500' : ''}`}>
-                          <AvatarFallback className={`${getAvatarColor(student.id)} text-xs`}>
-                            {getUserInitials(student.name || 'S')}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <span className={`block truncate ${student.isCurrentUser ? "font-bold" : ""}`}>
-                            {student.name || (language === 'hi' ? 'अज्ञात छात्र' : 'Unknown Student')}
-                          </span>
-                          {student.isCurrentUser && (
-                            <span className="text-xs text-purple-600 dark:text-purple-400">
-                              {language === 'hi' ? '(आप)' : '(You)'}
-                            </span>
-                          )}
+                {users.map((user) => {
+                  const isCurrentUser = user.id === currentUser?.uid;
+                  return (
+                    <TableRow 
+                      key={user.id}
+                      className={isCurrentUser ? "bg-purple-50 dark:bg-purple-900/20" : ""}
+                    >
+                      <TableCell className="text-center p-2 sm:p-4">
+                        <div className="flex justify-center">
+                          {getRankIcon(user.rank)}
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right p-2 sm:p-4">
-                      <div className="flex items-center justify-end gap-1">
-                        <Star className="h-3.5 w-3.5 text-yellow-500" />
-                        {student.points}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right p-2 sm:p-4">
-                      <Badge variant="outline" className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                        {student.level}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center p-2 sm:p-4">
-                      {student.streak && student.streak > 0 ? (
-                        <Badge className={`${student.streak >= 7 ? 'bg-orange-500' : 'bg-amber-400'} text-white`}>
-                          <Flame className="h-3.5 w-3.5 mr-1" /> {student.streak}
+                      </TableCell>
+                      <TableCell className="font-medium p-2 sm:p-4">
+                        <div className="flex items-center gap-2">
+                          <Avatar className={`w-6 h-6 sm:w-7 sm:h-7 ${isCurrentUser ? 'ring-1 ring-purple-500' : ''}`}>
+                            {user.avatar && <AvatarImage src={user.avatar} />}
+                            <AvatarFallback className={`${getAvatarColor(user.id)} text-xs`}>
+                              {getUserInitials(user.name || 'U')}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <span className={`block truncate ${isCurrentUser ? "font-bold" : ""}`}>
+                              {user.name || (language === 'hi' ? 'अज्ञात छात्र' : 'Unknown Student')}
+                            </span>
+                            {isCurrentUser && (
+                              <span className="text-xs text-purple-600 dark:text-purple-400">
+                                {language === 'hi' ? '(आप)' : '(You)'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right p-2 sm:p-4">
+                        <div className="flex items-center justify-end gap-1">
+                          <Star className="h-3.5 w-3.5 text-yellow-500" />
+                          {user.xp}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right p-2 sm:p-4">
+                        <Badge variant="outline" className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                          {user.level}
                         </Badge>
-                      ) : (
-                        <span className="text-xs text-gray-400">0</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="p-2 sm:p-4">
-                      {!student.isCurrentUser && currentUser && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="w-full flex items-center justify-center gap-1"
-                          onClick={() => handleMessageStudent(student.id)}
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                          <span className="hidden sm:inline">
-                            {language === 'hi' ? 'मैसेज' : 'Message'}
-                          </span>
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
