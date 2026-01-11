@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,9 +11,9 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import { useAutoLoginBonus } from '@/hooks/home/useAutoLoginBonus';
 import { useChatInitialization } from '@/hooks/home/useChatInitialization';
 import { useHomeEffects } from '@/hooks/home/useHomeEffects';
-import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { 
   Menu, 
@@ -36,18 +36,20 @@ import {
   Youtube,
   Wallet,
   Info,
-  ChevronRight,
-  X
+  X,
+  ArrowUp,
+  MoreHorizontal
 } from 'lucide-react';
 import { useTheme } from '@/providers/ThemeProvider';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useAvatarUrl } from '@/hooks/useAvatarUrl';
-import { Link } from 'react-router-dom';
 import { Sheet, SheetContent, SheetClose } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
+import { toast } from 'sonner';
 
 const Index = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [inputMessage, setInputMessage] = useState('');
   const { currentUser, isLoading: authLoading, logout } = useAuth();
   const isMobile = useIsMobile();
   const location = useLocation();
@@ -55,6 +57,7 @@ const Index = () => {
   const { theme, toggleTheme } = useTheme();
   const { avatarUrl: profileAvatarUrl } = useAvatarUrl(currentUser?.uid);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const { loginBonusPoints, streakDays } = useAutoLoginBonus();
   
@@ -78,28 +81,48 @@ const Index = () => {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
+      // Clear all local storage related to the user
+      if (currentUser?.uid) {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith(`${currentUser.uid}_`) || key.includes('supabase'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+      }
+      
       await logout();
       setIsSidebarOpen(false);
+      toast.success('Logged out successfully');
+      navigate('/login');
     } catch (error) {
       console.error("Logout failed:", error);
+      toast.error('Logout failed. Please try again.');
     } finally {
       setIsLoggingOut(false);
     }
   };
 
+  const handleStartChat = async () => {
+    if (!inputMessage.trim()) return;
+    
+    // Create a new chat and send the first message
+    await handleNewChat();
+  };
+
   // Feature items for sidebar
   const featureItems = [
-    { icon: Plus, label: 'New Chat', action: () => { handleNewChat(); setIsSidebarOpen(false); } },
-    { icon: FileText, label: 'Notes Creator', path: '/notes-creator', description: 'Create study notes' },
-    { icon: BookOpen, label: 'Quiz Generator', path: '/quiz-generator', description: 'Generate quizzes' },
-    { icon: GraduationCap, label: 'Ask Teacher', path: '/teacher-chats', description: 'Live teaching' },
-    { icon: Clock, label: 'Study Planner', path: '/study-planner', description: 'Plan your study' },
-    { icon: BookOpen, label: 'Homework Helper', path: '/homework-helper', description: 'Homework assistance' },
-    { icon: Youtube, label: 'Study Tube', path: '/study-tube', description: 'Educational videos' },
+    { icon: FileText, label: 'Notes Creator', path: '/notes-creator' },
+    { icon: BookOpen, label: 'Quiz Generator', path: '/quiz-generator' },
+    { icon: GraduationCap, label: 'Ask Teacher', path: '/teacher-chats' },
+    { icon: Clock, label: 'Study Planner', path: '/study-planner' },
+    { icon: BookOpen, label: 'Homework Helper', path: '/homework-helper' },
+    { icon: Youtube, label: 'Study Tube', path: '/study-tube' },
   ];
 
   const navigationItems = [
-    { icon: Home, label: 'Home', path: '/' },
     { icon: MessageSquare, label: 'Chat History', path: '/chat-history' },
     { icon: Bookmark, label: 'Saved', path: '/saved-messages' },
     { icon: Trophy, label: 'Leaderboard', path: '/leaderboard' },
@@ -112,10 +135,12 @@ const Index = () => {
     { icon: Info, label: 'About', path: '/about' },
   ];
 
-  // Prevent auto-scroll on load
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+  // Quick actions for the welcome screen
+  const quickActions = [
+    { icon: FileText, label: 'Create Notes', path: '/notes-creator', description: 'Generate study notes' },
+    { icon: BookOpen, label: 'Create Quiz', path: '/quiz-generator', description: 'Test your knowledge' },
+    { icon: BookOpen, label: 'Check Homework', path: '/homework-helper', description: 'Get homework help' },
+  ];
 
   if (isLoading || authLoading) {
     return <LoadingScreen />;
@@ -130,7 +155,7 @@ const Index = () => {
 
   return (
     <ErrorBoundary>
-      <div className="flex min-h-screen bg-background">
+      <div className="flex h-screen bg-background overflow-hidden">
         {/* Sidebar Sheet for Mobile */}
         <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
           <SheetContent side="left" className="w-72 p-0 bg-background border-r border-border">
@@ -168,10 +193,10 @@ const Index = () => {
                 {/* Features Section */}
                 <div className="space-y-1 mb-4">
                   <p className="text-xs font-medium text-muted-foreground px-3 py-2">FEATURES</p>
-                  {featureItems.slice(1).map((item) => (
+                  {featureItems.map((item) => (
                     <Link
                       key={item.label}
-                      to={item.path!}
+                      to={item.path}
                       onClick={() => setIsSidebarOpen(false)}
                       className={cn(
                         "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
@@ -277,7 +302,7 @@ const Index = () => {
                   </>
                 ) : (
                   <Link to="/login" onClick={() => setIsSidebarOpen(false)}>
-                    <Button className="w-full">Login</Button>
+                    <Button className="w-full">Login / Register</Button>
                   </Link>
                 )}
               </div>
@@ -286,9 +311,9 @@ const Index = () => {
         </Sheet>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col h-screen">
+        <div className="flex-1 flex flex-col h-screen overflow-hidden">
           {/* Header */}
-          <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <header className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="flex items-center gap-3">
               <Button 
                 variant="ghost" 
@@ -307,14 +332,20 @@ const Index = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={toggleTheme}
-                className="h-9 w-9"
-              >
-                {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-              </Button>
+              {currentUser ? (
+                <Link to="/profile">
+                  <Avatar className="w-8 h-8 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
+                    <AvatarImage src={profileAvatarUrl || currentUser.photoURL || undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                      {currentUser.displayName?.charAt(0) || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                </Link>
+              ) : (
+                <Link to="/login">
+                  <Button size="sm">Login</Button>
+                </Link>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
@@ -326,69 +357,88 @@ const Index = () => {
             </div>
           </header>
 
-          {/* Chat Content */}
-          <main className="flex-1 overflow-hidden">
+          {/* Chat Content - Fixed height, no scrolling on home */}
+          <main className="flex-1 flex flex-col overflow-hidden">
             {currentChatId ? (
               <Chat chatId={currentChatId} onChatUpdated={() => {}} />
             ) : (
-              // Welcome Screen
-              <div className="h-full flex flex-col items-center justify-center p-6">
+              // Welcome Screen - Centered, no scroll
+              <div className="flex-1 flex flex-col items-center justify-center p-4">
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="text-center max-w-2xl"
+                  className="text-center w-full max-w-lg"
                 >
-                  <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                    <Sparkles className="w-8 h-8 text-primary" />
-                  </div>
-                  <h1 className="text-2xl sm:text-3xl font-semibold mb-2">
-                    {getGreeting()}{currentUser?.displayName ? `, ${currentUser.displayName.split(' ')[0]}` : ''}!
-                  </h1>
-                  <p className="text-muted-foreground mb-8">
-                    How can I help you with your studies today?
-                  </p>
-
-                  {/* Quick Action Cards */}
-                  <div className="grid grid-cols-2 gap-3 max-w-md mx-auto mb-8">
-                    <Link to="/notes-creator">
-                      <div className="p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors cursor-pointer text-left">
-                        <FileText className="w-5 h-5 text-primary mb-2" />
-                        <p className="font-medium text-sm">Create Notes</p>
-                        <p className="text-xs text-muted-foreground">Generate study notes</p>
-                      </div>
-                    </Link>
-                    <Link to="/quiz-generator">
-                      <div className="p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors cursor-pointer text-left">
-                        <BookOpen className="w-5 h-5 text-primary mb-2" />
-                        <p className="font-medium text-sm">Create Quiz</p>
-                        <p className="text-xs text-muted-foreground">Test your knowledge</p>
-                      </div>
-                    </Link>
-                    <Link to="/study-planner">
-                      <div className="p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors cursor-pointer text-left">
-                        <Clock className="w-5 h-5 text-primary mb-2" />
-                        <p className="font-medium text-sm">Study Planner</p>
-                        <p className="text-xs text-muted-foreground">Plan your schedule</p>
-                      </div>
-                    </Link>
-                    <Link to="/teacher-chats">
-                      <div className="p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors cursor-pointer text-left">
-                        <GraduationCap className="w-5 h-5 text-primary mb-2" />
-                        <p className="font-medium text-sm">Ask Teacher</p>
-                        <p className="text-xs text-muted-foreground">Get expert help</p>
-                      </div>
-                    </Link>
+                  {/* Greeting */}
+                  <div className="mb-8">
+                    <h1 className="text-2xl sm:text-3xl font-semibold mb-2">
+                      {getGreeting()}{currentUser?.displayName ? `, ${currentUser.displayName.split(' ')[0]}` : ''}!
+                    </h1>
+                    <p className="text-muted-foreground">
+                      How can I help you today?
+                    </p>
                   </div>
 
-                  {/* Start Chat Button */}
-                  <Button 
-                    onClick={handleNewChat}
-                    size="lg"
-                    className="gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Start a new chat
-                  </Button>
+                  {/* Quick Action Buttons */}
+                  <div className="flex flex-wrap justify-center gap-2 mb-8">
+                    {quickActions.map((action) => (
+                      <Link key={action.path} to={action.path}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full gap-2 h-9 px-4"
+                        >
+                          <action.icon className="w-4 h-4" />
+                          {action.label}
+                        </Button>
+                      </Link>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full gap-2 h-9 px-4"
+                      onClick={() => setIsSidebarOpen(true)}
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                      More
+                    </Button>
+                  </div>
+
+                  {/* Input Box - ChatGPT Style */}
+                  <div className="w-full">
+                    <div 
+                      className="relative flex items-center bg-secondary/50 rounded-2xl border border-border hover:border-primary/30 transition-colors cursor-pointer"
+                      onClick={() => handleNewChat()}
+                    >
+                      <Input
+                        ref={inputRef}
+                        placeholder="Ask anything..."
+                        className="flex-1 bg-transparent border-0 focus-visible:ring-0 h-12 px-4 text-base"
+                        value={inputMessage}
+                        onChange={(e) => setInputMessage(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleNewChat();
+                          }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <Button 
+                        size="icon" 
+                        className="h-9 w-9 rounded-full mr-1.5"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleNewChat();
+                        }}
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-3">
+                      Study AI can make mistakes. Check important info.
+                    </p>
+                  </div>
                 </motion.div>
               </div>
             )}

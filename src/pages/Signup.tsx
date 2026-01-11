@@ -8,18 +8,25 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Sparkles, Mail, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { Sparkles, Mail, ArrowLeft, Eye, EyeOff, Phone } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+
+type AuthMethod = 'initial' | 'email' | 'phone';
 
 const Signup = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [authMethod, setAuthMethod] = useState<AuthMethod>('initial');
   const [showPassword, setShowPassword] = useState(false);
+  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [phoneStep, setPhoneStep] = useState<'phone' | 'otp' | 'details'>('phone');
   const navigate = useNavigate();
   const { signup, signInWithGoogle, currentUser, isLoading: authLoading } = useAuth();
 
@@ -79,6 +86,87 @@ const Signup = () => {
     }
   };
 
+  const handleSendOtp = async () => {
+    if (!phone || phone.length < 10) {
+      toast.error("Please enter a valid phone number");
+      return;
+    }
+
+    const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
+    
+    try {
+      setIsLoading(true);
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: formattedPhone,
+      });
+      
+      if (error) throw error;
+      
+      setIsOtpSent(true);
+      setPhoneStep('otp');
+      toast.success("OTP sent!");
+    } catch (error: any) {
+      console.error(error);
+      toast.error("Failed to send OTP");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!otp || otp.length !== 6) {
+      toast.error("Please enter 6-digit OTP");
+      return;
+    }
+
+    const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
+    
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: formattedPhone,
+        token: otp,
+        type: 'sms'
+      });
+      
+      if (error) throw error;
+      
+      // After OTP verification, update profile with name
+      if (data.user && name) {
+        await supabase.from('profiles').update({
+          display_name: name
+        }).eq('user_id', data.user.id);
+      }
+      
+      toast.success("Account created successfully!");
+      navigate('/');
+    } catch (error: any) {
+      console.error(error);
+      toast.error("Invalid OTP");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePhoneSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!name) {
+      toast.error("Please enter your name");
+      return;
+    }
+
+    if (!acceptedTerms) {
+      toast.error("Please accept the terms and conditions");
+      return;
+    }
+
+    // Move to OTP step
+    handleSendOtp();
+  };
+
   const handleGoogleSignUp = async () => {
     if (!acceptedTerms) {
       toast.error("Please accept the terms and conditions");
@@ -134,7 +222,7 @@ const Signup = () => {
           </label>
         </div>
 
-        {!showEmailForm ? (
+        {authMethod === 'initial' ? (
           <div className="space-y-3">
             {/* Google Sign Up */}
             <Button 
@@ -169,11 +257,23 @@ const Signup = () => {
               type="button"
               variant="secondary" 
               className="w-full h-12 text-base"
-              onClick={() => setShowEmailForm(true)}
+              onClick={() => setAuthMethod('email')}
               disabled={!acceptedTerms}
             >
               <Mail className="w-5 h-5 mr-3" />
               Continue with Email
+            </Button>
+
+            {/* Continue with Phone */}
+            <Button 
+              type="button"
+              variant="secondary" 
+              className="w-full h-12 text-base"
+              onClick={() => setAuthMethod('phone')}
+              disabled={!acceptedTerms}
+            >
+              <Phone className="w-5 h-5 mr-3" />
+              Continue with Phone
             </Button>
 
             {!acceptedTerms && (
@@ -182,14 +282,14 @@ const Signup = () => {
               </p>
             )}
           </div>
-        ) : (
+        ) : authMethod === 'email' ? (
           <div className="space-y-4">
             <Button 
               type="button"
               variant="ghost" 
               size="sm"
               className="mb-2 -ml-2"
-              onClick={() => setShowEmailForm(false)}
+              onClick={() => setAuthMethod('initial')}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
@@ -276,6 +376,112 @@ const Signup = () => {
                 )}
               </Button>
             </form>
+          </div>
+        ) : (
+          // Phone Sign Up
+          <div className="space-y-4">
+            <Button 
+              type="button"
+              variant="ghost" 
+              size="sm"
+              className="mb-2 -ml-2"
+              onClick={() => { 
+                setAuthMethod('initial'); 
+                setPhoneStep('phone'); 
+                setIsOtpSent(false); 
+                setOtp(''); 
+              }}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            
+            {phoneStep === 'phone' ? (
+              <form onSubmit={handlePhoneSignup} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your full name"
+                    className="h-11"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <div className="flex gap-2">
+                    <div className="flex items-center px-3 bg-secondary rounded-md text-sm">
+                      +91
+                    </div>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      placeholder="9876543210"
+                      className="h-11 flex-1"
+                      maxLength={10}
+                    />
+                  </div>
+                </div>
+                
+                <Button 
+                  type="submit" 
+                  className="w-full h-11" 
+                  disabled={isLoading || phone.length < 10 || !name}
+                >
+                  {isLoading ? (
+                    <>
+                      <span className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
+                      Sending OTP...
+                    </>
+                  ) : (
+                    'Continue'
+                  )}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="otp">Enter OTP</Label>
+                  <Input
+                    id="otp"
+                    type="text"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="123456"
+                    className="h-11 text-center text-lg tracking-widest"
+                    maxLength={6}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    OTP sent to +91{phone}
+                  </p>
+                </div>
+                
+                <Button type="submit" className="w-full h-11" disabled={isLoading || otp.length !== 6}>
+                  {isLoading ? (
+                    <>
+                      <span className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
+                      Verifying...
+                    </>
+                  ) : (
+                    'Verify & Create Account'
+                  )}
+                </Button>
+
+                <Button 
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => { setPhoneStep('phone'); setIsOtpSent(false); }}
+                >
+                  Resend OTP
+                </Button>
+              </form>
+            )}
           </div>
         )}
 
