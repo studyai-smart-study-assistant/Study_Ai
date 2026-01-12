@@ -1,25 +1,17 @@
 
-import { getRemoteConfig, fetchAndActivate, getValue } from 'firebase/remote-config';
-import { app } from '@/lib/firebase/config';
+// Remote config service using localStorage fallback (no Firebase dependency)
 
 class RemoteConfigService {
-  private remoteConfig;
   private isInitialized = false;
+  private config: Record<string, any> = {};
 
   constructor() {
-    this.remoteConfig = getRemoteConfig(app);
     this.setupDefaults();
   }
 
   private setupDefaults() {
-    this.remoteConfig.settings = {
-      minimumFetchIntervalMillis: 3600000, // 1 hour
-      fetchTimeoutMillis: 60000, // 1 minute
-    };
-
-    // Default values
-    this.remoteConfig.defaultConfig = {
-      'notes_how_to_guide': JSON.stringify({
+    this.config = {
+      'notes_how_to_guide': {
         title: "परफेक्ट नोट्स कैसे बनाएं",
         steps: [
           "📝 विषय स्पष्ट रूप से लिखें (जैसे: 'प्रकाश संश्लेषण', 'द्विघात समीकरण')",
@@ -34,12 +26,12 @@ class RemoteConfigService {
           "⚡ Quick Templates का उपयोग करें तेज़ी के लिए",
           "🎨 विभिन्न formats try करें अपनी जरूरत के अनुसार"
         ]
-      }),
-      'notes_error_messages': JSON.stringify({
+      },
+      'notes_error_messages': {
         topic_required: "कृपया नोट्स के लिए विषय दर्ज करें",
         generation_failed: "नोट्स बनाने में समस्या हुई, कृपया फिर से कोशिश करें",
         network_error: "नेटवर्क की समस्या है, कृपया अपना कनेक्शन चेक करें"
-      })
+      }
     };
   }
 
@@ -47,7 +39,11 @@ class RemoteConfigService {
     if (this.isInitialized) return;
     
     try {
-      await fetchAndActivate(this.remoteConfig);
+      // Try to load from localStorage
+      const savedConfig = localStorage.getItem('remote_config');
+      if (savedConfig) {
+        this.config = { ...this.config, ...JSON.parse(savedConfig) };
+      }
       this.isInitialized = true;
       console.log('Remote Config initialized successfully');
     } catch (error) {
@@ -57,34 +53,16 @@ class RemoteConfigService {
   }
 
   getNotesGuide() {
-    try {
-      const value = getValue(this.remoteConfig, 'notes_how_to_guide').asString();
-      return JSON.parse(value);
-    } catch (error) {
-      console.error('Error getting notes guide:', error);
-      return this.remoteConfig.defaultConfig['notes_how_to_guide'] ? 
-        JSON.parse(this.remoteConfig.defaultConfig['notes_how_to_guide'] as string) : null;
-    }
+    return this.config['notes_how_to_guide'];
   }
 
   getErrorMessages() {
-    try {
-      const value = getValue(this.remoteConfig, 'notes_error_messages').asString();
-      return JSON.parse(value);
-    } catch (error) {
-      console.error('Error getting error messages:', error);
-      return this.remoteConfig.defaultConfig['notes_error_messages'] ? 
-        JSON.parse(this.remoteConfig.defaultConfig['notes_error_messages'] as string) : {};
-    }
+    return this.config['notes_error_messages'] || {};
   }
 
   async refreshConfig() {
-    try {
-      await fetchAndActivate(this.remoteConfig);
-      console.log('Remote Config refreshed');
-    } catch (error) {
-      console.error('Error refreshing Remote Config:', error);
-    }
+    // No-op since we're using local config
+    console.log('Remote Config refreshed (using local config)');
   }
 }
 
