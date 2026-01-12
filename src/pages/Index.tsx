@@ -1,12 +1,10 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
 import Chat from '@/components/Chat';
 import DailyLoginBonus from '@/components/student/DailyLoginBonus';
-import LoadingScreen from '@/components/home/LoadingScreen';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { useAutoLoginBonus } from '@/hooks/home/useAutoLoginBonus';
 import { useChatInitialization } from '@/hooks/home/useChatInitialization';
@@ -18,7 +16,6 @@ import { cn } from '@/lib/utils';
 import { 
   Menu, 
   Plus, 
-  Send, 
   Sparkles,
   FileText,
   BookOpen,
@@ -26,19 +23,19 @@ import {
   Trophy,
   Clock,
   Bookmark,
-  Settings,
   User,
   LogOut,
   Moon,
   Sun,
-  Home,
   MessageSquare,
   Youtube,
   Wallet,
   Info,
   X,
   ArrowUp,
-  MoreHorizontal
+  Paperclip,
+  MoreVertical,
+  ClipboardList
 } from 'lucide-react';
 import { useTheme } from '@/providers/ThemeProvider';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -46,10 +43,12 @@ import { useAvatarUrl } from '@/hooks/useAvatarUrl';
 import { Sheet, SheetContent, SheetClose } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
+import SignupPromptDialog from '@/components/home/SignupPromptDialog';
 
 const Index = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
+  const [showSignupPrompt, setShowSignupPrompt] = useState(false);
   const { currentUser, isLoading: authLoading, logout } = useAuth();
   const isMobile = useIsMobile();
   const location = useLocation();
@@ -78,10 +77,18 @@ const Index = () => {
     handleNavigationState
   });
 
+  // Show signup prompt for guests after using features
+  const promptGuestSignup = () => {
+    if (!currentUser) {
+      setShowSignupPrompt(true);
+      return true;
+    }
+    return false;
+  };
+
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      // Clear all local storage related to the user
       if (currentUser?.uid) {
         const keysToRemove: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
@@ -107,8 +114,6 @@ const Index = () => {
 
   const handleStartChat = async () => {
     if (!inputMessage.trim()) return;
-    
-    // Create a new chat and send the first message
     await handleNewChat();
   };
 
@@ -118,7 +123,7 @@ const Index = () => {
     { icon: BookOpen, label: 'Quiz Generator', path: '/quiz-generator' },
     { icon: GraduationCap, label: 'Ask Teacher', path: '/teacher-chats' },
     { icon: Clock, label: 'Study Planner', path: '/study-planner' },
-    { icon: BookOpen, label: 'Homework Helper', path: '/homework-helper' },
+    { icon: ClipboardList, label: 'Homework Helper', path: '/homework-helper' },
     { icon: Youtube, label: 'Study Tube', path: '/study-tube' },
   ];
 
@@ -135,23 +140,28 @@ const Index = () => {
     { icon: Info, label: 'About', path: '/about' },
   ];
 
-  // Quick actions for the welcome screen
+  // Quick actions - colored chips like the reference image
   const quickActions = [
-    { icon: FileText, label: 'Create Notes', path: '/notes-creator', description: 'Generate study notes' },
-    { icon: BookOpen, label: 'Create Quiz', path: '/quiz-generator', description: 'Test your knowledge' },
-    { icon: BookOpen, label: 'Check Homework', path: '/homework-helper', description: 'Get homework help' },
+    { icon: FileText, label: 'Notes', path: '/notes-creator', bgColor: 'bg-blue-100 dark:bg-blue-900/30', textColor: 'text-blue-600 dark:text-blue-400', iconColor: 'text-blue-500' },
+    { icon: BookOpen, label: 'Quiz', path: '/quiz-generator', bgColor: 'bg-green-100 dark:bg-green-900/30', textColor: 'text-green-600 dark:text-green-400', iconColor: 'text-green-500' },
+    { icon: ClipboardList, label: 'Homework', path: '/homework-helper', bgColor: 'bg-orange-100 dark:bg-orange-900/30', textColor: 'text-orange-600 dark:text-orange-400', iconColor: 'text-orange-500' },
   ];
-
-  if (isLoading || authLoading) {
-    return <LoadingScreen />;
-  }
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
   };
+
+  // Show simple spinner while loading, not heavy animation
+  if (isLoading || authLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <ErrorBoundary>
@@ -312,22 +322,19 @@ const Index = () => {
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col h-screen overflow-hidden">
-          {/* Header */}
-          <header className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          {/* Header - Clean like reference */}
+          <header className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border bg-background">
             <div className="flex items-center gap-3">
               <Button 
                 variant="ghost" 
                 size="icon" 
                 onClick={() => setIsSidebarOpen(true)}
-                className="h-9 w-9"
+                className="h-10 w-10 rounded-full"
               >
                 <Menu className="h-5 w-5" />
               </Button>
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-primary-foreground" />
-                </div>
-                <span className="font-semibold hidden sm:inline">Study AI</span>
+              <div className="flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded-full">
+                <span className="font-medium text-sm">Study AI</span>
               </div>
             </div>
 
@@ -342,78 +349,87 @@ const Index = () => {
                   </Avatar>
                 </Link>
               ) : (
-                <Link to="/login">
-                  <Button size="sm">Login</Button>
-                </Link>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="h-9 w-9 rounded-full"
+                  onClick={() => navigate('/login')}
+                >
+                  <User className="h-5 w-5" />
+                </Button>
               )}
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={handleNewChat}
-                className="h-9 w-9"
+                className="h-9 w-9 rounded-full"
               >
-                <Plus className="h-5 w-5" />
+                <Paperclip className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full"
+              >
+                <MoreVertical className="h-5 w-5" />
               </Button>
             </div>
           </header>
 
-          {/* Chat Content - Fixed height, no scrolling on home */}
+          {/* Main Content Area */}
           <main className="flex-1 flex flex-col overflow-hidden">
             {currentChatId ? (
               <Chat chatId={currentChatId} onChatUpdated={() => {}} />
             ) : (
-              // Welcome Screen - Centered, no scroll
-              <div className="flex-1 flex flex-col items-center justify-center p-4">
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-center w-full max-w-lg"
-                >
+              // Welcome Screen - Exact match to reference image
+              <div className="flex-1 flex flex-col h-full">
+                {/* Centered Content */}
+                <div className="flex-1 flex flex-col items-center justify-center px-6">
                   {/* Greeting */}
-                  <div className="mb-8">
-                    <h1 className="text-2xl sm:text-3xl font-semibold mb-2">
-                      {getGreeting()}{currentUser?.displayName ? `, ${currentUser.displayName.split(' ')[0]}` : ''}!
-                    </h1>
-                    <p className="text-muted-foreground">
-                      How can I help you today?
-                    </p>
-                  </div>
+                  <h1 className="text-xl sm:text-2xl font-normal text-foreground mb-8">
+                    {getGreeting()}{currentUser?.displayName ? ` ${currentUser.displayName.split(' ')[0]}` : ''}
+                  </h1>
 
-                  {/* Quick Action Buttons */}
-                  <div className="flex flex-wrap justify-center gap-2 mb-8">
+                  {/* Divider */}
+                  <div className="w-full max-w-md h-px bg-border mb-12" />
+
+                  {/* What can I help you with */}
+                  <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-8">
+                    What can I help You Today
+                  </h2>
+
+                  {/* Quick Action Chips - Colored like reference */}
+                  <div className="flex flex-wrap justify-center gap-3 mb-8">
                     {quickActions.map((action) => (
                       <Link key={action.path} to={action.path}>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="rounded-full gap-2 h-9 px-4"
-                        >
-                          <action.icon className="w-4 h-4" />
-                          {action.label}
-                        </Button>
+                        <div className={cn(
+                          "flex items-center gap-2 px-5 py-2.5 rounded-full cursor-pointer transition-all hover:scale-105",
+                          action.bgColor
+                        )}>
+                          <action.icon className={cn("w-4 h-4", action.iconColor)} />
+                          <span className={cn("text-sm font-medium", action.textColor)}>
+                            {action.label}
+                          </span>
+                        </div>
                       </Link>
                     ))}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-full gap-2 h-9 px-4"
-                      onClick={() => setIsSidebarOpen(true)}
-                    >
-                      <MoreHorizontal className="w-4 h-4" />
-                      More
-                    </Button>
                   </div>
+                </div>
 
-                  {/* Input Box - ChatGPT Style */}
-                  <div className="w-full">
-                    <div 
-                      className="relative flex items-center bg-secondary/50 rounded-2xl border border-border hover:border-primary/30 transition-colors cursor-pointer"
-                      onClick={() => handleNewChat()}
-                    >
+                {/* Input Box - Bottom fixed */}
+                <div className="p-4 pb-6">
+                  <div className="max-w-2xl mx-auto">
+                    <div className="relative flex items-center bg-secondary/30 rounded-full border border-border">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 rounded-full ml-1 text-muted-foreground"
+                      >
+                        <Plus className="h-5 w-5" />
+                      </Button>
                       <Input
                         ref={inputRef}
-                        placeholder="Ask anything..."
-                        className="flex-1 bg-transparent border-0 focus-visible:ring-0 h-12 px-4 text-base"
+                        placeholder="ask anything"
+                        className="flex-1 bg-transparent border-0 focus-visible:ring-0 h-12 px-2 text-base placeholder:text-muted-foreground/60"
                         value={inputMessage}
                         onChange={(e) => setInputMessage(e.target.value)}
                         onKeyDown={(e) => {
@@ -422,24 +438,17 @@ const Index = () => {
                             handleNewChat();
                           }
                         }}
-                        onClick={(e) => e.stopPropagation()}
                       />
                       <Button 
                         size="icon" 
-                        className="h-9 w-9 rounded-full mr-1.5"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleNewChat();
-                        }}
+                        className="h-10 w-10 rounded-full mr-1 bg-foreground text-background hover:bg-foreground/90"
+                        onClick={handleNewChat}
                       >
-                        <ArrowUp className="h-4 w-4" />
+                        <ArrowUp className="h-5 w-5" />
                       </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-3">
-                      Study AI can make mistakes. Check important info.
-                    </p>
                   </div>
-                </motion.div>
+                </div>
               </div>
             )}
           </main>
@@ -453,6 +462,12 @@ const Index = () => {
             streakDays={streakDays}
           />
         )}
+
+        {/* Signup Prompt Dialog for Guests */}
+        <SignupPromptDialog 
+          open={showSignupPrompt} 
+          onOpenChange={setShowSignupPrompt} 
+        />
       </div>
     </ErrorBoundary>
   );

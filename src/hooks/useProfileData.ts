@@ -1,8 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { ProfileData, Achievement } from '@/types/student';
-import { getDatabase, ref, get } from 'firebase/database';
-import { database } from '@/lib/firebase';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UseProfileDataReturn {
   profileData: ProfileData | null;
@@ -27,40 +26,61 @@ export const useProfileData = (userId: string): UseProfileDataReturn => {
     setLoading(true);
     
     try {
-      // Try to get profile data from Firebase
-      const userRef = ref(database, `users/${id}`);
-      const userSnapshot = await get(userRef);
+      // Get profile data from Supabase
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', id)
+        .maybeSingle();
       
-      // Get points history
-      const historyRef = ref(database, `users/${id}/pointsHistory`);
-      const historySnapshot = await get(historyRef);
+      if (error) throw error;
       
-      if (userSnapshot.exists()) {
-        const userData = userSnapshot.val();
-        
+      // Get user points from Supabase
+      const { data: pointsData } = await supabase
+        .from('user_points')
+        .select('*')
+        .eq('user_id', id)
+        .maybeSingle();
+      
+      // Get points history for achievements
+      const { data: historyData } = await supabase
+        .from('points_transactions')
+        .select('*')
+        .eq('user_id', id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (profile) {
         // Sort achievements from points history
         let topAchievements: Achievement[] = [];
         
-        if (historySnapshot.exists()) {
-          const history = Object.values(historySnapshot.val()) as Achievement[];
-          
-          // Sort achievements by points (highest first)
-          topAchievements = history
-            .filter((item: any) => ['achievement', 'quiz'].includes(item.type))
-            .sort((a: any, b: any) => b.points - a.points)
-            .slice(0, 5); // Get top 5
+        if (historyData && historyData.length > 0) {
+          topAchievements = historyData
+            .filter((item) => item.transaction_type === 'earn')
+            .map((item) => ({
+              id: item.id,
+              title: item.reason,
+              description: item.reason,
+              points: item.amount,
+              type: 'achievement' as const,
+              timestamp: new Date(item.created_at).getTime()
+            }))
+            .slice(0, 5);
         }
+        
+        const userPoints = pointsData?.balance || profile.points || 0;
+        const userLevel = pointsData?.level || profile.level || 1;
         
         // Create profile data object
         const profileInfo: ProfileData = {
           id,
-          name: userData.displayName || `छात्र_${id.substring(0, 5)}`,
-          level: userData.level || 1,
-          points: userData.points || 0,
-          category: userData.userCategory || 'student',
-          education: userData.educationLevel || 'high-school',
-          joinedOn: userData.createdAt || new Date().toISOString(),
-          photoURL: userData.photoURL
+          name: profile.display_name || `Student_${id.substring(0, 5)}`,
+          level: userLevel,
+          points: userPoints,
+          category: profile.user_category || 'student',
+          education: profile.education_level || 'high-school',
+          joinedOn: profile.created_at || new Date().toISOString(),
+          photoURL: profile.photo_url || profile.avatar_url
         };
         
         // Calculate level progress
@@ -76,7 +96,7 @@ export const useProfileData = (userId: string): UseProfileDataReturn => {
         fallbackToLocalStorage(id);
       }
     } catch (error) {
-      console.error('Error loading profile from Firebase:', error);
+      console.error('Error loading profile from Supabase:', error);
       // Fallback to localStorage
       fallbackToLocalStorage(id);
     } finally {
@@ -96,12 +116,12 @@ export const useProfileData = (userId: string): UseProfileDataReturn => {
       const topAchievements = history
         .filter((item: any) => ['achievement', 'quiz'].includes(item.type))
         .sort((a: any, b: any) => b.points - a.points)
-        .slice(0, 5); // Get top 5
+        .slice(0, 5);
       
       if (points && level) {
         const profileInfo: ProfileData = {
           id,
-          name: `छात्र_${id.substring(0, 5)}`, // Default name if we can't get actual name
+          name: `Student_${id.substring(0, 5)}`,
           level: parseInt(level),
           points: parseInt(points),
           category: userCategory || 'student',
