@@ -2,16 +2,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from "sonner";
-import { ref, uploadBytes, getDownloadURL } from '@/lib/firebase';
-import { storage } from '@/lib/firebase';
+import { supabase } from '@/integrations/supabase/client';
 import { useChatData, useGroupChat } from '@/hooks/useChat';
-import { sendMessage } from '@/lib/firebase';
+import { sendMessage } from '@/lib/supabase/chat-functions';
 import EnhancedGroupMembersModal from './EnhancedGroupMembersModal';
 import GroupMessageInput from './GroupMessageInput';
 import ChatHeader from './ChatHeader';
 import ChatError from './ChatError';
 import ChatMessageArea from './ChatMessageArea';
-import ChatHeaderActions from './ChatHeaderActions';
 import DeleteGroupDialog from './DeleteGroupDialog';
 import GroupAvatar from './GroupAvatar';
 
@@ -35,11 +33,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   
   const { displayName, loadError } = useChatData(chatId);
-  
-  // Use the stable useGroupChat hook
-  const { messages, isLoading, groupDetails } = useGroupChat(chatId, () => {
-    console.log("Chat updated with new messages");
-  });
+  const { messages, isLoading, groupDetails } = useGroupChat(chatId);
 
   useEffect(() => {
     if (messages && messages.length > 0) {
@@ -56,7 +50,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     try {
       setIsSendingMessage(true);
       
-      // Optimistically add a temporary message to local state
       const tempId = `temp-${Date.now()}`;
       const tempMessage = {
         id: tempId,
@@ -70,28 +63,28 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       setLocalMessages(prev => [...prev, tempMessage]);
 
       if (file) {
-        console.log("Sending image message...");
-        const storageRef = ref(storage, `chat_images/${chatId}/${Date.now()}_${file.name}`);
+        const filePath = `chat_images/${chatId}/${Date.now()}_${file.name}`;
+        const { data, error } = await supabase.storage
+          .from('chat_media')
+          .upload(filePath, file);
         
-        await uploadBytes(storageRef, file).then(async (snapshot) => {
-          const downloadURL = await getDownloadURL(snapshot.ref);
-          await sendMessage(chatId, currentUser.uid, `[image:${downloadURL}]`, isGroup);
-        });
+        if (error) throw error;
         
+        const { data: urlData } = supabase.storage
+          .from('chat_media')
+          .getPublicUrl(filePath);
+        
+        await sendMessage(chatId, currentUser.uid, `[image:${urlData.publicUrl}]`, isGroup);
         toast.success("छवि भेजी गई");
       } else {
-        console.log("Sending text message...");
         await sendMessage(chatId, currentUser.uid, text, isGroup);
       }
       
-      // Replace temp message with actual one
       setLocalMessages(prev => prev.filter(msg => msg.id !== tempId));
       
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('संदेश भेजने में त्रुटि');
-      
-      // Remove temp message on error
       setLocalMessages(prev => prev.filter(msg => !msg.isTemp));
     } finally {
       setIsSendingMessage(false);
@@ -101,7 +94,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const refreshMessages = useCallback(() => {
     console.log("Messages will refresh automatically via listener");
   }, []);
-
 
   const isAdmin = isGroup && groupDetails?.admins && groupDetails.admins[currentUser?.uid];
   const memberCount = isGroup && groupDetails?.members ? Object.keys(groupDetails.members).length : 0;
@@ -119,12 +111,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         onManageMembers={() => setMembersModal(true)}
         isAdmin={isAdmin}
         memberAvatars={isGroup ? (
-          <GroupAvatar
-            groupName={displayName || 'Group'}
-            memberCount={memberCount}
-            size="md"
-            isAdmin={isAdmin}
-          />
+          <GroupAvatar groupName={displayName || 'Group'} memberCount={memberCount} size="md" isAdmin={isAdmin} />
         ) : (
           <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold">
             {displayName?.charAt(0)?.toUpperCase() || 'U'}
@@ -132,38 +119,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         )}
       />
       
-      <ChatMessageArea
-        messages={localMessages}
-        isLoading={isLoading}
-        chatId={chatId}
-        isGroup={isGroup}
-        onRefreshMessages={refreshMessages}
-      />
-      
-      <GroupMessageInput 
-        onSendMessage={handleSendMessage} 
-        isLoading={isSendingMessage} 
-      />
+      <ChatMessageArea messages={localMessages} isLoading={isLoading} chatId={chatId} isGroup={isGroup} onRefreshMessages={refreshMessages} />
+      <GroupMessageInput onSendMessage={handleSendMessage} isLoading={isSendingMessage} />
       
       {isGroup && groupDetails && (
-        <EnhancedGroupMembersModal
-          isOpen={membersModal}
-          onClose={() => setMembersModal(false)}
-          groupId={chatId}
-          groupName={displayName || 'Group'}
-          currentMembers={groupDetails.members || {}}
-          admins={groupDetails.admins || {}}
-        />
+        <EnhancedGroupMembersModal isOpen={membersModal} onClose={() => setMembersModal(false)} groupId={chatId} groupName={displayName || 'Group'} currentMembers={groupDetails.members || {}} admins={groupDetails.admins || {}} />
       )}
 
-      <DeleteGroupDialog
-        isOpen={deleteDialog}
-        setIsOpen={setDeleteDialog}
-        chatId={chatId}
-        onDeleteSuccess={onBack}
-        currentUserId={currentUser?.uid}
-      />
-
+      <DeleteGroupDialog isOpen={deleteDialog} setIsOpen={setDeleteDialog} chatId={chatId} onDeleteSuccess={onBack} currentUserId={currentUser?.uid} />
     </div>
   );
 };

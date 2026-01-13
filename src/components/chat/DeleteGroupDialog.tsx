@@ -1,17 +1,8 @@
 
 import React from 'react';
-import { deleteGroup } from '@/lib/firebase';
+import { deleteGroup } from '@/lib/supabase/chat-functions';
 import { toast } from "sonner";
-import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface DeleteGroupDialogProps {
   isOpen: boolean;
@@ -21,16 +12,9 @@ interface DeleteGroupDialogProps {
   currentUserId?: string;
 }
 
-const DeleteGroupDialog: React.FC<DeleteGroupDialogProps> = ({
-  isOpen,
-  setIsOpen,
-  chatId,
-  onDeleteSuccess,
-  currentUserId
-}) => {
+const DeleteGroupDialog: React.FC<DeleteGroupDialogProps> = ({ isOpen, setIsOpen, chatId, onDeleteSuccess, currentUserId }) => {
   const handleDeleteGroup = async () => {
     if (!currentUserId) return;
-
     try {
       await deleteGroup(chatId);
       toast.success("Group deleted successfully");
@@ -46,19 +30,11 @@ const DeleteGroupDialog: React.FC<DeleteGroupDialogProps> = ({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete Group</AlertDialogTitle>
-          <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the group 
-            and remove all messages for all members.
-          </AlertDialogDescription>
+          <AlertDialogDescription>This action cannot be undone. This will permanently delete the group and remove all messages for all members.</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={handleDeleteGroup}
-            className="bg-red-500 text-white hover:bg-red-600"
-          >
-            Delete
-          </AlertDialogAction>
+          <AlertDialogAction onClick={handleDeleteGroup} className="bg-red-500 text-white hover:bg-red-600">Delete</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
