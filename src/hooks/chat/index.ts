@@ -4,6 +4,4 @@ export { useChatData } from './useChatData';
 export { useGroupChat } from './useGroupChat';
 export { useMessageHandler } from './useMessageHandler';
 export { useScrollHandler } from './useScrollHandler';
-
-// Re-export the sendMessage function from firebase for convenience
-export { sendMessage } from '@/lib/firebase';
+export { sendMessage } from '@/lib/supabase/chat-functions';
