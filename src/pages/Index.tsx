@@ -1,12 +1,9 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
 import Chat from '@/components/Chat';
-import DailyLoginBonus from '@/components/student/DailyLoginBonus';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import { useAutoLoginBonus } from '@/hooks/home/useAutoLoginBonus';
 import { useChatInitialization } from '@/hooks/home/useChatInitialization';
 import { useHomeEffects } from '@/hooks/home/useHomeEffects';
 import { Button } from '@/components/ui/button';
@@ -33,8 +30,6 @@ import {
   Info,
   X,
   ArrowUp,
-  Paperclip,
-  MoreVertical,
   ClipboardList
 } from 'lucide-react';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -50,7 +45,6 @@ const Index = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [showSignupPrompt, setShowSignupPrompt] = useState(false);
   const { currentUser, isLoading: authLoading, logout } = useAuth();
-  const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -58,15 +52,12 @@ const Index = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { loginBonusPoints, streakDays } = useAutoLoginBonus();
-  
   const {
     currentChatId,
     isLoading,
     initializeChat,
     handleNavigationState,
-    handleNewChat,
-    handleChatSelect
+    handleNewChat
   } = useChatInitialization();
 
   useHomeEffects({
@@ -77,14 +68,15 @@ const Index = () => {
     handleNavigationState
   });
 
-  // Show signup prompt for guests after using features
-  const promptGuestSignup = () => {
-    if (!currentUser) {
-      setShowSignupPrompt(true);
-      return true;
+  // Show signup prompt for guests after 60 seconds
+  useEffect(() => {
+    if (!currentUser && !authLoading) {
+      const timer = setTimeout(() => {
+        setShowSignupPrompt(true);
+      }, 60000);
+      return () => clearTimeout(timer);
     }
-    return false;
-  };
+  }, [currentUser, authLoading]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -154,15 +146,6 @@ const Index = () => {
     return 'Good evening';
   };
 
-  // Show simple spinner while loading, not heavy animation
-  if (isLoading || authLoading) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
     <ErrorBoundary>
       <div className="flex h-screen bg-background overflow-hidden">
@@ -209,7 +192,7 @@ const Index = () => {
                       to={item.path}
                       onClick={() => setIsSidebarOpen(false)}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm",
                         location.pathname === item.path 
                           ? "bg-secondary text-foreground" 
                           : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
@@ -232,7 +215,7 @@ const Index = () => {
                       to={item.path}
                       onClick={() => setIsSidebarOpen(false)}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm",
                         location.pathname === item.path 
                           ? "bg-secondary text-foreground" 
                           : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
@@ -254,7 +237,7 @@ const Index = () => {
                       to={item.path}
                       onClick={() => setIsSidebarOpen(false)}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm",
                         location.pathname === item.path 
                           ? "bg-secondary text-foreground" 
                           : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
@@ -285,7 +268,7 @@ const Index = () => {
                     <Link 
                       to="/profile" 
                       onClick={() => setIsSidebarOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-secondary/50 transition-colors"
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-secondary/50"
                     >
                       <Avatar className="w-8 h-8">
                         <AvatarImage src={profileAvatarUrl || currentUser.photoURL || undefined} />
@@ -339,9 +322,19 @@ const Index = () => {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Theme Toggle in Header */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full"
+                onClick={toggleTheme}
+              >
+                {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+              </Button>
+              
               {currentUser ? (
                 <Link to="/profile">
-                  <Avatar className="w-8 h-8 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
+                  <Avatar className="w-8 h-8 cursor-pointer hover:ring-2 hover:ring-primary/50">
                     <AvatarImage src={profileAvatarUrl || currentUser.photoURL || undefined} />
                     <AvatarFallback className="bg-primary/10 text-primary text-sm">
                       {currentUser.displayName?.charAt(0) || 'U'}
@@ -358,20 +351,6 @@ const Index = () => {
                   <User className="h-5 w-5" />
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-full"
-              >
-                <Paperclip className="h-5 w-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-full"
-              >
-                <MoreVertical className="h-5 w-5" />
-              </Button>
             </div>
           </header>
 
@@ -380,7 +359,7 @@ const Index = () => {
             {currentChatId ? (
               <Chat chatId={currentChatId} onChatUpdated={() => {}} />
             ) : (
-              // Welcome Screen - Exact match to reference image
+              // Welcome Screen - Clean like reference image
               <div className="flex-1 flex flex-col h-full">
                 {/* Centered Content */}
                 <div className="flex-1 flex flex-col items-center justify-center px-6">
@@ -402,7 +381,7 @@ const Index = () => {
                     {quickActions.map((action) => (
                       <Link key={action.path} to={action.path}>
                         <div className={cn(
-                          "flex items-center gap-2 px-5 py-2.5 rounded-full cursor-pointer transition-all hover:scale-105",
+                          "flex items-center gap-2 px-5 py-2.5 rounded-full cursor-pointer",
                           action.bgColor
                         )}>
                           <action.icon className={cn("w-4 h-4", action.iconColor)} />
@@ -435,14 +414,15 @@ const Index = () => {
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
-                            handleNewChat();
+                            handleStartChat();
                           }
                         }}
                       />
-                      <Button 
-                        size="icon" 
-                        className="h-10 w-10 rounded-full mr-1 bg-foreground text-background hover:bg-foreground/90"
-                        onClick={handleNewChat}
+                      <Button
+                        size="icon"
+                        className="h-10 w-10 rounded-full mr-1"
+                        onClick={handleStartChat}
+                        disabled={!inputMessage.trim()}
                       >
                         <ArrowUp className="h-5 w-5" />
                       </Button>
@@ -453,15 +433,6 @@ const Index = () => {
             )}
           </main>
         </div>
-
-        {/* Daily Login Bonus */}
-        {currentUser && loginBonusPoints > 0 && (
-          <DailyLoginBonus 
-            userId={currentUser.uid}
-            points={loginBonusPoints}
-            streakDays={streakDays}
-          />
-        )}
 
         {/* Signup Prompt Dialog for Guests */}
         <SignupPromptDialog 
