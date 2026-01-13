@@ -7,9 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useAuth } from '@/contexts/AuthContext';
-import { createChatGroup } from '@/lib/firebase';
-import { ref, get } from "firebase/database";
-import { database } from '@/lib/firebase/config';
+import { getLeaderboardData, createChatGroup } from '@/lib/supabase/chat-functions';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -19,66 +17,29 @@ interface GroupChatModalProps {
   onGroupCreated: (groupId: string) => void;
 }
 
-interface FirebaseUser {
-  uid: string;
-  displayName: string;
-  email: string;
-  photoURL?: string;
-  points?: number;
-  level?: number;
-}
-
 const GroupChatModal: React.FC<GroupChatModalProps> = ({ isOpen, onClose, onGroupCreated }) => {
   const [groupName, setGroupName] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<{[key: string]: boolean}>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [availableUsers, setAvailableUsers] = useState<FirebaseUser[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<any[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const { currentUser } = useAuth();
 
   useEffect(() => {
     if (isOpen) {
-      console.log("Modal opened, fetching users...");
-      fetchRealUsers();
-      // Reset form when modal opens
+      fetchUsers();
       setGroupName('');
       setSelectedUsers({});
     }
   }, [isOpen]);
 
-  const fetchRealUsers = async () => {
+  const fetchUsers = async () => {
     try {
       setLoadingUsers(true);
-      console.log("Fetching users from Firebase...");
-      
-      const usersRef = ref(database, 'users');
-      const snapshot = await get(usersRef);
-      
-      if (snapshot.exists()) {
-        const usersData = snapshot.val();
-        console.log("Users data from Firebase:", usersData);
-        
-        const usersList: FirebaseUser[] = Object.entries(usersData)
-          .map(([uid, userData]: [string, any]) => ({
-            uid,
-            displayName: userData.displayName || userData.email?.split('@')[0] || 'User',
-            email: userData.email || '',
-            photoURL: userData.photoURL,
-            points: userData.points || 0,
-            level: userData.level || 1
-          }))
-          .filter(user => user.uid !== currentUser?.uid) // Exclude current user
-          .sort((a, b) => (b.points || 0) - (a.points || 0)); // Sort by points
-
-        console.log("Processed users list:", usersList);
-        setAvailableUsers(usersList);
-      } else {
-        console.log("No users found in Firebase");
-        setAvailableUsers([]);
-      }
+      const users = await getLeaderboardData();
+      setAvailableUsers(users.filter(u => u.id !== currentUser?.uid));
     } catch (error) {
       console.error('Error fetching users:', error);
-      toast.error('Failed to load users');
       setAvailableUsers([]);
     } finally {
       setLoadingUsers(false);
@@ -86,16 +47,10 @@ const GroupChatModal: React.FC<GroupChatModalProps> = ({ isOpen, onClose, onGrou
   };
 
   const handleUserSelect = (userId: string, checked: boolean) => {
-    console.log("User selection changed:", userId, checked);
-    setSelectedUsers(prev => ({
-      ...prev,
-      [userId]: checked
-    }));
+    setSelectedUsers(prev => ({ ...prev, [userId]: checked }));
   };
 
   const handleCreateGroup = async () => {
-    console.log("Creating group...", { groupName, selectedUsers });
-    
     if (!groupName.trim()) {
       toast.error('Please enter a group name');
       return;
@@ -114,28 +69,19 @@ const GroupChatModal: React.FC<GroupChatModalProps> = ({ isOpen, onClose, onGrou
 
     try {
       setIsLoading(true);
-      console.log("Creating group with members:", selectedUserIds);
-      
-      // Include current user and selected users
       const members = {
         [currentUser.uid]: true,
         ...Object.fromEntries(selectedUserIds.map(id => [id, true]))
       };
 
-      console.log("Final members object:", members);
       const groupId = await createChatGroup(groupName.trim(), members);
       
       if (groupId) {
-        console.log("Group created successfully with ID:", groupId);
         toast.success('Group created successfully!');
         onGroupCreated(groupId);
-        
-        // Reset form
         setGroupName('');
         setSelectedUsers({});
         onClose();
-      } else {
-        throw new Error("Group creation returned no ID");
       }
     } catch (error) {
       console.error('Error creating group:', error);
@@ -182,22 +128,21 @@ const GroupChatModal: React.FC<GroupChatModalProps> = ({ isOpen, onClose, onGrou
               <ScrollArea className="h-64 border rounded-md p-2">
                 <div className="space-y-2">
                   {availableUsers.map((user) => (
-                    <div key={user.uid} className="flex items-center space-x-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md">
+                    <div key={user.id} className="flex items-center space-x-3 p-2 hover:bg-muted rounded-md">
                       <Checkbox
-                        id={user.uid}
-                        checked={selectedUsers[user.uid] || false}
-                        onCheckedChange={(checked) => handleUserSelect(user.uid, checked as boolean)}
+                        id={user.id}
+                        checked={selectedUsers[user.id] || false}
+                        onCheckedChange={(checked) => handleUserSelect(user.id, checked as boolean)}
                         disabled={isLoading}
                       />
                       <Avatar className="w-8 h-8">
-                        <AvatarImage src={user.photoURL} alt={user.displayName} />
+                        <AvatarImage src={user.photoURL} alt={user.name} />
                         <AvatarFallback className="bg-gradient-to-r from-purple-400 to-indigo-500 text-white text-xs">
-                          {getInitials(user.displayName)}
+                          {getInitials(user.name || 'U')}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{user.displayName}</div>
-                        <div className="text-xs text-gray-500 truncate">{user.email}</div>
+                        <div className="text-sm font-medium truncate">{user.name}</div>
                         {user.points !== undefined && (
                           <div className="text-xs text-purple-600">
                             {user.points} points • Level {user.level}
@@ -209,20 +154,14 @@ const GroupChatModal: React.FC<GroupChatModalProps> = ({ isOpen, onClose, onGrou
                 </div>
               </ScrollArea>
             ) : (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 <p>No other users found.</p>
-                <p className="text-sm">Invite friends to join Study AI!</p>
               </div>
             )}
           </div>
           
           <div className="flex space-x-2">
-            <Button 
-              variant="outline" 
-              onClick={onClose}
-              disabled={isLoading}
-              className="flex-1"
-            >
+            <Button variant="outline" onClick={onClose} disabled={isLoading} className="flex-1">
               Cancel
             </Button>
             <Button 
@@ -230,14 +169,7 @@ const GroupChatModal: React.FC<GroupChatModalProps> = ({ isOpen, onClose, onGrou
               disabled={isLoading || !groupName.trim() || selectedCount === 0}
               className="flex-1 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700"
             >
-              {isLoading ? (
-                <span className="flex items-center">
-                  <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span>
-                  Creating...
-                </span>
-              ) : (
-                'Create Group'
-              )}
+              {isLoading ? 'Creating...' : 'Create Group'}
             </Button>
           </div>
         </div>

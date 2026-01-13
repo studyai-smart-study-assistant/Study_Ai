@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { getLeaderboardData, updateGroupMembership } from "@/lib/firebase";
+import { getLeaderboardData, updateGroupMembership } from "@/lib/supabase/chat-functions";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserPlus, UserMinus } from "lucide-react";
 
@@ -136,7 +136,7 @@ const GroupMembersModal: React.FC<GroupMembersModalProps> = ({
                 </div>
               ))}
             {leaderboardUsers.filter(u => !currentMembers[u.id]).length === 0 && (
-              <span className="text-gray-400 text-xs">All users are already in the group.</span>
+              <span className="text-muted-foreground text-xs">All users are already in the group.</span>
             )}
           </div>
           <Button
@@ -171,7 +171,7 @@ const GroupMembersModal: React.FC<GroupMembersModalProps> = ({
                 </div>
               ))}
             {leaderboardUsers.filter(u => currentMembers[u.id]).length === 0 && (
-              <span className="text-gray-400 text-xs">No removable members found.</span>
+              <span className="text-muted-foreground text-xs">No removable members found.</span>
             )}
           </div>
           <Button
