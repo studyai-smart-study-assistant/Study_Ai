@@ -25,11 +25,10 @@ export const useProfileData = (userId: string): UseProfileDataReturn => {
         if (historyData?.length) {
           topAchievements = historyData.filter(item => item.transaction_type === 'earn').map((item, index) => ({
             id: index + 1,
-            title: item.reason,
             description: item.reason,
             points: item.amount,
             type: 'achievement' as const,
-            timestamp: new Date(item.created_at).getTime()
+            timestamp: item.created_at
           })).slice(0, 5);
         }
         
