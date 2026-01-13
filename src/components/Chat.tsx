@@ -38,7 +38,7 @@ const Chat: React.FC<ChatProps> = ({ chatId, onChatUpdated }) => {
   if (!isLoaded) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="animate-spin h-8 w-8 border-4 border-purple-500 border-t-transparent rounded-full"></div>
+        <p className="text-sm text-muted-foreground">Loading chat…</p>
       </div>
     );
   }

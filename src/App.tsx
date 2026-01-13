@@ -57,7 +57,7 @@ const queryClient = new QueryClient({
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+    <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <QueryProvider>
@@ -68,11 +68,13 @@ function App() {
                   <TooltipProvider>
                     <Router>
                         <div className="min-h-screen bg-background">
-                          <Suspense fallback={
-                            <div className="min-h-screen bg-background flex items-center justify-center">
-                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                            </div>
-                          }>
+                          <Suspense
+                            fallback={
+                              <div className="min-h-screen bg-background flex items-center justify-center">
+                                <p className="text-sm text-muted-foreground">Loading…</p>
+                              </div>
+                            }
+                          >
                             <Routes>
                               <Route path="/" element={<Index />} />
                               <Route path="/login" element={<Login />} />
