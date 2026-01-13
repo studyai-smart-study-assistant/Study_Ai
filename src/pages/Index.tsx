@@ -44,7 +44,6 @@ const Index = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [showSignupPrompt, setShowSignupPrompt] = useState(false);
-  const [showChat, setShowChat] = useState(false);
   const { currentUser, isLoading: authLoading, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -108,8 +107,6 @@ const Index = () => {
   const handleStartChat = async () => {
     if (!inputMessage.trim()) return;
     await handleNewChat();
-    setShowChat(true);
-    // Keep the text so user can paste/send again in the chat input if needed
   };
 
   // Feature items for sidebar
@@ -135,30 +132,11 @@ const Index = () => {
     { icon: Info, label: 'About', path: '/about' },
   ];
 
-  const examples = [
-    {
-      icon: MessageSquare,
-      text: 'Explain quantum computing in simple terms'
-    },
-    {
-      icon: FileText,
-      text: 'Generate a React component for a contact form'
-    },
-    {
-      icon: Sparkles,
-      text: 'Summarize this topic for a 2nd grader'
-    },
-    {
-      icon: BookOpen,
-      text: 'Give me ideas for my next vacation'
-    }
-  ];
-
-  const homeTiles = [
-    { label: 'Teacher Chats', path: '/teacher-chats', icon: GraduationCap },
-    { label: 'Student Activities', path: '/student-activities', icon: ClipboardList },
-    { label: 'Leaderboard', path: '/leaderboard', icon: Trophy },
-    { label: 'Give Feedback', path: '/about', icon: Info }
+  // Quick actions - colored chips like the reference image
+  const quickActions = [
+    { icon: FileText, label: 'Notes', path: '/notes-creator', bgColor: 'bg-blue-100 dark:bg-blue-900/30', textColor: 'text-blue-600 dark:text-blue-400', iconColor: 'text-blue-500' },
+    { icon: BookOpen, label: 'Quiz', path: '/quiz-generator', bgColor: 'bg-green-100 dark:bg-green-900/30', textColor: 'text-green-600 dark:text-green-400', iconColor: 'text-green-500' },
+    { icon: ClipboardList, label: 'Homework', path: '/homework-helper', bgColor: 'bg-orange-100 dark:bg-orange-900/30', textColor: 'text-orange-600 dark:text-orange-400', iconColor: 'text-orange-500' },
   ];
 
   const getGreeting = () => {
@@ -378,94 +356,58 @@ const Index = () => {
 
           {/* Main Content Area */}
           <main className="flex-1 flex flex-col overflow-hidden">
-            {showChat && currentChatId ? (
+            {currentChatId ? (
               <Chat chatId={currentChatId} onChatUpdated={() => {}} />
             ) : (
+              // Welcome Screen - Clean like reference image
               <div className="flex-1 flex flex-col h-full">
-                <div className="flex-1 px-6 py-10">
-                  <div className="max-w-2xl mx-auto">
-                    <div className="text-center">
-                      <h1 className="text-3xl sm:text-4xl font-semibold text-foreground">
-                        {getGreeting()}{currentUser?.displayName ? ` ${currentUser.displayName.split(' ')[0]}` : ''}
-                      </h1>
-                      <p className="mt-3 text-base sm:text-lg text-muted-foreground">
-                        How can Study AI assist you today?
-                      </p>
-                    </div>
+                {/* Centered Content */}
+                <div className="flex-1 flex flex-col items-center justify-center px-6">
+                  {/* Greeting */}
+                  <h1 className="text-xl sm:text-2xl font-normal text-foreground mb-8">
+                    {getGreeting()}{currentUser?.displayName ? ` ${currentUser.displayName.split(' ')[0]}` : ''}
+                  </h1>
 
-                    <section className="mt-10">
-                      <div className="flex items-center justify-between">
-                        <h2 className="text-sm font-semibold text-foreground">Examples</h2>
-                        <Link
-                          to="/study-planner"
-                          className="text-sm font-medium text-primary story-link"
-                        >
-                          <span className="inline-flex items-center gap-2">
-                            <Clock className="h-4 w-4" />
-                            Study Timer
+                  {/* Divider */}
+                  <div className="w-full max-w-md h-px bg-border mb-12" />
+
+                  {/* What can I help you with */}
+                  <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-8">
+                    What can I help You Today
+                  </h2>
+
+                  {/* Quick Action Chips - Colored like reference */}
+                  <div className="flex flex-wrap justify-center gap-3 mb-8">
+                    {quickActions.map((action) => (
+                      <Link key={action.path} to={action.path}>
+                        <div className={cn(
+                          "flex items-center gap-2 px-5 py-2.5 rounded-full cursor-pointer",
+                          action.bgColor
+                        )}>
+                          <action.icon className={cn("w-4 h-4", action.iconColor)} />
+                          <span className={cn("text-sm font-medium", action.textColor)}>
+                            {action.label}
                           </span>
-                        </Link>
-                      </div>
-
-                      <div className="mt-4 space-y-3">
-                        {examples.map((ex) => (
-                          <button
-                            key={ex.text}
-                            type="button"
-                            className="w-full text-left rounded-xl border border-border bg-secondary/30 px-4 py-3 hover:bg-secondary/40"
-                            onClick={() => {
-                              setInputMessage(ex.text);
-                              requestAnimationFrame(() => inputRef.current?.focus());
-                            }}
-                          >
-                            <span className="flex items-center gap-3">
-                              <ex.icon className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-sm text-foreground">{ex.text}</span>
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </section>
-
-                    <section className="mt-10">
-                      <div className="grid grid-cols-2 gap-4">
-                        {homeTiles.map((tile) => (
-                          <Link key={tile.path} to={tile.path}>
-                            <div className="h-20 rounded-xl border border-border bg-card hover:bg-secondary/30 flex items-center justify-center">
-                              <div className="flex flex-col items-center gap-2">
-                                <tile.icon className="h-5 w-5 text-muted-foreground" />
-                                <span className="text-sm font-semibold text-foreground">{tile.label}</span>
-                              </div>
-                            </div>
-                          </Link>
-                        ))}
-                      </div>
-
-                      <p className="mt-8 text-center text-xs text-muted-foreground">
-                        Study AI can make mistakes. Consider checking important information.
-                      </p>
-                    </section>
+                        </div>
+                      </Link>
+                    ))}
                   </div>
                 </div>
 
-                {/* Input Box */}
-                <div className="p-4 pb-6 border-t border-border">
+                {/* Input Box - Bottom fixed */}
+                <div className="p-4 pb-6">
                   <div className="max-w-2xl mx-auto">
-                    <div className="relative flex items-center bg-background rounded-full border border-border">
+                    <div className="relative flex items-center bg-secondary/30 rounded-full border border-border">
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-10 w-10 rounded-full ml-1 text-muted-foreground"
-                        onClick={() => {
-                          setInputMessage('');
-                          requestAnimationFrame(() => inputRef.current?.focus());
-                        }}
                       >
                         <Plus className="h-5 w-5" />
                       </Button>
                       <Input
                         ref={inputRef}
-                        placeholder="Ask anything"
+                        placeholder="ask anything"
                         className="flex-1 bg-transparent border-0 focus-visible:ring-0 h-12 px-2 text-base placeholder:text-muted-foreground/60"
                         value={inputMessage}
                         onChange={(e) => setInputMessage(e.target.value)}
