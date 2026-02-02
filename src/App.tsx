@@ -11,6 +11,8 @@ import { NotificationProvider } from '@/contexts/NotificationContext';
 import { ThemeProvider } from './providers/ThemeProvider';
 import UsageTracker from '@/components/UsageTracker';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
+import AppShell from '@/components/layout/AppShell';
+import PageSkeleton from '@/components/common/PageSkeleton';
 
 import { Suspense, lazy } from 'react';
 
@@ -43,17 +45,23 @@ const QuizGeneratorPage = lazy(() => import('@/pages/QuizGeneratorPage'));
 const StudyPlannerPage = lazy(() => import('@/pages/StudyPlannerPage'));
 const HomeworkHelperPage = lazy(() => import('@/pages/HomeworkHelperPage'));
 
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: false,
       refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
     },
   },
 });
+
+// Page wrapper with skeleton fallback - no global spinner!
+const PageWrapper = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: 'default' | 'chat' | 'form' | 'cards' | 'profile' }) => (
+  <Suspense fallback={<PageSkeleton variant={variant} />}>
+    {children}
+  </Suspense>
+);
 
 function App() {
   return (
@@ -67,45 +75,42 @@ function App() {
                 <NotificationProvider>
                   <TooltipProvider>
                     <Router>
-                        <div className="min-h-screen bg-background">
-                          <Suspense fallback={
-                            <div className="min-h-screen bg-background flex items-center justify-center">
-                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                            </div>
-                          }>
-                            <Routes>
-                              <Route path="/" element={<Index />} />
-                              <Route path="/login" element={<Login />} />
-                              <Route path="/signup" element={<Signup />} />
-                              <Route path="/forgot-password" element={<ForgotPassword />} />
-                              <Route path="/profile" element={<Profile />} />
-                              <Route path="/student/:userId" element={<StudentProfile />} />
-                              <Route path="/student-activities" element={<StudentActivities />} />
-                              <Route path="/about" element={<AboutPage />} />
-                              <Route path="/chat-system" element={<ChatSystem />} />
-                              <Route path="/enhanced-chat" element={<SupabaseChatSystem />} />
-                              <Route path="/teacher-chats" element={<TeacherChats />} />
-                              <Route path="/leaderboard" element={<Leaderboard />} />
-                              <Route path="/library" element={<Library />} />
-                              <Route path="/study-tube" element={<StudyTube />} />
-                              <Route path="/chat-history" element={<ChatHistory />} />
-                              <Route path="/saved-messages" element={<SavedMessages />} />
-                              <Route path="/interactive-teacher/:sessionId" element={<InteractiveTeacher />} />
-                              <Route path="/notes-ad" element={<NotesAdGate />} />
-                              <Route path="/notes-view" element={<NotesView />} />
-                              <Route path="/points-wallet" element={<PointsWalletPage />} />
-                              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                              <Route path="/terms-of-service" element={<TermsOfService />} />
-                              <Route path="/notes-creator" element={<NotesCreator />} />
-                              <Route path="/quiz-generator" element={<QuizGeneratorPage />} />
-                              <Route path="/study-planner" element={<StudyPlannerPage />} />
-                              <Route path="/homework-helper" element={<HomeworkHelperPage />} />
-                              <Route path="*" element={<NotFound />} />
-                            </Routes>
-                          </Suspense>
-                        </div>
-                        <Toaster />
-                        <ToastToaster />
+                      <div className="min-h-screen bg-background">
+                        <Routes>
+                          {/* Routes wrapped in persistent AppShell */}
+                          <Route element={<AppShell />}>
+                            <Route path="/" element={<PageWrapper><Index /></PageWrapper>} />
+                            <Route path="/login" element={<PageWrapper variant="form"><Login /></PageWrapper>} />
+                            <Route path="/signup" element={<PageWrapper variant="form"><Signup /></PageWrapper>} />
+                            <Route path="/forgot-password" element={<PageWrapper variant="form"><ForgotPassword /></PageWrapper>} />
+                            <Route path="/profile" element={<PageWrapper variant="profile"><Profile /></PageWrapper>} />
+                            <Route path="/student/:userId" element={<PageWrapper variant="profile"><StudentProfile /></PageWrapper>} />
+                            <Route path="/student-activities" element={<PageWrapper><StudentActivities /></PageWrapper>} />
+                            <Route path="/about" element={<PageWrapper><AboutPage /></PageWrapper>} />
+                            <Route path="/chat-system" element={<PageWrapper variant="chat"><ChatSystem /></PageWrapper>} />
+                            <Route path="/enhanced-chat" element={<PageWrapper variant="chat"><SupabaseChatSystem /></PageWrapper>} />
+                            <Route path="/teacher-chats" element={<PageWrapper variant="chat"><TeacherChats /></PageWrapper>} />
+                            <Route path="/leaderboard" element={<PageWrapper variant="cards"><Leaderboard /></PageWrapper>} />
+                            <Route path="/library" element={<PageWrapper variant="cards"><Library /></PageWrapper>} />
+                            <Route path="/study-tube" element={<PageWrapper variant="cards"><StudyTube /></PageWrapper>} />
+                            <Route path="/chat-history" element={<PageWrapper variant="chat"><ChatHistory /></PageWrapper>} />
+                            <Route path="/saved-messages" element={<PageWrapper variant="chat"><SavedMessages /></PageWrapper>} />
+                            <Route path="/interactive-teacher/:sessionId" element={<PageWrapper variant="chat"><InteractiveTeacher /></PageWrapper>} />
+                            <Route path="/notes-ad" element={<PageWrapper><NotesAdGate /></PageWrapper>} />
+                            <Route path="/notes-view" element={<PageWrapper><NotesView /></PageWrapper>} />
+                            <Route path="/points-wallet" element={<PageWrapper><PointsWalletPage /></PageWrapper>} />
+                            <Route path="/privacy-policy" element={<PageWrapper><PrivacyPolicy /></PageWrapper>} />
+                            <Route path="/terms-of-service" element={<PageWrapper><TermsOfService /></PageWrapper>} />
+                            <Route path="/notes-creator" element={<PageWrapper variant="form"><NotesCreator /></PageWrapper>} />
+                            <Route path="/quiz-generator" element={<PageWrapper variant="form"><QuizGeneratorPage /></PageWrapper>} />
+                            <Route path="/study-planner" element={<PageWrapper variant="form"><StudyPlannerPage /></PageWrapper>} />
+                            <Route path="/homework-helper" element={<PageWrapper variant="form"><HomeworkHelperPage /></PageWrapper>} />
+                            <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
+                          </Route>
+                        </Routes>
+                      </div>
+                      <Toaster />
+                      <ToastToaster />
                     </Router>
                   </TooltipProvider>
                 </NotificationProvider>
