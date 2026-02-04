@@ -9,7 +9,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Sparkles, UserPlus } from 'lucide-react';
+import { Sparkles, UserPlus, Gift, Shield, Cloud } from 'lucide-react';
+import { markSignupPromptDismissed } from '@/utils/guestUsageTracker';
 
 interface SignupPromptDialogProps {
   open: boolean;
@@ -32,6 +33,17 @@ const SignupPromptDialog: React.FC<SignupPromptDialogProps> = ({
     navigate('/login');
   };
 
+  const handleDismiss = () => {
+    markSignupPromptDismissed();
+    onOpenChange(false);
+  };
+
+  const benefits = [
+    { icon: Cloud, text: 'Save progress across devices' },
+    { icon: Shield, text: 'Secure data backup' },
+    { icon: Gift, text: 'Get bonus credits' },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -39,19 +51,29 @@ const SignupPromptDialog: React.FC<SignupPromptDialogProps> = ({
           <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
             <Sparkles className="w-8 h-8 text-primary" />
           </div>
-          <DialogTitle className="text-xl">Sign up to continue</DialogTitle>
+          <DialogTitle className="text-xl">Enjoying Study AI?</DialogTitle>
           <DialogDescription className="text-base">
-            Create a free account to access all features and save your progress.
+            Create a free account to unlock more features and save your progress.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 pt-4">
+        {/* Benefits list */}
+        <div className="space-y-2 py-4">
+          {benefits.map((benefit, index) => (
+            <div key={index} className="flex items-center gap-3 text-sm text-muted-foreground">
+              <benefit.icon className="w-4 h-4 text-primary" />
+              <span>{benefit.text}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="space-y-3">
           <Button 
             onClick={handleSignup} 
             className="w-full h-12 text-base gap-2"
           >
             <UserPlus className="w-5 h-5" />
-            Create Account
+            Create Free Account
           </Button>
           
           <Button 
@@ -64,10 +86,10 @@ const SignupPromptDialog: React.FC<SignupPromptDialogProps> = ({
 
           <Button 
             variant="ghost" 
-            onClick={() => onOpenChange(false)}
+            onClick={handleDismiss}
             className="w-full text-muted-foreground"
           >
-            Continue as Guest
+            Maybe Later
           </Button>
         </div>
       </DialogContent>
