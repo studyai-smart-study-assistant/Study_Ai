@@ -75,40 +75,38 @@ function App() {
                 <NotificationProvider>
                   <TooltipProvider>
                     <Router>
-                      <div className="min-h-screen bg-background">
-                        <Routes>
-                          {/* Routes wrapped in persistent AppShell */}
-                          <Route element={<AppShell />}>
-                            <Route path="/" element={<PageWrapper><Index /></PageWrapper>} />
-                            <Route path="/login" element={<PageWrapper variant="form"><Login /></PageWrapper>} />
-                            <Route path="/signup" element={<PageWrapper variant="form"><Signup /></PageWrapper>} />
-                            <Route path="/forgot-password" element={<PageWrapper variant="form"><ForgotPassword /></PageWrapper>} />
-                            <Route path="/profile" element={<PageWrapper variant="profile"><Profile /></PageWrapper>} />
-                            <Route path="/student/:userId" element={<PageWrapper variant="profile"><StudentProfile /></PageWrapper>} />
-                            <Route path="/student-activities" element={<PageWrapper><StudentActivities /></PageWrapper>} />
-                            <Route path="/about" element={<PageWrapper><AboutPage /></PageWrapper>} />
-                            <Route path="/chat-system" element={<PageWrapper variant="chat"><ChatSystem /></PageWrapper>} />
-                            <Route path="/enhanced-chat" element={<PageWrapper variant="chat"><SupabaseChatSystem /></PageWrapper>} />
-                            <Route path="/teacher-chats" element={<PageWrapper variant="chat"><TeacherChats /></PageWrapper>} />
-                            <Route path="/leaderboard" element={<PageWrapper variant="cards"><Leaderboard /></PageWrapper>} />
-                            <Route path="/library" element={<PageWrapper variant="cards"><Library /></PageWrapper>} />
-                            <Route path="/study-tube" element={<PageWrapper variant="cards"><StudyTube /></PageWrapper>} />
-                            <Route path="/chat-history" element={<PageWrapper variant="chat"><ChatHistory /></PageWrapper>} />
-                            <Route path="/saved-messages" element={<PageWrapper variant="chat"><SavedMessages /></PageWrapper>} />
-                            <Route path="/interactive-teacher/:sessionId" element={<PageWrapper variant="chat"><InteractiveTeacher /></PageWrapper>} />
-                            <Route path="/notes-ad" element={<PageWrapper><NotesAdGate /></PageWrapper>} />
-                            <Route path="/notes-view" element={<PageWrapper><NotesView /></PageWrapper>} />
-                            <Route path="/points-wallet" element={<PageWrapper><PointsWalletPage /></PageWrapper>} />
-                            <Route path="/privacy-policy" element={<PageWrapper><PrivacyPolicy /></PageWrapper>} />
-                            <Route path="/terms-of-service" element={<PageWrapper><TermsOfService /></PageWrapper>} />
-                            <Route path="/notes-creator" element={<PageWrapper variant="form"><NotesCreator /></PageWrapper>} />
-                            <Route path="/quiz-generator" element={<PageWrapper variant="form"><QuizGeneratorPage /></PageWrapper>} />
-                            <Route path="/study-planner" element={<PageWrapper variant="form"><StudyPlannerPage /></PageWrapper>} />
-                            <Route path="/homework-helper" element={<PageWrapper variant="form"><HomeworkHelperPage /></PageWrapper>} />
-                            <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
-                          </Route>
-                        </Routes>
-                      </div>
+                      <Routes>
+                        {/* Routes wrapped in persistent AppShell */}
+                        <Route element={<AppShell />}>
+                          <Route path="/" element={<PageWrapper><Index /></PageWrapper>} />
+                          <Route path="/login" element={<PageWrapper variant="form"><Login /></PageWrapper>} />
+                          <Route path="/signup" element={<PageWrapper variant="form"><Signup /></PageWrapper>} />
+                          <Route path="/forgot-password" element={<PageWrapper variant="form"><ForgotPassword /></PageWrapper>} />
+                          <Route path="/profile" element={<PageWrapper variant="profile"><Profile /></PageWrapper>} />
+                          <Route path="/student/:userId" element={<PageWrapper variant="profile"><StudentProfile /></PageWrapper>} />
+                          <Route path="/student-activities" element={<PageWrapper><StudentActivities /></PageWrapper>} />
+                          <Route path="/about" element={<PageWrapper><AboutPage /></PageWrapper>} />
+                          <Route path="/chat-system" element={<PageWrapper variant="chat"><ChatSystem /></PageWrapper>} />
+                          <Route path="/enhanced-chat" element={<PageWrapper variant="chat"><SupabaseChatSystem /></PageWrapper>} />
+                          <Route path="/teacher-chats" element={<PageWrapper variant="chat"><TeacherChats /></PageWrapper>} />
+                          <Route path="/leaderboard" element={<PageWrapper variant="cards"><Leaderboard /></PageWrapper>} />
+                          <Route path="/library" element={<PageWrapper variant="cards"><Library /></PageWrapper>} />
+                          <Route path="/study-tube" element={<PageWrapper variant="cards"><StudyTube /></PageWrapper>} />
+                          <Route path="/chat-history" element={<PageWrapper variant="chat"><ChatHistory /></PageWrapper>} />
+                          <Route path="/saved-messages" element={<PageWrapper variant="chat"><SavedMessages /></PageWrapper>} />
+                          <Route path="/interactive-teacher/:sessionId" element={<PageWrapper variant="chat"><InteractiveTeacher /></PageWrapper>} />
+                          <Route path="/notes-ad" element={<PageWrapper><NotesAdGate /></PageWrapper>} />
+                          <Route path="/notes-view" element={<PageWrapper><NotesView /></PageWrapper>} />
+                          <Route path="/points-wallet" element={<PageWrapper><PointsWalletPage /></PageWrapper>} />
+                          <Route path="/privacy-policy" element={<PageWrapper><PrivacyPolicy /></PageWrapper>} />
+                          <Route path="/terms-of-service" element={<PageWrapper><TermsOfService /></PageWrapper>} />
+                          <Route path="/notes-creator" element={<PageWrapper variant="form"><NotesCreator /></PageWrapper>} />
+                          <Route path="/quiz-generator" element={<PageWrapper variant="form"><QuizGeneratorPage /></PageWrapper>} />
+                          <Route path="/study-planner" element={<PageWrapper variant="form"><StudyPlannerPage /></PageWrapper>} />
+                          <Route path="/homework-helper" element={<PageWrapper variant="form"><HomeworkHelperPage /></PageWrapper>} />
+                          <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
+                        </Route>
+                      </Routes>
                       <Toaster />
                       <ToastToaster />
                     </Router>
