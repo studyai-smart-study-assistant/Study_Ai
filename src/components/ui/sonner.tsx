@@ -1,7 +1,8 @@
+import type { ComponentProps } from "react"
 import { useTheme } from "@/providers/ThemeProvider"
 import { Toaster as Sonner } from "sonner"
 
-type ToasterProps = React.ComponentProps<typeof Sonner>
+type ToasterProps = ComponentProps<typeof Sonner>
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme } = useTheme()

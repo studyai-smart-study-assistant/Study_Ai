@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import Chat from '@/components/Chat';
@@ -14,6 +14,7 @@ import {
   BookOpen,
   ClipboardList,
   GraduationCap,
+  CalendarDays,
   Plus,
   ArrowUp,
 } from 'lucide-react';
@@ -43,7 +44,6 @@ const Index = () => {
     handleNavigationState
   });
 
-  // Handle newChat trigger from AppShell
   useEffect(() => {
     if (location.state?.newChat) {
       handleNewChat();
@@ -51,7 +51,6 @@ const Index = () => {
     }
   }, [location.state?.newChat]);
 
-  // Show signup prompt for guests after 60 seconds
   useEffect(() => {
     if (!currentUser && !authLoading) {
       const timer = setTimeout(() => {
@@ -78,6 +77,7 @@ const Index = () => {
     { icon: BookOpen, label: 'Generate Quiz', path: '/quiz-generator', bgColor: 'bg-green-100 dark:bg-green-900/30', textColor: 'text-green-600 dark:text-green-400', iconColor: 'text-green-500' },
     { icon: ClipboardList, label: 'Homework Help', path: '/homework-helper', bgColor: 'bg-orange-100 dark:bg-orange-900/30', textColor: 'text-orange-600 dark:text-orange-400', iconColor: 'text-orange-500' },
     { icon: GraduationCap, label: 'Ask AI Teacher', path: '/teacher-chats', bgColor: 'bg-purple-100 dark:bg-purple-900/30', textColor: 'text-purple-600 dark:text-purple-400', iconColor: 'text-purple-500' },
+    { icon: CalendarDays, label: 'Study Planner', path: '/study-planner', bgColor: 'bg-pink-100 dark:bg-pink-900/30', textColor: 'text-pink-600 dark:text-pink-400', iconColor: 'text-pink-500' },
   ];
 
   return (
@@ -89,26 +89,26 @@ const Index = () => {
           </div>
         ) : (
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            {/* Centered Content — no scroll */}
+            {/* Centered Content */}
             <div className="flex-1 flex flex-col items-center justify-center px-6 overflow-hidden">
-              <h1 className="text-xl sm:text-2xl font-normal text-foreground mb-4">
+              <h1 className="text-xl sm:text-2xl font-normal text-foreground mb-1">
                 {getGreeting()}{currentUser?.displayName ? `, ${currentUser.displayName.split(' ')[0]}` : ''} 👋
               </h1>
 
-              <p className="text-muted-foreground text-sm sm:text-base mb-10">
+              <p className="text-muted-foreground text-sm sm:text-base mb-8">
                 How can Study AI help you today?
               </p>
 
-              {/* Quick Action Buttons — 2x2 grid */}
-              <div className="grid grid-cols-2 gap-3 w-full max-w-xs">
+              {/* Quick Action Buttons */}
+              <div className="grid grid-cols-3 gap-3 w-full max-w-sm">
                 {quickActions.map((action) => (
                   <Link key={action.path} to={action.path}>
                     <div className={cn(
-                      "flex flex-col items-center gap-2 px-4 py-4 rounded-2xl cursor-pointer transition-colors text-center",
+                      "flex flex-col items-center gap-2 px-3 py-4 rounded-2xl cursor-pointer transition-colors text-center",
                       action.bgColor
                     )}>
                       <action.icon className={cn("w-6 h-6", action.iconColor)} />
-                      <span className={cn("text-xs font-medium leading-tight", action.textColor)}>
+                      <span className={cn("text-[11px] font-medium leading-tight", action.textColor)}>
                         {action.label}
                       </span>
                     </div>
