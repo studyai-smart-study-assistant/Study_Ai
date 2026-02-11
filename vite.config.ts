@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
-// https://vitejs.dev/config/
+// Cache bust: 2026-02-11T02:00
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
@@ -28,5 +28,11 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     include: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
     force: true,
+    esbuildOptions: {
+      // Force single React instance
+      define: {
+        'process.env.NODE_ENV': JSON.stringify(mode),
+      },
+    },
   },
 }));
