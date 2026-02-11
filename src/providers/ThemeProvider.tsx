@@ -1,10 +1,9 @@
-
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 
 type Theme = 'light' | 'dark' | 'system';
 
 interface ThemeProviderProps {
-  children: React.ReactNode;
+  children: ReactNode;
   defaultTheme?: Theme;
   storageKey?: string;
 }
@@ -21,17 +20,14 @@ export const ThemeProvider = ({
   defaultTheme = 'system', 
   storageKey = 'theme' 
 }: ThemeProviderProps) => {
-  const [theme, setTheme] = useState<Theme>(defaultTheme);
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem(storageKey) as Theme | null;
-    
-    if (savedTheme) {
-      setTheme(savedTheme);
-    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setTheme('dark');
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(storageKey) as Theme | null;
+      if (saved) return saved;
+      if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) return 'dark';
     }
-  }, [storageKey]);
+    return defaultTheme;
+  });
 
   useEffect(() => {
     if (theme === 'dark') {
