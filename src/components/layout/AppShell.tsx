@@ -361,7 +361,7 @@ const AppShell: React.FC = () => {
         </header>
 
         {/* Page Content */}
-        <main id="main-content" className="flex-1 overflow-y-auto">
+        <main id="main-content" className="flex-1 overflow-hidden flex flex-col min-h-0">
           <Outlet />
         </main>
       </div>
