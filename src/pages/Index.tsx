@@ -17,12 +17,16 @@ import {
   CalendarDays,
   Plus,
   ArrowUp,
+  Mic,
+  MicOff,
 } from 'lucide-react';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
 
 const Index = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [showSignupPrompt, setShowSignupPrompt] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const { currentUser, isLoading: authLoading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -63,6 +67,50 @@ const Index = () => {
   const handleStartChat = async () => {
     if (!inputMessage.trim()) return;
     await handleNewChat();
+  };
+
+  const toggleVoiceInput = async () => {
+    if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      const { toast } = await import('sonner');
+      toast.error('Your browser does not support speech recognition');
+      return;
+    }
+
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      const { toast } = await import('sonner');
+      toast.error('Microphone permission denied. Please allow mic access.');
+      return;
+    }
+
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognitionAPI();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'hi-IN';
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const transcript = Array.from(event.results)
+        .map(result => result[0].transcript)
+        .join('');
+      setInputMessage(transcript);
+    };
+
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+    const { toast } = await import('sonner');
+    toast.success('🎤 Listening... Speak now');
   };
 
   const getGreeting = () => {
@@ -127,6 +175,18 @@ const Index = () => {
                     className="h-10 w-10 rounded-full ml-1 text-muted-foreground"
                   >
                     <Plus className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "h-10 w-10 rounded-full",
+                      isListening ? "text-red-500 animate-pulse" : "text-muted-foreground"
+                    )}
+                    onClick={toggleVoiceInput}
+                    type="button"
+                  >
+                    {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
                   </Button>
                   <Input
                     ref={inputRef}
