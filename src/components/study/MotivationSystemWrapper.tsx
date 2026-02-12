@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { deductPointsForFeature, canAccessFeature } from '@/utils/points/featureLocking';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Lock } from 'lucide-react';
+import { trackGuestFeatureUsage, shouldShowSignupPrompt } from '@/utils/guestUsageTracker';
 import MotivationSystem from './MotivationSystem';
+import SignupPromptDialog from '@/components/home/SignupPromptDialog';
+import { BannerAd } from '@/components/ads';
 
 interface MotivationSystemWrapperProps {
   onSendMessage: (message: string) => void;
@@ -12,25 +11,29 @@ interface MotivationSystemWrapperProps {
 
 const MotivationSystemWrapper: React.FC<MotivationSystemWrapperProps> = ({ onSendMessage }) => {
   const { currentUser } = useAuth();
+  const [showSignupPrompt, setShowSignupPrompt] = useState(false);
 
   const wrappedOnSendMessage = async (message: string) => {
     if (!currentUser) {
-      toast.error('कृपया लॉगिन करें');
-      return;
-    }
-
-    const result = await deductPointsForFeature(currentUser.uid, 'motivation');
-    
-    if (!result.success) {
-      toast.error(result.message);
-      return;
+      trackGuestFeatureUsage('chat');
+      if (shouldShowSignupPrompt()) {
+        setTimeout(() => setShowSignupPrompt(true), 2000);
+      }
     }
     
-    toast.success(result.message);
     onSendMessage(message);
   };
 
-  return <MotivationSystem onSendMessage={wrappedOnSendMessage} />;
+  return (
+    <>
+      <BannerAd className="mb-4" />
+      <MotivationSystem onSendMessage={wrappedOnSendMessage} />
+      <SignupPromptDialog 
+        open={showSignupPrompt} 
+        onOpenChange={setShowSignupPrompt} 
+      />
+    </>
+  );
 };
 
 export default MotivationSystemWrapper;
