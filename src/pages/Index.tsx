@@ -365,9 +365,12 @@ const Index = () => {
                 {/* Centered Content */}
                 <div className="flex-1 flex flex-col items-center justify-center px-6">
                   {/* Greeting */}
-                  <h1 className="text-xl sm:text-2xl font-normal text-foreground mb-8">
-                    {getGreeting()}{currentUser?.displayName ? ` ${currentUser.displayName.split(' ')[0]}` : ''}
+                  <h1 className="text-xl sm:text-2xl font-normal text-foreground mb-4">
+                    {getGreeting()}{currentUser?.displayName ? ` ${currentUser.displayName.split(' ')[0]}` : ''} 👋
                   </h1>
+
+                  {/* Banner Ad - below name */}
+                  <BannerAd className="mb-4" />
 
                   {/* Divider */}
                   <div className="w-full max-w-md h-px bg-border mb-12" />
@@ -394,8 +397,6 @@ const Index = () => {
                     ))}
                   </div>
 
-                  {/* Banner Ad */}
-                  <BannerAd className="mb-4" />
                 </div>
 
                 {/* Input Box - Bottom fixed */}

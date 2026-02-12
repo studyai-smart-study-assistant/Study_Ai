@@ -1,13 +1,14 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useInteractiveTeacher } from '@/hooks/interactive-teacher';
 import { useAuth } from '@/contexts/AuthContext';
 import { ComprehensiveActivityTracker } from '@/utils/comprehensiveActivityTracker';
-import { deductPointsForFeature } from '@/utils/points/featureLocking';
-import { toast } from 'sonner';
+import { trackGuestFeatureUsage, shouldShowSignupPrompt } from '@/utils/guestUsageTracker';
 import InteractiveTeacherSetup from './interactive-teacher/InteractiveTeacherSetup';
 import InteractiveTeacherLesson from './interactive-teacher/InteractiveTeacherLesson';
 import InteractiveTeacherHistory from './interactive-teacher/InteractiveTeacherHistory';
+import SignupPromptDialog from '@/components/home/SignupPromptDialog';
+import { BannerAd } from '@/components/ads';
 
 interface InteractiveTeacherModeProps {
   onSendMessage: (message: string) => void;
@@ -15,6 +16,7 @@ interface InteractiveTeacherModeProps {
 
 const InteractiveTeacherMode: React.FC<InteractiveTeacherModeProps> = ({ onSendMessage }) => {
   const { currentUser } = useAuth();
+  const [showSignupPrompt, setShowSignupPrompt] = useState(false);
   const {
     messages,
     currentContext,
@@ -26,50 +28,38 @@ const InteractiveTeacherMode: React.FC<InteractiveTeacherModeProps> = ({ onSendM
   } = useInteractiveTeacher();
 
   const handleStartLesson = async (prompt: string, context: any) => {
-    if (!currentUser) {
-      toast.error('कृपया लॉगिन करें');
-      return;
+    if (currentUser) {
+      ComprehensiveActivityTracker.trackInteractiveTeaching(
+        currentUser.uid,
+        prompt,
+        0
+      );
+    } else {
+      trackGuestFeatureUsage('chat');
+      if (shouldShowSignupPrompt()) {
+        setTimeout(() => setShowSignupPrompt(true), 2000);
+      }
     }
-
-    // Deduct points before starting lesson
-    const result = await deductPointsForFeature(currentUser.uid, 'teacher_mode');
-    
-    if (!result.success) {
-      toast.error(result.message);
-      return;
-    }
-    
-    toast.success(result.message);
-
-    // Track lesson start
-    ComprehensiveActivityTracker.trackInteractiveTeaching(
-      currentUser.uid,
-      prompt,
-      0 // Initial tracking
-    );
     
     startLesson(prompt, context);
-    console.log('Interactive lesson started and tracked');
   };
 
   const handleSubmitAnswer = (answer: string) => {
-    // Track student response
     if (currentUser) {
       ComprehensiveActivityTracker.trackInteractiveTeaching(
         currentUser.uid,
         answer,
-        60 // Approximate time for response
+        60
       );
     }
     
     submitStudentResponse(answer);
-    console.log('Student response tracked:', answer.substring(0, 30) + '...');
   };
 
   if (messages.length > 0) {
     return (
       <div className="space-y-4">
-        {/* History Access Button */}
+        <BannerAd className="mb-2" />
         <div className="flex justify-end">
           <InteractiveTeacherHistory />
         </div>
@@ -80,16 +70,17 @@ const InteractiveTeacherMode: React.FC<InteractiveTeacherModeProps> = ({ onSendM
           isWaitingForStudent={isWaitingForStudent}
           isProcessing={isProcessing}
           onResetLesson={resetLesson}
-          onShowQuestionDialog={() => {}} // No longer needed
+          onShowQuestionDialog={() => {}}
           onSubmitAnswer={handleSubmitAnswer}
         />
+        <SignupPromptDialog open={showSignupPrompt} onOpenChange={setShowSignupPrompt} />
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {/* History Access Button - Show even when no active lesson */}
+      <BannerAd className="mb-2" />
       <div className="flex justify-end">
         <InteractiveTeacherHistory />
       </div>
@@ -98,6 +89,7 @@ const InteractiveTeacherMode: React.FC<InteractiveTeacherModeProps> = ({ onSendM
         onStartLesson={handleStartLesson}
         isProcessing={isProcessing}
       />
+      <SignupPromptDialog open={showSignupPrompt} onOpenChange={setShowSignupPrompt} />
     </div>
   );
 };

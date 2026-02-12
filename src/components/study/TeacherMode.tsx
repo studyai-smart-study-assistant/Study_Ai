@@ -5,10 +5,9 @@ import TeacherModeHeader from './teacher/TeacherModeHeader';
 import TeacherModeTabs from './teacher/TeacherModeTabs';
 import { ComprehensiveActivityTracker } from '@/utils/comprehensiveActivityTracker';
 import { useAuth } from '@/contexts/AuthContext';
-import { deductPointsForFeature } from '@/utils/points/featureLocking';
 import { trackGuestFeatureUsage, shouldShowSignupPrompt } from '@/utils/guestUsageTracker';
-import { toast } from 'sonner';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
+import { BannerAd } from '@/components/ads';
 
 const TeacherMode: React.FC<TeacherModeProps> = ({ onSendMessage }) => {
   const [useVoiceResponse, setUseVoiceResponse] = useState(true);
@@ -19,23 +18,10 @@ const TeacherMode: React.FC<TeacherModeProps> = ({ onSendMessage }) => {
   const { currentUser } = useAuth();
 
   const handleSendMessage = async (message: string) => {
-    // For logged-in users, deduct credits
     if (currentUser) {
-      const result = await deductPointsForFeature(currentUser.uid, 'teacher_mode');
-      
-      if (!result.success) {
-        toast.error(result.message);
-        return;
-      }
-      
-      toast.success(result.message);
-      
-      // Track the start time of interaction
       if (!sessionStartTime) {
         setSessionStartTime(Date.now());
       }
-
-      // Track interactive teaching activity
       const timeSpent = sessionStartTime ? Math.floor((Date.now() - sessionStartTime) / 1000) : 30;
       ComprehensiveActivityTracker.trackInteractiveTeaching(
         currentUser.uid, 
@@ -43,22 +29,17 @@ const TeacherMode: React.FC<TeacherModeProps> = ({ onSendMessage }) => {
         timeSpent
       );
     } else {
-      // For guests, track usage and show prompt if threshold reached
       trackGuestFeatureUsage('chat');
-      
       if (shouldShowSignupPrompt()) {
         setTimeout(() => setShowSignupPrompt(true), 2000);
       }
     }
 
-    // Send the message - always allow
     onSendMessage(message);
   };
 
-  // Reset session time when component unmounts or user changes
   useEffect(() => {
     setSessionStartTime(Date.now());
-    
     return () => {
       setSessionStartTime(null);
     };
@@ -67,6 +48,7 @@ const TeacherMode: React.FC<TeacherModeProps> = ({ onSendMessage }) => {
   return (
     <>
       <div className="w-full space-y-6">
+        <BannerAd className="mb-2" />
         <TeacherModeHeader />
         
         <TeacherModeTabs
