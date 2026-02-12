@@ -1,9 +1,8 @@
 
 import React, { useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
-import { SendHorizontal, Image as ImageIcon, X, Sparkles, Mic, MicOff } from 'lucide-react';
+import { SendHorizontal, Image as ImageIcon, X, Sparkles, Mic } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -17,9 +16,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading = false 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isFocused, setIsFocused] = useState(false);
-  const [isListening, setIsListening] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,39 +71,6 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading = false 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  };
-
-  const toggleVoiceInput = async () => {
-    if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-      toast.error('Speech recognition is not supported in your browser');
-      return;
-    }
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-      return;
-    }
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      toast.error('Microphone permission denied');
-      return;
-    }
-    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognitionAPI();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'hi-IN';
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
-      setMessage(transcript);
-    };
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsListening(true);
-    toast.success('🎤 Listening... Speak now');
   };
 
   return (
@@ -217,17 +181,11 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading = false 
                 type="button"
                 size="icon"
                 variant="ghost"
-                className={cn(
-                  "h-10 w-10 rounded-full border border-indigo-200/50 dark:border-indigo-700/50 transition-all duration-300",
-                  isListening 
-                    ? "bg-red-100 dark:bg-red-900/30 text-red-500 animate-pulse" 
-                    : "bg-gradient-to-r from-indigo-100 to-pink-100 dark:from-indigo-900/30 dark:to-pink-900/30 hover:from-indigo-200 hover:to-pink-200 dark:hover:from-indigo-800/50 dark:hover:to-pink-800/50"
-                )}
+                className="h-10 w-10 rounded-full bg-gradient-to-r from-indigo-100 to-pink-100 dark:from-indigo-900/30 dark:to-pink-900/30 hover:from-indigo-200 hover:to-pink-200 dark:hover:from-indigo-800/50 dark:hover:to-pink-800/50 border border-indigo-200/50 dark:border-indigo-700/50 transition-all duration-300"
                 disabled={isLoading}
-                onClick={toggleVoiceInput}
-                title="Voice Input"
+                title="वॉयस मैसेज"
               >
-                {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />}
+                <Mic className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
               </Button>
             </motion.div>
             
