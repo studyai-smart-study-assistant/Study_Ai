@@ -39,6 +39,7 @@ import { Sheet, SheetContent, SheetClose } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
+import { BannerAd } from '@/components/ads';
 
 const Index = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -392,6 +393,9 @@ const Index = () => {
                       </Link>
                     ))}
                   </div>
+
+                  {/* Banner Ad */}
+                  <BannerAd className="mb-4" />
                 </div>
 
                 {/* Input Box - Bottom fixed */}
