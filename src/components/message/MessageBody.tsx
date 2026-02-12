@@ -28,25 +28,20 @@ const MessageBody: React.FC<MessageBodyProps> = ({
 }) => {
   return (
     <div className={cn(
-      "w-full max-w-full mx-auto px-3 sm:px-4 md:px-8 flex gap-3 sm:gap-4",
-      isUserMessage ? "flex-row-reverse" : "flex-row"
+      "w-full max-w-3xl mx-auto px-3 sm:px-4 md:px-6 py-4 flex gap-3",
+      isUserMessage ? "justify-end" : "justify-start"
     )}>
-      <div 
-        className={cn(
-          "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 transition-transform hover:scale-110 shadow-md",
-          isUserMessage 
-            ? "bg-purple-200 text-purple-800 dark:bg-purple-800 dark:text-purple-200" 
-            : "bg-gradient-to-br from-indigo-500 to-purple-600 text-white"
-        )}
-      >
-        {isUserMessage ? <User size={16} /> : "AI"}
-      </div>
+      {!isUserMessage && (
+        <div className="w-7 h-7 rounded-full bg-foreground text-background flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-semibold">
+          AI
+        </div>
+      )}
       
       <div className={cn(
-        "flex-1 min-w-0 max-w-full overflow-hidden break-words",
+        "min-w-0 max-w-[85%] overflow-hidden break-words",
         isUserMessage 
-          ? "bg-purple-100 dark:bg-gray-700 px-3 sm:px-4 py-2 sm:py-3 rounded-2xl rounded-tr-none shadow-sm"
-          : "bg-white dark:bg-gray-800 px-3 sm:px-4 py-2 sm:py-3 rounded-2xl rounded-tl-none shadow-sm border border-purple-100 dark:border-gray-700"
+          ? "bg-muted px-4 py-3 rounded-3xl"
+          : ""
       )}>
         {isEditing ? (
           <MessageEditor 
@@ -65,6 +60,12 @@ const MessageBody: React.FC<MessageBodyProps> = ({
           </div>
         )}
       </div>
+
+      {isUserMessage && (
+        <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 mt-0.5">
+          <User size={14} />
+        </div>
+      )}
     </div>
   );
 };
