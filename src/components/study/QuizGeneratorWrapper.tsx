@@ -3,7 +3,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { trackGuestFeatureUsage, shouldShowSignupPrompt } from '@/utils/guestUsageTracker';
 import QuizGenerator from './QuizGenerator';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
-import { BannerAd } from '@/components/ads';
 
 interface QuizGeneratorWrapperProps {
   onSendMessage?: (message: string) => void;
@@ -28,7 +27,6 @@ const QuizGeneratorWrapper: React.FC<QuizGeneratorWrapperProps> = ({ onSendMessa
 
   return (
     <>
-      <BannerAd className="mb-4" />
       <QuizGenerator onSendMessage={wrappedOnSendMessage} />
       <SignupPromptDialog 
         open={showSignupPrompt} 

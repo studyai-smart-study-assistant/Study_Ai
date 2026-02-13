@@ -8,7 +8,6 @@ import PointsWallet from '@/components/student/PointsWallet';
 import PointsSystemDialog from '@/components/dialogs/PointsSystemDialog';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { BannerAd } from '@/components/ads';
 
 const PointsWalletPage = () => {
   const { currentUser, isLoading } = useAuth();
@@ -127,10 +126,6 @@ const PointsWalletPage = () => {
             अपने पॉइंट्स प्रबंधित करें और दोस्तों को आमंत्रित करें
           </p>
           
-          {/* Banner Ad at top */}
-          <div className="mt-4">
-            <BannerAd className="mx-auto" />
-          </div>
         </motion.div>
 
         {/* Wallet Component */}

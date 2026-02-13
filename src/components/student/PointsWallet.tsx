@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { hi } from 'date-fns/locale';
-import { NativeAd, BannerAd } from '@/components/ads';
+
 
 interface PointsWalletProps {
   userId: string;
@@ -344,13 +344,6 @@ const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints, curr
         {/* Store Tab */}
         <TabsContent value="store">
           <div className="space-y-4">
-            {/* Native Ad */}
-            <Card className="border-2 border-dashed border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20">
-              <CardContent className="pt-4">
-                <p className="text-xs text-center text-muted-foreground mb-3">प्रायोजित</p>
-                <NativeAd className="mb-2" />
-              </CardContent>
-            </Card>
 
             <Card>
               <CardHeader>
@@ -436,8 +429,6 @@ const PointsWallet: React.FC<PointsWalletProps> = ({ userId, currentPoints, curr
                   </CardContent>
                 </Card>
 
-                {/* Banner Ad */}
-                <BannerAd className="my-4" />
               </CardContent>
             </Card>
           </div>

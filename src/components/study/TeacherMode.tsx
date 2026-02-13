@@ -7,7 +7,6 @@ import { ComprehensiveActivityTracker } from '@/utils/comprehensiveActivityTrack
 import { useAuth } from '@/contexts/AuthContext';
 import { trackGuestFeatureUsage, shouldShowSignupPrompt } from '@/utils/guestUsageTracker';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
-import { BannerAd } from '@/components/ads';
 
 const TeacherMode: React.FC<TeacherModeProps> = ({ onSendMessage }) => {
   const [useVoiceResponse, setUseVoiceResponse] = useState(true);
@@ -48,7 +47,6 @@ const TeacherMode: React.FC<TeacherModeProps> = ({ onSendMessage }) => {
   return (
     <>
       <div className="w-full space-y-6">
-        <BannerAd className="mb-2" />
         <TeacherModeHeader />
         
         <TeacherModeTabs

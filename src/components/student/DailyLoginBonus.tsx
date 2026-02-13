@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Award, PartyPopper, Sparkles, Crown, Zap, Star, Trophy } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { NativeAd } from '@/components/ads';
+
 
 interface DailyLoginBonusProps {
   userId: string;
@@ -182,8 +182,6 @@ const DailyLoginBonus: React.FC<DailyLoginBonusProps> = ({ userId, points, strea
                 transition={{ delay: 0.7 }}
                 className="w-full mb-4"
               >
-                <p className="text-xs text-center text-muted-foreground mb-2">प्रायोजित</p>
-                <NativeAd className="rounded-lg overflow-hidden" />
               </motion.div>
               
               {/* Action button */}
