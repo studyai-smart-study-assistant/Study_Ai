@@ -3,7 +3,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { trackGuestFeatureUsage, shouldShowSignupPrompt } from '@/utils/guestUsageTracker';
 import EnhancedNotesGenerator from './EnhancedNotesGenerator';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
-import { BannerAd } from '@/components/ads';
 
 interface EnhancedNotesGeneratorWrapperProps {
   onSendMessage?: (message: string) => void;
@@ -28,7 +27,6 @@ const EnhancedNotesGeneratorWrapper: React.FC<EnhancedNotesGeneratorWrapperProps
 
   return (
     <>
-      <BannerAd className="mb-4" />
       <EnhancedNotesGenerator onSendMessage={wrappedOnSendMessage} />
       <SignupPromptDialog 
         open={showSignupPrompt} 

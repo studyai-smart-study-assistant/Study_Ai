@@ -39,7 +39,6 @@ import { Sheet, SheetContent, SheetClose } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
-import { BannerAd } from '@/components/ads';
 
 const Index = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -369,10 +368,7 @@ const Index = () => {
                     {getGreeting()}{currentUser?.displayName ? ` ${currentUser.displayName.split(' ')[0]}` : ''} 👋
                   </h1>
 
-                  {/* Banner Ad - below name */}
-                  <BannerAd className="mb-4" />
-
-                  {/* Divider */}
+                   {/* Divider */}
                   <div className="w-full max-w-md h-px bg-border mb-12" />
 
                   {/* What can I help you with */}

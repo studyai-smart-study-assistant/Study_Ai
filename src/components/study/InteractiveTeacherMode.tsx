@@ -8,7 +8,6 @@ import InteractiveTeacherSetup from './interactive-teacher/InteractiveTeacherSet
 import InteractiveTeacherLesson from './interactive-teacher/InteractiveTeacherLesson';
 import InteractiveTeacherHistory from './interactive-teacher/InteractiveTeacherHistory';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
-import { BannerAd } from '@/components/ads';
 
 interface InteractiveTeacherModeProps {
   onSendMessage: (message: string) => void;
@@ -59,7 +58,6 @@ const InteractiveTeacherMode: React.FC<InteractiveTeacherModeProps> = ({ onSendM
   if (messages.length > 0) {
     return (
       <div className="space-y-4">
-        <BannerAd className="mb-2" />
         <div className="flex justify-end">
           <InteractiveTeacherHistory />
         </div>
@@ -80,7 +78,6 @@ const InteractiveTeacherMode: React.FC<InteractiveTeacherModeProps> = ({ onSendM
 
   return (
     <div className="space-y-4">
-      <BannerAd className="mb-2" />
       <div className="flex justify-end">
         <InteractiveTeacherHistory />
       </div>

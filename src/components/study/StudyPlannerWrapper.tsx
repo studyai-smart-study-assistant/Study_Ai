@@ -3,7 +3,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { trackGuestFeatureUsage, shouldShowSignupPrompt } from '@/utils/guestUsageTracker';
 import StudyPlanner from './StudyPlanner';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
-import { BannerAd } from '@/components/ads';
 
 interface StudyPlannerWrapperProps {
   onSendMessage?: (message: string) => void;
@@ -28,7 +27,6 @@ const StudyPlannerWrapper: React.FC<StudyPlannerWrapperProps> = ({ onSendMessage
 
   return (
     <>
-      <BannerAd className="mb-4" />
       <StudyPlanner onSendMessage={wrappedOnSendMessage} />
       <SignupPromptDialog 
         open={showSignupPrompt} 

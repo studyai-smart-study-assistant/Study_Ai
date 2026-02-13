@@ -3,7 +3,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { trackGuestFeatureUsage, shouldShowSignupPrompt } from '@/utils/guestUsageTracker';
 import MotivationSystem from './MotivationSystem';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
-import { BannerAd } from '@/components/ads';
 
 interface MotivationSystemWrapperProps {
   onSendMessage: (message: string) => void;
@@ -26,7 +25,6 @@ const MotivationSystemWrapper: React.FC<MotivationSystemWrapperProps> = ({ onSen
 
   return (
     <>
-      <BannerAd className="mb-4" />
       <MotivationSystem onSendMessage={wrappedOnSendMessage} />
       <SignupPromptDialog 
         open={showSignupPrompt} 

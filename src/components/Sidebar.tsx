@@ -37,7 +37,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useAvatarUrl } from '@/hooks/useAvatarUrl';
-import { BannerAd } from '@/components/ads';
+
 
 interface SidebarProps {
   isOpen: boolean;
