@@ -39,6 +39,7 @@ import { Sheet, SheetContent, SheetClose } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
+import MonetagAd from '@/components/ads/MonetagAd';
 
 const Index = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -364,9 +365,10 @@ const Index = () => {
                 {/* Centered Content */}
                 <div className="flex-1 flex flex-col items-center justify-center px-6">
                   {/* Greeting */}
-                  <h1 className="text-xl sm:text-2xl font-normal text-foreground mb-4">
+                  <h1 className="text-xl sm:text-2xl font-normal text-foreground mb-2">
                     {getGreeting()}{currentUser?.displayName ? ` ${currentUser.displayName.split(' ')[0]}` : ''} 👋
                   </h1>
+                  <MonetagAd />
 
                    {/* Divider */}
                   <div className="w-full max-w-md h-px bg-border mb-12" />

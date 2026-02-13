@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { trackGuestFeatureUsage, shouldShowSignupPrompt } from '@/utils/guestUsageTracker';
 import HomeworkAssistant from './HomeworkAssistant';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
+import MonetagAd from '@/components/ads/MonetagAd';
 
 interface HomeworkAssistantWrapperProps {
   onSendMessage?: (message: string) => void;
@@ -27,6 +28,7 @@ const HomeworkAssistantWrapper: React.FC<HomeworkAssistantWrapperProps> = ({ onS
 
   return (
     <>
+      <MonetagAd />
       <HomeworkAssistant onSendMessage={wrappedOnSendMessage} />
       <SignupPromptDialog 
         open={showSignupPrompt} 
