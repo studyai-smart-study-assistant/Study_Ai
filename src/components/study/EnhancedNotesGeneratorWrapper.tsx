@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { trackGuestFeatureUsage, shouldShowSignupPrompt } from '@/utils/guestUsageTracker';
 import EnhancedNotesGenerator from './EnhancedNotesGenerator';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
+import MonetagAd from '@/components/ads/MonetagAd';
 
 interface EnhancedNotesGeneratorWrapperProps {
   onSendMessage?: (message: string) => void;
@@ -27,6 +28,7 @@ const EnhancedNotesGeneratorWrapper: React.FC<EnhancedNotesGeneratorWrapperProps
 
   return (
     <>
+      <MonetagAd />
       <EnhancedNotesGenerator onSendMessage={wrappedOnSendMessage} />
       <SignupPromptDialog 
         open={showSignupPrompt} 
