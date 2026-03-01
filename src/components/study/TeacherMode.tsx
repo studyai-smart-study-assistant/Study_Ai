@@ -7,7 +7,6 @@ import { ComprehensiveActivityTracker } from '@/utils/comprehensiveActivityTrack
 import { useAuth } from '@/contexts/AuthContext';
 import { trackGuestFeatureUsage, shouldShowSignupPrompt } from '@/utils/guestUsageTracker';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
-import MonetagAd from '@/components/ads/MonetagAd';
 
 const TeacherMode: React.FC<TeacherModeProps> = ({ onSendMessage }) => {
   const [useVoiceResponse, setUseVoiceResponse] = useState(true);
@@ -60,9 +59,8 @@ const TeacherMode: React.FC<TeacherModeProps> = ({ onSendMessage }) => {
           setLearningMode={setLearningMode}
         />
       </div>
-      <MonetagAd />
       
-      <SignupPromptDialog 
+      <SignupPromptDialog
         open={showSignupPrompt} 
         onOpenChange={setShowSignupPrompt} 
       />

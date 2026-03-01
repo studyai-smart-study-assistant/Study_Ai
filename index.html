@@ -4,88 +4,132 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="monetag" content="492d34fe7c6f5b0ea9c54d5a2fed01fe">
+    <meta name="google-site-verification" content="googled3cc8eedae087512.html" />
     <meta name="theme-color" content="#8b5cf6" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="mobile-web-app-capable" content="yes" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/notification-icon.png" />
-    <title>Study AI – Smart Learning Assistant</title>
+    <link rel="canonical" href="https://study-ai-001-41.lovable.app/" />
+
+    <title>Study AI - Smart Notes & Quizzes (Better than ChatGPT for Students)</title>
+    <meta name="description" content="The ultimate AI for students. Get automated notes for 12th Arts and SSC CGL preparation. Best AI for Bihar Board, competitive exams. Outperforms generic AI in education. भारत का अपना AI." />
+    <meta name="keywords" content="Study AI, Best AI for students, AI for Bihar Board, AI notes generator, AI Quiz Generator, AI for SSC CGL, India AI, Bharat ka apna AI, ChatGPT alternative for students, Gemini alternative, Deepseek alternative, स्टडी एआई, भारत का अपना AI" />
+    <meta name="author" content="Ajit Kumar" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Study AI - Smart Notes & Quizzes (Better than ChatGPT for Students)" />
+    <meta property="og:description" content="The ultimate AI for students. Automated notes, quizzes, AI teacher for Bihar Board & SSC CGL. भारत का अपना AI." />
+    <meta property="og:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/G9X8rLrHK3MMMvTfXL5d69SRVtV2/social-images/social-1771357236722-1000122053.webp" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://study-ai-001-41.lovable.app/" />
+    <meta property="og:site_name" content="Study AI" />
+    <meta property="og:locale" content="en_IN" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Study AI - Smart Notes & Quizzes (Better than ChatGPT for Students)" />
+    <meta name="twitter:description" content="The ultimate AI for students. Automated notes, quizzes, AI teacher for Bihar Board & SSC CGL. भारत का अपना AI." />
+    <meta name="twitter:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/G9X8rLrHK3MMMvTfXL5d69SRVtV2/social-images/social-1771357236722-1000122053.webp" />
+
+    <!-- JSON-LD Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Study AI",
+      "alternateName": "स्टडी एआई",
+      "description": "Study AI is an Educational AI Assistant that helps students with automated notes generation, interactive quizzes with XP and leaderboards, AI Teacher Mode, homework assistance, and study planning. Specialized for Bihar Board, 12th Arts, and SSC CGL preparation.",
+      "url": "https://study-ai-001-41.lovable.app/",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "Web Browser",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "INR"
+      },
+      "author": {
+        "@type": "Person",
+        "name": "Ajit Kumar"
+      },
+      "featureList": [
+        "AI Teacher Mode",
+        "Automated Notes Generator",
+        "Interactive Quizzes with XP and Leaderboards",
+        "Homework Helper",
+        "Study Planner",
+        "Bihar Board Exam Preparation",
+        "SSC CGL Preparation"
+      ],
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "1200"
+      }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Study AI",
+      "alternateName": "स्टडी एआई - भारत का अपना AI",
+      "url": "https://study-ai-001-41.lovable.app/",
+      "founder": {
+        "@type": "Person",
+        "name": "Ajit Kumar"
+      },
+      "description": "Study AI is India's own Educational AI platform founded by Ajit Kumar, providing smart learning tools for students preparing for Bihar Board, SSC CGL, and other competitive exams."
+    }
+    </script>
+
     <!-- Preconnect to external services -->
     <link rel="preconnect" href="https://csylbxuiukwhpybuhizr.supabase.co" />
     <link rel="dns-prefetch" href="https://csylbxuiukwhpybuhizr.supabase.co" />
+
     <!-- ResponsiveVoice Text-to-Speech with API Key -->
     <script>
-      // Global flags for ResponsiveVoice status
       window.responsiveVoiceReady = false;
       window.responsiveVoiceError = false;
       
-      // Enhanced initialization function
       function initResponsiveVoice() {
-        console.log('Initializing ResponsiveVoice...');
-        
         if (typeof responsiveVoice !== 'undefined') {
-          // Set up event listeners
           if (responsiveVoice.OnVoiceReady) {
             responsiveVoice.OnVoiceReady = function() {
               window.responsiveVoiceReady = true;
-              console.log('ResponsiveVoice is ready with API key');
-              console.log('Available voices:', responsiveVoice.getVoices().length);
             };
           }
-          
-          // Check if already ready
           if (responsiveVoice.voiceSupport && responsiveVoice.voiceSupport()) {
             window.responsiveVoiceReady = true;
-            console.log('ResponsiveVoice initialized successfully with API key');
-            console.log('Available voices:', responsiveVoice.getVoices().length);
           }
         } else {
-          console.error('ResponsiveVoice not loaded');
           window.responsiveVoiceError = true;
         }
       }
       
-      // Error handler
       function handleResponsiveVoiceError() {
-        console.error('ResponsiveVoice failed to load');
         window.responsiveVoiceError = true;
         window.responsiveVoiceReady = false;
       }
       
-      // Multiple initialization attempts for better compatibility
       document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM loaded, waiting for ResponsiveVoice...');
         setTimeout(initResponsiveVoice, 1000);
       });
-      
-      // For mobile/APK compatibility
       document.addEventListener('deviceready', function() {
         setTimeout(initResponsiveVoice, 500);
       }, false);
-      
-      // Window load event
       window.addEventListener('load', function() {
         setTimeout(initResponsiveVoice, 1500);
       });
     </script>
-    
-    <!-- ResponsiveVoice with your API key -->
     <script 
       src="https://code.responsivevoice.org/responsivevoice.js?key=5topRmyr" 
       onload="setTimeout(initResponsiveVoice, 200)" 
       onerror="handleResponsiveVoiceError()"
     ></script>
-    <meta property="og:title" content="Study AI – Smart Learning Assistant">
-  <meta name="twitter:title" content="Study AI – Smart Learning Assistant">
-  <meta name="description" content="Study AI: Your Personal Learning Assistant. Master any subject with AI-powered quizzes, personalized notes, and an interactive AI teacher.">
-  <meta property="og:description" content="Study AI: Your Personal Learning Assistant. Master any subject with AI-powered quizzes, personalized notes, and an interactive AI teacher.">
-  <meta name="twitter:description" content="Study AI: Your Personal Learning Assistant. Master any subject with AI-powered quizzes, personalized notes, and an interactive AI teacher.">
-  <meta property="og:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/G9X8rLrHK3MMMvTfXL5d69SRVtV2/social-images/social-1771357236722-1000122053.webp">
-  <meta name="twitter:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/G9X8rLrHK3MMMvTfXL5d69SRVtV2/social-images/social-1771357236722-1000122053.webp">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta property="og:type" content="website">
-</head>
+  </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
