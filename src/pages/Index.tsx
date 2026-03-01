@@ -39,7 +39,6 @@ import { Sheet, SheetContent, SheetClose } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
-import MonetagAd from '@/components/ads/MonetagAd';
 
 const Index = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -368,7 +367,6 @@ const Index = () => {
                   <h1 className="text-xl sm:text-2xl font-normal text-foreground mb-2">
                     {getGreeting()}{currentUser?.displayName ? ` ${currentUser.displayName.split(' ')[0]}` : ''} 👋
                   </h1>
-                  <MonetagAd />
 
                    {/* Divider */}
                   <div className="w-full max-w-md h-px bg-border mb-12" />
@@ -393,6 +391,59 @@ const Index = () => {
                         </div>
                       </Link>
                     ))}
+                  </div>
+
+                  {/* Why Study AI - Comparison Section */}
+                  <div className="w-full max-w-2xl mt-8 mb-4">
+                    <h2 className="text-lg font-semibold text-foreground mb-4 text-center">
+                      Why Study AI is Better for Indian Students
+                    </h2>
+                    <div className="overflow-x-auto rounded-xl border border-border">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-secondary/50">
+                            <th className="text-left p-3 font-medium text-muted-foreground">Feature</th>
+                            <th className="text-center p-3 font-medium text-primary">Study AI</th>
+                            <th className="text-center p-3 font-medium text-muted-foreground">ChatGPT / Gemini</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          <tr>
+                            <td className="p-3 text-foreground">Bihar Board / SSC CGL Focus</td>
+                            <td className="p-3 text-center text-green-500 font-bold">✓</td>
+                            <td className="p-3 text-center text-destructive">✗</td>
+                          </tr>
+                          <tr>
+                            <td className="p-3 text-foreground">Auto Notes Generator</td>
+                            <td className="p-3 text-center text-green-500 font-bold">✓</td>
+                            <td className="p-3 text-center text-destructive">✗</td>
+                          </tr>
+                          <tr>
+                            <td className="p-3 text-foreground">Interactive Quizzes with XP</td>
+                            <td className="p-3 text-center text-green-500 font-bold">✓</td>
+                            <td className="p-3 text-center text-destructive">✗</td>
+                          </tr>
+                          <tr>
+                            <td className="p-3 text-foreground">AI Teacher Mode (Hindi + English)</td>
+                            <td className="p-3 text-center text-green-500 font-bold">✓</td>
+                            <td className="p-3 text-center text-muted-foreground">Limited</td>
+                          </tr>
+                          <tr>
+                            <td className="p-3 text-foreground">Free for Students</td>
+                            <td className="p-3 text-center text-green-500 font-bold">✓</td>
+                            <td className="p-3 text-center text-destructive">Paid</td>
+                          </tr>
+                          <tr>
+                            <td className="p-3 text-foreground">Leaderboard & Gamification</td>
+                            <td className="p-3 text-center text-green-500 font-bold">✓</td>
+                            <td className="p-3 text-center text-destructive">✗</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-xs text-muted-foreground text-center mt-3">
+                      भारत का अपना AI — Made for Bihar Board, 12th Arts & SSC CGL students 🇮🇳
+                    </p>
                   </div>
 
                 </div>
