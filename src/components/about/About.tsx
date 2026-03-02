@@ -100,6 +100,36 @@ const About = () => {
                 </p>
               </div>
 
+              {/* Founder, Mission & Vision */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-5 rounded-lg border border-border bg-card">
+                  <div className="flex items-center gap-2 mb-2">
+                    <UserPlus className="h-5 w-5 text-primary" />
+                    <h3 className="font-semibold text-foreground">{isHindi ? 'संस्थापक' : 'Founder'}</h3>
+                  </div>
+                  <p className="text-lg font-bold text-foreground">Ajit Kumar</p>
+                  <p className="text-sm text-muted-foreground">{isHindi ? 'StudyAI के संस्थापक' : 'Founder of StudyAI'}</p>
+                </div>
+                <div className="p-5 rounded-lg border border-border bg-card">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Target className="h-5 w-5 text-primary" />
+                    <h3 className="font-semibold text-foreground">{isHindi ? 'मिशन' : 'Mission'}</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {isHindi ? 'छात्रों के लिए एक शक्तिशाली AI लर्निंग प्लेटफॉर्म बनाना।' : 'Build a powerful AI learning platform for students.'}
+                  </p>
+                </div>
+                <div className="p-5 rounded-lg border border-border bg-card">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Star className="h-5 w-5 text-primary" />
+                    <h3 className="font-semibold text-foreground">{isHindi ? 'विज़न' : 'Vision'}</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {isHindi ? 'AI का उपयोग करके सीखने को स्मार्ट बनाना।' : 'Make learning smarter using AI.'}
+                  </p>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FeatureCard 
                   icon={<Brain className="h-6 w-6 text-purple-500" />}
