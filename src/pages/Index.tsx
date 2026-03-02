@@ -11,26 +11,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { 
-  Menu, 
-  Plus, 
-  Sparkles,
-  FileText,
-  BookOpen,
-  GraduationCap,
-  Trophy,
-  Clock,
-  Bookmark,
-  User,
-  LogOut,
-  Moon,
-  Sun,
-  MessageSquare,
-  Youtube,
-  Wallet,
-  Info,
-  X,
-  ArrowUp,
-  ClipboardList
+  Menu, Plus, Sparkles, FileText, BookOpen, GraduationCap, Trophy, Clock,
+  Bookmark, User, LogOut, Moon, Sun, MessageSquare, Youtube, Wallet, Info,
+  X, ArrowUp, ClipboardList
 } from 'lucide-react';
 import { useTheme } from '@/providers/ThemeProvider';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -39,7 +22,11 @@ import { Sheet, SheetContent, SheetClose } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
-
+import HeroSection from '@/components/home/HeroSection';
+import ToolsGrid from '@/components/home/ToolsGrid';
+import AwardsSection from '@/components/home/AwardsSection';
+import FAQSection from '@/components/home/FAQSection';
+import ComparisonTable from '@/components/home/ComparisonTable';
 const Index = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
@@ -132,12 +119,6 @@ const Index = () => {
     { icon: Info, label: 'About', path: '/about' },
   ];
 
-  // Quick actions - colored chips like the reference image
-  const quickActions = [
-    { icon: FileText, label: 'Notes', path: '/notes-creator', bgColor: 'bg-blue-100 dark:bg-blue-900/30', textColor: 'text-blue-600 dark:text-blue-400', iconColor: 'text-blue-500' },
-    { icon: BookOpen, label: 'Quiz', path: '/quiz-generator', bgColor: 'bg-green-100 dark:bg-green-900/30', textColor: 'text-green-600 dark:text-green-400', iconColor: 'text-green-500' },
-    { icon: ClipboardList, label: 'Homework', path: '/homework-helper', bgColor: 'bg-orange-100 dark:bg-orange-900/30', textColor: 'text-orange-600 dark:text-orange-400', iconColor: 'text-orange-500' },
-  ];
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -355,103 +336,27 @@ const Index = () => {
           </header>
 
           {/* Main Content Area */}
-          <main className="flex-1 flex flex-col overflow-hidden">
+          <main className="flex-1 flex flex-col overflow-hidden relative">
             {currentChatId ? (
               <Chat chatId={currentChatId} onChatUpdated={() => {}} />
             ) : (
-              // Welcome Screen - Clean like reference image
               <div className="flex-1 flex flex-col h-full">
-                {/* Centered Content */}
-                <div className="flex-1 flex flex-col items-center justify-center px-6">
-                  {/* Greeting */}
-                  <h1 className="text-xl sm:text-2xl font-normal text-foreground mb-2">
-                    {getGreeting()}{currentUser?.displayName ? ` ${currentUser.displayName.split(' ')[0]}` : ''} 👋
-                  </h1>
-
-                   {/* Divider */}
-                  <div className="w-full max-w-md h-px bg-border mb-12" />
-
-                  {/* What can I help you with */}
-                  <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-8">
-                    What can I help You Today
-                  </h2>
-
-                  {/* Quick Action Chips - Colored like reference */}
-                  <div className="flex flex-wrap justify-center gap-3 mb-8">
-                    {quickActions.map((action) => (
-                      <Link key={action.path} to={action.path}>
-                        <div className={cn(
-                          "flex items-center gap-2 px-5 py-2.5 rounded-full cursor-pointer",
-                          action.bgColor
-                        )}>
-                          <action.icon className={cn("w-4 h-4", action.iconColor)} />
-                          <span className={cn("text-sm font-medium", action.textColor)}>
-                            {action.label}
-                          </span>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-
-                  {/* Why Study AI - Comparison Section */}
-                  <div className="w-full max-w-2xl mt-8 mb-4">
-                    <h2 className="text-lg font-semibold text-foreground mb-4 text-center">
-                      Why Study AI is Better for Indian Students
-                    </h2>
-                    <div className="overflow-x-auto rounded-xl border border-border">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-secondary/50">
-                            <th className="text-left p-3 font-medium text-muted-foreground">Feature</th>
-                            <th className="text-center p-3 font-medium text-primary">Study AI</th>
-                            <th className="text-center p-3 font-medium text-muted-foreground">ChatGPT / Gemini</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          <tr>
-                            <td className="p-3 text-foreground">Bihar Board / SSC CGL Focus</td>
-                            <td className="p-3 text-center text-green-500 font-bold">✓</td>
-                            <td className="p-3 text-center text-destructive">✗</td>
-                          </tr>
-                          <tr>
-                            <td className="p-3 text-foreground">Auto Notes Generator</td>
-                            <td className="p-3 text-center text-green-500 font-bold">✓</td>
-                            <td className="p-3 text-center text-destructive">✗</td>
-                          </tr>
-                          <tr>
-                            <td className="p-3 text-foreground">Interactive Quizzes with XP</td>
-                            <td className="p-3 text-center text-green-500 font-bold">✓</td>
-                            <td className="p-3 text-center text-destructive">✗</td>
-                          </tr>
-                          <tr>
-                            <td className="p-3 text-foreground">AI Teacher Mode (Hindi + English)</td>
-                            <td className="p-3 text-center text-green-500 font-bold">✓</td>
-                            <td className="p-3 text-center text-muted-foreground">Limited</td>
-                          </tr>
-                          <tr>
-                            <td className="p-3 text-foreground">Free for Students</td>
-                            <td className="p-3 text-center text-green-500 font-bold">✓</td>
-                            <td className="p-3 text-center text-destructive">Paid</td>
-                          </tr>
-                          <tr>
-                            <td className="p-3 text-foreground">Leaderboard & Gamification</td>
-                            <td className="p-3 text-center text-green-500 font-bold">✓</td>
-                            <td className="p-3 text-center text-destructive">✗</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                    <p className="text-xs text-muted-foreground text-center mt-3">
-                      भारत का अपना AI — Made for Bihar Board, 12th Arts & SSC CGL students 🇮🇳
-                    </p>
-                  </div>
-
-                </div>
+                <ScrollArea className="flex-1">
+                  <HeroSection 
+                    greeting={getGreeting()} 
+                    userName={currentUser?.displayName?.split(' ')[0]} 
+                  />
+                  <ToolsGrid />
+                  <ComparisonTable />
+                  <AwardsSection />
+                  <FAQSection />
+                  <div className="h-24" /> {/* Spacer for input */}
+                </ScrollArea>
 
                 {/* Input Box - Bottom fixed */}
-                <div className="p-4 pb-6">
+                <div className="absolute bottom-0 left-0 right-0 p-4 pb-6 bg-gradient-to-t from-background via-background to-transparent">
                   <div className="max-w-2xl mx-auto">
-                    <div className="relative flex items-center bg-secondary/30 rounded-full border border-border">
+                    <div className="relative flex items-center bg-card rounded-full border border-border shadow-elegant">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -461,7 +366,7 @@ const Index = () => {
                       </Button>
                       <Input
                         ref={inputRef}
-                        placeholder="ask anything"
+                        placeholder="Ask anything..."
                         className="flex-1 bg-transparent border-0 focus-visible:ring-0 h-12 px-2 text-base placeholder:text-muted-foreground/60"
                         value={inputMessage}
                         onChange={(e) => setInputMessage(e.target.value)}
