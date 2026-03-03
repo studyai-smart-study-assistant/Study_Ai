@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Message as MessageType } from '@/lib/db';
 import { chatHandler } from '@/utils/enhancedChatHandler';
 
-const GUEST_MESSAGE_LIMIT = 2;
+const GUEST_MESSAGE_LIMIT = 20;
 
 export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
   const [messages, setMessages] = useState<MessageType[]>([]);
