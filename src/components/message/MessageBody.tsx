@@ -1,9 +1,10 @@
 
 import React from 'react';
 import { cn } from "@/lib/utils";
-import { User } from "lucide-react";
+import { User, Sparkles } from "lucide-react";
 import MessageEditor from './MessageEditor';
 import MessageMarkdownContent from './MessageMarkdownContent';
+import { Separator } from '@/components/ui/separator';
 
 interface MessageBodyProps {
   isUserMessage: boolean;
@@ -26,44 +27,59 @@ const MessageBody: React.FC<MessageBodyProps> = ({
   isTyping,
   displayedContent
 }) => {
-  return (
-    <div className={cn(
-      "w-full max-w-full mx-auto px-3 sm:px-4 md:px-8 flex gap-3 sm:gap-4",
-      isUserMessage ? "flex-row-reverse" : "flex-row"
-    )}>
-      <div 
-        className={cn(
-          "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 transition-transform hover:scale-110 shadow-md",
-          isUserMessage 
-            ? "bg-purple-200 text-purple-800 dark:bg-purple-800 dark:text-purple-200" 
-            : "bg-gradient-to-br from-indigo-500 to-purple-600 text-white"
-        )}
-      >
-        {isUserMessage ? <User size={16} /> : "AI"}
-      </div>
-      
-      <div className={cn(
-        "flex-1 min-w-0 max-w-full overflow-hidden break-words",
-        isUserMessage 
-          ? "bg-purple-100 dark:bg-gray-700 px-3 sm:px-4 py-2 sm:py-3 rounded-2xl rounded-tr-none shadow-sm"
-          : "bg-white dark:bg-gray-800 px-3 sm:px-4 py-2 sm:py-3 rounded-2xl rounded-tl-none shadow-sm border border-purple-100 dark:border-gray-700"
-      )}>
-        {isEditing ? (
-          <MessageEditor 
-            editedContent={editedContent}
-            setEditedContent={setEditedContent}
-            handleSaveEdit={handleSaveEdit}
-            handleCancelEdit={handleCancelEdit}
-          />
-        ) : (
-          <div className="w-full overflow-x-visible overflow-y-hidden break-words whitespace-pre-wrap">
-            <MessageMarkdownContent 
-              content={displayedContent}
-              isTyping={isTyping}
-              isBot={!isUserMessage}
-            />
+  if (isUserMessage) {
+    // User message: small gray bubble, right-aligned
+    return (
+      <div className="w-full max-w-full mx-auto px-3 sm:px-4 md:px-8 flex justify-end">
+        <div className="flex items-end gap-2 max-w-[80%] sm:max-w-[70%]">
+          <div className="bg-muted px-4 py-2.5 rounded-2xl rounded-br-sm text-[15px] text-foreground leading-relaxed shadow-sm">
+            {isEditing ? (
+              <MessageEditor 
+                editedContent={editedContent}
+                setEditedContent={setEditedContent}
+                handleSaveEdit={handleSaveEdit}
+                handleCancelEdit={handleCancelEdit}
+              />
+            ) : (
+              <span className="whitespace-pre-wrap break-words">{displayedContent}</span>
+            )}
           </div>
-        )}
+          <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+            <User size={14} className="text-muted-foreground" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // AI message: clean, no bubble, white background with separator
+  return (
+    <div className="w-full max-w-full mx-auto px-3 sm:px-4 md:px-8">
+      <div className="flex gap-3 sm:gap-4 max-w-3xl">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center flex-shrink-0 mt-1 shadow-sm">
+          <Sparkles size={14} className="text-primary-foreground" />
+        </div>
+        
+        <div className="flex-1 min-w-0 max-w-full overflow-hidden break-words pt-1">
+          <div className="text-xs font-medium text-muted-foreground mb-2">Study AI</div>
+          {isEditing ? (
+            <MessageEditor 
+              editedContent={editedContent}
+              setEditedContent={setEditedContent}
+              handleSaveEdit={handleSaveEdit}
+              handleCancelEdit={handleCancelEdit}
+            />
+          ) : (
+            <div className="w-full overflow-x-visible overflow-y-hidden break-words">
+              <MessageMarkdownContent 
+                content={displayedContent}
+                isTyping={isTyping}
+                isBot={true}
+              />
+            </div>
+          )}
+          <Separator className="mt-6 opacity-40" />
+        </div>
       </div>
     </div>
   );
