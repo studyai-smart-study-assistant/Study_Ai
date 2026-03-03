@@ -17,7 +17,7 @@ export interface GuestUsageData {
 }
 
 const GUEST_USAGE_KEY = 'study_ai_guest_usage';
-const SIGNUP_PROMPT_THRESHOLD = 5; // Show prompt after 5 feature uses
+const SIGNUP_PROMPT_THRESHOLD = 15; // Show prompt after 15 feature uses
 const SIGNUP_PROMPT_COOLDOWN = 24 * 60 * 60 * 1000; // 24 hours cooldown after dismiss
 
 // Get default usage data

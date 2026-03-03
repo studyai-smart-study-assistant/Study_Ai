@@ -22,11 +22,6 @@ import { Sheet, SheetContent, SheetClose } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
-import HeroSection from '@/components/home/HeroSection';
-import ToolsGrid from '@/components/home/ToolsGrid';
-import AwardsSection from '@/components/home/AwardsSection';
-import FAQSection from '@/components/home/FAQSection';
-import ComparisonTable from '@/components/home/ComparisonTable';
 const Index = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
@@ -55,12 +50,12 @@ const Index = () => {
     handleNavigationState
   });
 
-  // Show signup prompt for guests after 60 seconds
+  // Show signup prompt for guests after 5 minutes
   useEffect(() => {
     if (!currentUser && !authLoading) {
       const timer = setTimeout(() => {
         setShowSignupPrompt(true);
-      }, 60000);
+      }, 300000);
       return () => clearTimeout(timer);
     }
   }, [currentUser, authLoading]);
@@ -342,15 +337,58 @@ const Index = () => {
             ) : (
               <div className="flex-1 flex flex-col h-full">
                 <ScrollArea className="flex-1">
-                  <HeroSection 
-                    greeting={getGreeting()} 
-                    userName={currentUser?.displayName?.split(' ')[0]} 
-                  />
-                  <ToolsGrid />
-                  <ComparisonTable />
-                  <AwardsSection />
-                  <FAQSection />
-                  <div className="h-24" /> {/* Spacer for input */}
+                  <div className="flex flex-col items-center justify-center px-4 pt-10 pb-32 max-w-2xl mx-auto w-full">
+                    {/* Greeting */}
+                    <div className="text-center mb-8">
+                      <p className="text-muted-foreground text-sm mb-1">
+                        {getGreeting()}{currentUser?.displayName ? `, ${currentUser.displayName.split(' ')[0]}` : ''} 👋
+                      </p>
+                      <div className="flex items-center justify-center gap-2 mb-1">
+                        <Sparkles className="w-5 h-5 text-primary" />
+                        <h1 className="text-xl font-semibold text-foreground">StudyAI</h1>
+                      </div>
+                      <p className="text-sm text-muted-foreground">Smart AI Learning Assistant</p>
+                    </div>
+
+                    {/* Quick Action Buttons */}
+                    <div className="grid grid-cols-2 gap-3 w-full mb-8">
+                      <Link to="/notes-creator" className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors">
+                        <FileText className="w-5 h-5 text-primary" />
+                        <span className="text-sm font-medium">Notes Creator</span>
+                      </Link>
+                      <Link to="/quiz-generator" className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors">
+                        <BookOpen className="w-5 h-5 text-primary" />
+                        <span className="text-sm font-medium">Quiz Generator</span>
+                      </Link>
+                      <Link to="/teacher-chats" className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors">
+                        <GraduationCap className="w-5 h-5 text-primary" />
+                        <span className="text-sm font-medium">AI Teacher Mode</span>
+                      </Link>
+                      <Link to="/leaderboard" className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors">
+                        <Trophy className="w-5 h-5 text-primary" />
+                        <span className="text-sm font-medium">Leaderboard</span>
+                      </Link>
+                    </div>
+
+                    {/* Example Prompts */}
+                    <div className="w-full space-y-2 mb-6">
+                      <p className="text-xs text-muted-foreground font-medium px-1">Try asking:</p>
+                      {[
+                        "Explain photosynthesis in simple words",
+                        "Make notes on Indian Constitution",
+                        "What is Newton's second law of motion?",
+                        "Solve: 2x + 5 = 15"
+                      ].map((prompt) => (
+                        <button
+                          key={prompt}
+                          onClick={() => { setInputMessage(prompt); inputRef.current?.focus(); }}
+                          className="w-full text-left px-4 py-3 rounded-xl border border-border bg-card hover:bg-secondary/50 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {prompt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </ScrollArea>
 
                 {/* Input Box - Bottom fixed */}
