@@ -16,4 +16,4 @@ Allow: /
 User-agent: CCBot
 Allow: /
 
-Sitemap: https://study-ai-001-41.lovable.app/sitemap.xml
+Sitemap: https://mystudyai.online/sitemap.xml
