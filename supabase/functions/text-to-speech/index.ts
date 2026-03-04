@@ -2,96 +2,50 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-client-platform, x-client-runtime',
 };
 
-const MAX_CHUNK_SIZE = 1400;
+const MAX_CHUNK_SIZE = 450; // Sarvam performs better with smaller chunks for stability
 const MAX_RETRIES = 2;
 
-// Strip markdown syntax for clean TTS
 function cleanMarkdownForTTS(text: string): string {
   let clean = text;
-  // Remove code blocks
-  clean = clean.replace(/```[\s\S]*?```/g, '');
-  clean = clean.replace(/`([^`]+)`/g, '$1');
-  // Remove headers markers but keep text
-  clean = clean.replace(/^#{1,6}\s+/gm, '');
-  // Remove bold/italic markers
-  clean = clean.replace(/\*\*([^*]+)\*\*/g, '$1');
-  clean = clean.replace(/\*([^*]+)\*/g, '$1');
-  clean = clean.replace(/__([^_]+)__/g, '$1');
-  clean = clean.replace(/_([^_]+)_/g, '$1');
-  // Remove links, keep text
-  clean = clean.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-  // Remove images
-  clean = clean.replace(/!\[([^\]]*)\]\([^)]+\)/g, '');
-  // Remove horizontal rules
-  clean = clean.replace(/^[-*_]{3,}$/gm, '');
-  // Remove blockquote markers
-  clean = clean.replace(/^>\s+/gm, '');
-  // Remove list markers
-  clean = clean.replace(/^\s*[-*+]\s+/gm, '');
-  clean = clean.replace(/^\s*\d+\.\s+/gm, '');
-  // Convert tables to readable text
+  clean = clean.replace(/```[\s\S]*?```/g, ''); // Remove code blocks
+  clean = clean.replace(/`([^`]+)`/g, '$1'); // Inline code
+  clean = clean.replace(/^#{1,6}\s+/gm, ''); // Headers
+  clean = clean.replace(/\*\*([^*]+)\*\*/g, '$1'); // Bold
+  clean = clean.replace(/\*([^*]+)\*/g, '$1'); // Italic
+  clean = clean.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // Links
+  clean = clean.replace(/!\[([^\]]*)\]\([^)]+\)/g, ''); // Images
   clean = clean.replace(/\|([^|\n]+)\|/g, (_, content) => {
-    return content.split('|').map((c: string) => c.trim()).filter((c: string) => c && !c.match(/^[-:]+$/)).join(', ') + '. ';
+    return content.split('|').map((c: string) => c.trim()).filter((c: string) => c && !c.match(/^[-:]+$/)).join(' ') + '. ';
   });
-  // Remove separator rows
-  clean = clean.replace(/^[\s|:-]+$/gm, '');
-  // Clean up extra whitespace
-  clean = clean.replace(/\n{3,}/g, '\n\n');
-  clean = clean.trim();
-  return clean;
+  clean = clean.replace(/\n+/g, ' '); // New lines to spaces for smoother speech
+  return clean.trim();
 }
 
-// Split text into sentences safely
 function splitIntoSentences(text: string): string[] {
-  // Split at sentence boundaries: . ? ! ।
+  // Split at sentence boundaries: . ? ! । (Hindi Purn-viram)
   const sentenceEnders = /(?<=[.?!।])\s+/;
-  const raw = text.split(sentenceEnders).filter(s => s.trim().length > 0);
-  return raw;
+  return text.split(sentenceEnders).filter(s => s.trim().length > 0);
 }
 
-// Build chunks from sentences respecting max size
 function buildChunks(sentences: string[], maxSize: number): string[] {
   const chunks: string[] = [];
   let current = '';
 
   for (const sentence of sentences) {
-    if (sentence.length > maxSize) {
-      // Push current if exists
-      if (current.trim()) {
-        chunks.push(current.trim());
-        current = '';
-      }
-      // Split long sentence at commas
-      const parts = sentence.split(/(?<=,)\s+/);
-      for (const part of parts) {
-        if ((current + ' ' + part).length > maxSize && current.trim()) {
-          chunks.push(current.trim());
-          current = part;
-        } else {
-          current = current ? current + ' ' + part : part;
-        }
-      }
-    } else if ((current + ' ' + sentence).length > maxSize) {
-      if (current.trim()) {
-        chunks.push(current.trim());
-      }
+    if ((current + ' ' + sentence).length > maxSize) {
+      if (current.trim()) chunks.push(current.trim());
       current = sentence;
     } else {
       current = current ? current + ' ' + sentence : sentence;
     }
   }
-
-  if (current.trim()) {
-    chunks.push(current.trim());
-  }
-
+  if (current.trim()) chunks.push(current.trim());
   return chunks;
 }
 
-// Call Sarvam API with retry
 async function callSarvamTTS(text: string, apiKey: string, language: string, retries = MAX_RETRIES): Promise<string> {
   const url = 'https://api.sarvam.ai/text-to-speech';
   
@@ -104,6 +58,89 @@ async function callSarvamTTS(text: string, apiKey: string, language: string, ret
           'api-subscription-key': apiKey,
         },
         body: JSON.stringify({
+          input: text, // Changed from 'inputs' to 'input'
+          target_language_code: language || 'hi-IN',
+          speaker: 'meera',
+          model: 'bulbul:v1',
+          pitch: 0,
+          pace: 1.0,
+          loudness: 1.5,
+          enable_preprocessing: true,
+          speech_sample_rate: 8000 // Optimized for faster transmission
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Attempt ${attempt + 1} failed: ${response.status}`);
+        if (attempt === retries) throw new Error(`Sarvam Error: ${errorText}`);
+        await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+        continue;
+      }
+
+      const data = await response.json();
+      // Corrected key: Sarvam Bulbul returns 'audio_content'
+      if (data.audio_content) {
+        return data.audio_content;
+      }
+      throw new Error('Field audio_content missing in response');
+    } catch (error) {
+      if (attempt === retries) throw error;
+      await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+    }
+  }
+  throw new Error('All retries failed');
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+
+  try {
+    const apiKey = Deno.env.get('SARVAM_API_KEY');
+    if (!apiKey) throw new Error('SARVAM_API_KEY missing');
+
+    const { text, language = 'hi-IN' } = await req.json();
+    if (!text) throw new Error('Text is required');
+
+    const cleanText = cleanMarkdownForTTS(text);
+    const sentences = splitIntoSentences(cleanText);
+    const chunks = buildChunks(sentences, MAX_CHUNK_SIZE);
+    
+    console.log(`Processing ${chunks.length} chunks`);
+
+    const audioChunks: string[] = [];
+    const failedChunks: number[] = [];
+
+    // Processing sequentially to avoid hitting rate limits
+    for (let i = 0; i < chunks.length; i++) {
+      try {
+        const audioBase64 = await callSarvamTTS(chunks[i], apiKey, language);
+        audioChunks.push(audioBase64);
+      } catch (error) {
+        console.error(`Chunk ${i} error:`, error.message);
+        failedChunks.push(i);
+      }
+    }
+
+    if (audioChunks.length === 0) throw new Error('Failed to generate any audio');
+
+    return new Response(JSON.stringify({
+      audioChunks,
+      totalChunks: chunks.length,
+      failedChunks,
+      format: 'wav'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('Final Error:', error.message);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});        body: JSON.stringify({
           inputs: [text],
           target_language_code: language || 'hi-IN',
           speaker: 'meera',
