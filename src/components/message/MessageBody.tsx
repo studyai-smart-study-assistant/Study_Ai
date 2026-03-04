@@ -26,19 +26,23 @@ const MessageBody: React.FC<MessageBodyProps> = ({
   displayedContent
 }) => {
   if (isUserMessage) {
-    // User message: right-aligned, subtle typography, no bubble
+    // User message: right-aligned, indigo bubble with visible text
     return (
       <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8 flex justify-end">
-        <div className="max-w-[60%]">
+        <div className={cn(
+          "max-w-[80%]",
+          "bg-indigo-600 text-white", // Indigo background and white text
+          "px-4 py-3 rounded-2xl"
+        )}>
           {isEditing ? (
-            <MessageEditor 
+            <MessageEditor
               editedContent={editedContent}
               setEditedContent={setEditedContent}
               handleSaveEdit={handleSaveEdit}
               handleCancelEdit={handleCancelEdit}
             />
           ) : (
-            <p className="text-[15px] leading-relaxed text-foreground/70 font-normal text-right whitespace-pre-wrap break-words">
+            <p className="text-[15px] leading-relaxed font-normal whitespace-pre-wrap break-words">
               {displayedContent}
             </p>
           )}
@@ -47,27 +51,25 @@ const MessageBody: React.FC<MessageBodyProps> = ({
     );
   }
 
-  // AI message: full-width document layout, centered container, no avatar
+  // AI message: full-width document layout on a clean white background
   return (
     <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8">
-      {isEditing ? (
-        <MessageEditor 
-          editedContent={editedContent}
-          setEditedContent={setEditedContent}
-          handleSaveEdit={handleSaveEdit}
-          handleCancelEdit={handleCancelEdit}
-        />
-      ) : (
-        <div className="w-full overflow-x-visible overflow-y-hidden break-words">
-          <MessageMarkdownContent 
+      <div className="w-full overflow-x-visible overflow-y-hidden break-words bg-white dark:bg-zinc-800 rounded-lg p-4">
+        {isEditing ? (
+          <MessageEditor
+            editedContent={editedContent}
+            setEditedContent={setEditedContent}
+            handleSaveEdit={handleSaveEdit}
+            handleCancelEdit={handleCancelEdit}
+          />
+        ) : (
+          <MessageMarkdownContent
             content={displayedContent}
             isTyping={isTyping}
             isBot={true}
           />
-        </div>
-      )}
-      {/* Thin separator */}
-      <div className="mt-8 h-px bg-border/30" />
+        )}
+      </div>
     </div>
   );
 };
