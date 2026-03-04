@@ -26,12 +26,12 @@ const MessageBody: React.FC<MessageBodyProps> = ({
   displayedContent
 }) => {
   if (isUserMessage) {
-    // User message: right-aligned, indigo bubble with visible text
+    // User message: right-aligned, violet bubble with visible text
     return (
       <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8 flex justify-end">
         <div className={cn(
           "max-w-[80%]",
-          "bg-indigo-600 text-white", // Indigo background and white text
+          "bg-violet-600 text-white", // Violet background and white text
           "px-4 py-3 rounded-2xl"
         )}>
           {isEditing ? (

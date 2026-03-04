@@ -35,7 +35,6 @@ export const useTextToSpeech = () => {
     return audioContextRef.current;
   };
 
-  // Decode base64 WAV to AudioBuffer
   const decodeBase64Audio = async (base64: string): Promise<AudioBuffer> => {
     const ctx = getAudioContext();
     const binaryStr = atob(base64);
@@ -46,8 +45,10 @@ export const useTextToSpeech = () => {
     return await ctx.decodeAudioData(bytes.buffer);
   };
 
-  // Merge multiple AudioBuffers into one
   const mergeAudioBuffers = (buffers: AudioBuffer[]): AudioBuffer => {
+    if (buffers.length === 0) {
+        throw new Error("Cannot merge empty audio buffers");
+    }
     const ctx = getAudioContext();
     const totalLength = buffers.reduce((sum, b) => sum + b.length, 0);
     const sampleRate = buffers[0].sampleRate;
@@ -65,50 +66,72 @@ export const useTextToSpeech = () => {
     return merged;
   };
 
-  const updateProgress = useCallback(() => {
-    if (!state.isPlaying || !audioContextRef.current) return;
-    const elapsed = audioContextRef.current.currentTime - startTimeRef.current;
-    const duration = mergedBufferRef.current?.duration || 1;
-    setState(prev => ({
-      ...prev,
-      currentTime: Math.min(elapsed, duration),
-      progress: Math.min((elapsed / duration) * 100, 100),
-    }));
-    if (elapsed < duration) {
-      animFrameRef.current = requestAnimationFrame(updateProgress);
-    }
-  }, [state.isPlaying]);
-
   const generateAudio = useCallback(async (text: string, language = 'hi-IN') => {
     abortRef.current = false;
-    setState(prev => ({ ...prev, isGenerating: true, audioReady: false }));
+    setState({
+      isGenerating: true,
+      isPlaying: false,
+      progress: 0,
+      duration: 0,
+      currentTime: 0,
+      audioReady: false,
+    });
+    mergedBufferRef.current = null;
 
     try {
-      const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text, language },
-      });
-
-      if (error) throw error;
-      if (abortRef.current) return;
-
-      if (!data.audioChunks || data.audioChunks.length === 0) {
-        throw new Error('No audio generated');
+      const textChunks = text.match(/[^.!?।\n,]+[.!?।\n,]?/g)?.map(s => s.trim()).filter(Boolean) || [];
+      if (textChunks.length === 0 && text.trim()) {
+        textChunks.push(text.trim());
       }
 
-      if (data.failedChunks?.length > 0) {
-        toast.warning(`${data.failedChunks.length} audio chunks skipped`);
+      if (textChunks.length === 0) {
+        setState(prev => ({ ...prev, isGenerating: false }));
+        return;
       }
 
-      // Decode all chunks
-      const audioBuffers: AudioBuffer[] = [];
-      for (const chunk of data.audioChunks) {
+      const allAudioBuffers: AudioBuffer[] = [];
+      let chunksProcessed = 0;
+
+      for (const chunk of textChunks) {
         if (abortRef.current) return;
-        const buffer = await decodeBase64Audio(chunk);
-        audioBuffers.push(buffer);
+
+        try {
+          const { data, error } = await supabase.functions.invoke('text-to-speech', {
+            body: { text: chunk, language },
+          });
+
+          if (error) {
+            console.warn(`TTS chunk failed: ${chunk}`, error);
+            toast.warning('Skipped an audio segment.');
+            continue;
+          }
+
+          if (abortRef.current) return;
+
+          if (data.audioChunks && data.audioChunks.length > 0) {
+            for (const audioChunkBase64 of data.audioChunks) {
+              if (abortRef.current) return;
+              try {
+                const buffer = await decodeBase64Audio(audioChunkBase64);
+                allAudioBuffers.push(buffer);
+              } catch (decodeError) {
+                console.error('Error decoding audio chunk:', decodeError);
+              }
+            }
+          }
+        } catch (e) {
+          console.error(`Error processing chunk: ${chunk}`, e);
+        } finally {
+          chunksProcessed++;
+          setState(prev => ({ ...prev, progress: (chunksProcessed / textChunks.length) * 100 }));
+        }
       }
 
-      // Merge into single buffer
-      const merged = mergeAudioBuffers(audioBuffers);
+      if (allAudioBuffers.length === 0) {
+        throw new Error('Audio generation failed for all text segments.');
+      }
+
+      const merged = mergeAudioBuffers(allAudioBuffers);
       mergedBufferRef.current = merged;
 
       setState(prev => ({
@@ -116,12 +139,14 @@ export const useTextToSpeech = () => {
         isGenerating: false,
         audioReady: true,
         duration: merged.duration,
+        progress: 100,
       }));
+
     } catch (error: any) {
       console.error('TTS generation error:', error);
       setState(prev => ({ ...prev, isGenerating: false }));
       if (!abortRef.current) {
-        toast.error('Audio generation failed. Please try again.');
+        toast.error(error.message || 'Audio generation failed. Please try again.');
       }
     }
   }, []);
@@ -130,7 +155,6 @@ export const useTextToSpeech = () => {
     if (!mergedBufferRef.current) return;
     const ctx = getAudioContext();
 
-    // Stop existing
     if (sourceRef.current) {
       try { sourceRef.current.stop(); } catch {}
     }
@@ -148,18 +172,21 @@ export const useTextToSpeech = () => {
     sourceRef.current = source;
     setState(prev => ({ ...prev, isPlaying: true }));
 
-    // Start progress tracking
     const track = () => {
+      if (!sourceRef.current || !mergedBufferRef.current) return;
       const elapsed = ctx.currentTime - startTimeRef.current;
-      const dur = mergedBufferRef.current?.duration || 1;
+      const dur = mergedBufferRef.current.duration;
+      if (elapsed >= dur) {
+        setState(prev => ({ ...prev, currentTime: dur, progress: 100, isPlaying: false }));
+        cancelAnimationFrame(animFrameRef.current);
+        return;
+      }
       setState(prev => ({
         ...prev,
-        currentTime: Math.min(elapsed, dur),
-        progress: Math.min((elapsed / dur) * 100, 100),
+        currentTime: elapsed,
+        progress: (elapsed / dur) * 100,
       }));
-      if (elapsed < dur) {
-        animFrameRef.current = requestAnimationFrame(track);
-      }
+      animFrameRef.current = requestAnimationFrame(track);
     };
     animFrameRef.current = requestAnimationFrame(track);
   }, []);
