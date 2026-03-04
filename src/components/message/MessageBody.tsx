@@ -26,12 +26,12 @@ const MessageBody: React.FC<MessageBodyProps> = ({
   displayedContent
 }) => {
   if (isUserMessage) {
-    // User message: right-aligned, violet bubble with visible text
+    // User message: right-aligned, violet bubble
     return (
       <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8 flex justify-end">
         <div className={cn(
           "max-w-[80%]",
-          "bg-violet-600 text-white", // Violet background and white text
+          "bg-violet-600 text-white",
           "px-4 py-3 rounded-2xl"
         )}>
           {isEditing ? (
@@ -51,10 +51,14 @@ const MessageBody: React.FC<MessageBodyProps> = ({
     );
   }
 
-  // AI message: full-width document layout on a clean white background
+  // AI message: left-aligned, light-colored bubble
   return (
-    <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8">
-      <div className="w-full overflow-x-visible overflow-y-hidden break-words bg-white dark:bg-zinc-800 rounded-lg p-4">
+    <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8 flex justify-start">
+      <div className={cn(
+        "max-w-[80%]",
+        "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50",
+        "px-4 py-3 rounded-2xl"
+      )}>
         {isEditing ? (
           <MessageEditor
             editedContent={editedContent}
