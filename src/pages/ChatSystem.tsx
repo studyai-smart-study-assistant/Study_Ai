@@ -42,7 +42,11 @@ const ChatSystem = () => {
     if (newGroup) { setChats(prev => [{...newGroup, type: "group" as const}, ...prev]); setSelectedChat({...newGroup, type: "group"}); toast.success("Group created!"); }
   };
 
-  if (selectedChat) return <div className="h-[calc(100vh-56px)]"><ChatInterface recipientId={selectedChat.partnerId || selectedChat.id} chatId={selectedChat.id} isGroup={selectedChat.type === 'group'} onBack={() => setSelectedChat(null)} /></div>;
+  const handleNewChat = () => {
+    setSelectedChat(null);
+  };
+
+  if (selectedChat) return <div className="h-[calc(100vh-56px)]"><ChatInterface recipientId={selectedChat.partnerId || selectedChat.id} chatId={selectedChat.id} isGroup={selectedChat.type === 'group'} onBack={() => setSelectedChat(null)} onNewChat={handleNewChat} /></div>;
 
   return (
     <div className="container py-4 max-w-3xl mx-auto">

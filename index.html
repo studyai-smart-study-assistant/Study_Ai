@@ -10,7 +10,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/notification-icon.png" />
-    <link rel="canonical" href="/" />
+    <link rel="canonical" href="https://mystudyai.online/" />
 
     <title>StudyAI – AI Notes Generator & Quiz Maker for Students</title>
     <meta name="description" content="StudyAI is a smart AI learning assistant that helps students generate notes, quizzes and study answers instantly using AI. Free for Bihar Board, SSC CGL & competitive exam preparation.">
@@ -19,122 +19,119 @@
     <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
 
     <!-- Open Graph -->
-    
-    
     <meta property="og:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/G9X8rLrHK3MMMvTfXL5d69SRVtV2/social-images/social-1771357236722-1000122053.webp">
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="/" />
+    <meta property="og:url" content="https://mystudyai.online/" />
     <meta property="og:site_name" content="Study AI" />
     <meta property="og:locale" content="en_IN" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    
-    
     <meta name="twitter:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/G9X8rLrHK3MMMvTfXL5d69SRVtV2/social-images/social-1771357236722-1000122053.webp">
 
-    <!-- JSON-LD: SoftwareApplication -->
+    <!-- Corrected and Consolidated JSON-LD Schema -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "StudyAI",
-      "alternateName": "स्टडी एआई",
-      "description": "StudyAI is a smart AI learning assistant that helps students generate notes, quizzes and study answers instantly. Specialized for Bihar Board, 12th Arts, and SSC CGL preparation.",
-      "url": "/",
-      "applicationCategory": "EducationalApplication",
-      "operatingSystem": "Web Browser",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "INR"
-      },
-      "author": {
-        "@type": "Person",
-        "name": "Ajit Kumar"
-      },
-      "featureList": [
-        "AI Teacher Mode",
-        "Automated Notes Generator",
-        "Interactive Quizzes with XP and Leaderboards",
-        "Homework Helper",
-        "Study Planner"
-      ]
-    }
-    </script>
-    <!-- JSON-LD: Organization -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Organization",
-      "name": "StudyAI",
-      "url": "/",
-      "founder": {
-        "@type": "Person",
-        "name": "Ajit Kumar"
-      },
-      "description": "StudyAI is India's AI-powered learning platform founded by Ajit Kumar, providing smart study tools for students."
-    }
-    </script>
-    <!-- JSON-LD: WebSite -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "StudyAI",
-      "url": "/",
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": "/?q={search_term_string}",
-        "query-input": "required name=search_term_string"
-      }
-    }
-    </script>
-    <!-- JSON-LD: FAQPage -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      "mainEntity": [
+      "@graph": [
         {
-          "@type": "Question",
-          "name": "What is AI Notes Generator?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "StudyAI's Notes Generator uses advanced AI to instantly create well-structured, exam-oriented notes on any topic."
+          "@type": "Organization",
+          "@id": "https://mystudyai.online/#organization",
+          "name": "StudyAI",
+          "url": "https://mystudyai.online",
+          "logo": "https://mystudyai.online/notification-icon.png",
+          "founder": {
+            "@type": "Person",
+            "name": "Ajit Kumar"
+          },
+          "description": "StudyAI is India's AI-powered learning platform founded by Ajit Kumar, providing smart study tools for students."
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://mystudyai.online/#website",
+          "url": "https://mystudyai.online",
+          "name": "StudyAI",
+          "description": "StudyAI is a smart AI learning assistant that helps students generate notes, quizzes and study answers instantly using AI. Free for Bihar Board, SSC CGL & competitive exam preparation.",
+          "publisher": {
+            "@id": "https://mystudyai.online/#organization"
+          },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://mystudyai.online/?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
           }
         },
         {
-          "@type": "Question",
-          "name": "How does StudyAI work?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "StudyAI is powered by state-of-the-art AI models. You can ask questions, generate notes, create quizzes, and get homework help through a simple interface."
-          }
+          "@type": "SoftwareApplication",
+          "name": "StudyAI",
+          "alternateName": "स्टडी एआई",
+          "description": "StudyAI is a smart AI learning assistant that helps students generate notes, quizzes and study answers instantly. Specialized for Bihar Board, 12th Arts, and SSC CGL preparation.",
+          "url": "https://mystudyai.online",
+          "applicationCategory": "EducationalApplication",
+          "operatingSystem": "Web Browser",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "INR"
+          },
+          "publisher": {
+            "@id": "https://mystudyai.online/#organization"
+          },
+          "featureList": [
+            "AI Teacher Mode",
+            "Automated Notes Generator",
+            "Interactive Quizzes with XP and Leaderboards",
+            "Homework Helper",
+            "Study Planner"
+          ]
         },
         {
-          "@type": "Question",
-          "name": "Is StudyAI free?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Yes! StudyAI offers free access to all core features including AI chat, notes generation, quiz creation, and study planning."
-          }
-        },
-        {
-          "@type": '"Question"',
-          "name": "Can StudyAI generate quizzes?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Yes. StudyAI's Quiz Generator creates interactive quizzes on any topic with multiple question types. You earn XP points and compete on the leaderboard."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "How to use AI Teacher Mode?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Navigate to AI Teacher from the homepage, choose your subject and language (Hindi or English), then start a conversation. The AI teacher explains concepts step-by-step."
-          }
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is AI Notes Generator?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "StudyAI's Notes Generator uses advanced AI to instantly create well-structured, exam-oriented notes on any topic."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How does StudyAI work?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "StudyAI is powered by state-of-the-art AI models. You can ask questions, generate notes, create quizzes, and get homework help through a simple interface."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Is StudyAI free?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! StudyAI offers free access to all core features including AI chat, notes generation, quiz creation, and study planning."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can StudyAI generate quizzes?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. StudyAI's Quiz Generator creates interactive quizzes on any topic with multiple question types. You earn XP points and compete on the leaderboard."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How to use AI Teacher Mode?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Navigate to AI Teacher from the homepage, choose your subject and language (Hindi or English), then start a conversation. The AI teacher explains concepts step-by-step."
+              }
+            }
+          ]
         }
       ]
     }
@@ -184,14 +181,10 @@
       onload="setTimeout(initResponsiveVoice, 200)" 
       onerror="handleResponsiveVoiceError()"
     ></script>
-    
-  
-  
-  
   <meta property="og:title" content="StudyAI – AI Notes Generator & Quiz Maker for Students">
   <meta name="twitter:title" content="StudyAI – AI Notes Generator & Quiz Maker for Students">
-  <meta property="og:description" content="StudyAI is a smart AI learning assistant that helps students generate notes, quizzes and study answers instantly using AI.">
-  <meta name="twitter:description" content="StudyAI is a smart AI learning assistant that helps students generate notes, quizzes and study answers instantly using AI.">
+  <meta property="og:description" content="StudyAI is a smart AI learning assistant that helps students generate notes, quizzes and study answers instantly using AI. Free for Bihar Board, SSC CGL & competitive exam preparation.">
+  <meta name="twitter:description" content="StudyAI is a smart AI learning assistant that helps students generate notes, quizzes and study answers instantly using AI. Free for Bihar Board, SSC CGL & competitive exam preparation.">
   <link rel="icon" type="image/png" href="/notification-icon.png">
 </head>
   <body>

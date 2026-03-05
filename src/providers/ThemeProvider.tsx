@@ -1,10 +1,10 @@
 
-import * as React from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 type Theme = 'light' | 'dark' | 'system';
 
 interface ThemeProviderProps {
-  children: React.ReactNode;
+  children: ReactNode;
   defaultTheme?: Theme;
   storageKey?: string;
 }
@@ -14,37 +14,43 @@ interface ThemeContextType {
   toggleTheme: () => void;
 }
 
-const ThemeContext = React.createContext<ThemeContextType | undefined>(undefined);
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider = ({ 
   children, 
   defaultTheme = 'system', 
   storageKey = 'theme' 
 }: ThemeProviderProps) => {
-  const [theme, setTheme] = React.useState<Theme>(defaultTheme);
-
-  React.useEffect(() => {
-    // Check if user previously selected a theme
-    const savedTheme = localStorage.getItem(storageKey) as Theme | null;
-    
-    if (savedTheme) {
-      setTheme(savedTheme);
-    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      // Use system preference as fallback
-      setTheme('dark');
+  const [theme, setTheme] = useState<Theme>(() => {
+    try {
+      const savedTheme = localStorage.getItem(storageKey) as Theme | null;
+      if (savedTheme) {
+        return savedTheme;
+      }
+    } catch (e) {
+      console.error("Failed to access localStorage for theme", e);
     }
-  }, [storageKey]);
+    return defaultTheme;
+  });
 
-  React.useEffect(() => {
-    // Update document class when theme changes
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+
+    let systemTheme: Theme = 'light';
+    try {
+        systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } catch (e) {
+        // matchMedia might not be available in all environments
     }
-    
-    // Save to localStorage
-    localStorage.setItem(storageKey, theme);
+
+    const currentTheme = theme === 'system' ? systemTheme : theme;
+    root.classList.add(currentTheme);
+    try {
+        localStorage.setItem(storageKey, theme);
+    } catch (e) {
+        console.error("Failed to save theme to localStorage", e);
+    }
   }, [theme, storageKey]);
 
   const toggleTheme = () => {
@@ -59,7 +65,7 @@ export const ThemeProvider = ({
 };
 
 export const useTheme = () => {
-  const context = React.useContext(ThemeContext);
+  const context = useContext(ThemeContext);
   if (context === undefined) {
     throw new Error('useTheme must be used within a ThemeProvider');
   }

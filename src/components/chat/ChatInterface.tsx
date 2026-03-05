@@ -18,13 +18,15 @@ interface ChatInterfaceProps {
   chatId: string;
   isGroup: boolean;
   onBack: () => void;
+  onNewChat: () => void;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
   recipientId,
   chatId,
   isGroup,
-  onBack
+  onBack,
+  onNewChat
 }) => {
   const { currentUser } = useAuth();
   const [membersModal, setMembersModal] = useState(false);
@@ -108,6 +110,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         displayName={displayName}
         isGroup={isGroup}
         onBack={onBack}
+        onNewChat={onNewChat}
         onManageMembers={() => setMembersModal(true)}
         isAdmin={isAdmin}
         memberAvatars={isGroup ? (
