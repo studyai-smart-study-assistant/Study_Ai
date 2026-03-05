@@ -10,10 +10,6 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
-  define: {
-    // Cloudflare Reverse Proxy for India ISP bypass (Jio/Airtel block supabase.co)
-    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify('https://icy-fog-5f24.ajit91884270.workers.dev'),
-  },
   plugins: [
     react(),
     mode === 'development' &&
@@ -32,6 +28,6 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     force: true,
     include: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
-    exclude: ["googleapis", "@lovable.dev/cloud-auth-js"],
+    exclude: ["@lovable.dev/cloud-auth-js"],
   },
 }));
