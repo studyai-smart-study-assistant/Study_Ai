@@ -3,26 +3,23 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useAuth } from '@/contexts/AuthContext';
 import { updateGroupMembership, getLeaderboardData } from '@/lib/supabase/chat-functions';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Crown, UserMinus, UserPlus } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 
 interface EnhancedGroupMembersModalProps {
   isOpen: boolean;
   onClose: () => void;
   groupId: string;
   groupName: string;
-  currentMembers: {[uid: string]: boolean};
   admins: {[uid: string]: boolean};
 }
 
-const EnhancedGroupMembersModal: React.FC<EnhancedGroupMembersModalProps> = ({ isOpen, onClose, groupId, groupName, currentMembers, admins }) => {
+const EnhancedGroupMembersModal: React.FC<EnhancedGroupMembersModalProps> = ({ isOpen, onClose, groupId, groupName, admins }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<{[key: string]: boolean}>({});
