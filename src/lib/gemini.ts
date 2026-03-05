@@ -3,6 +3,59 @@ import { Message } from "./db";
 import { chatDB } from "./db";
 import { supabase } from "@/integrations/supabase/client";
 
+const CHAT_FUNCTION_NAME = "chat-completion";
+
+const getFunctionBaseUrls = () => {
+  const configuredUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "");
+  const directUrl = import.meta.env.VITE_SUPABASE_PROJECT_ID
+    ? `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`
+    : "";
+
+  return Array.from(new Set([configuredUrl, directUrl].filter(Boolean)));
+};
+
+const invokeChatCompletion = async (payload: {
+  prompt: string;
+  history: Array<{ role: string; content: string }>;
+  model: string;
+}) => {
+  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const { data: { session } } = await supabase.auth.getSession();
+  const authToken = session?.access_token ?? publishableKey;
+
+  let lastError: Error | null = null;
+
+  for (const baseUrl of getFunctionBaseUrls()) {
+    try {
+      const response = await fetch(`${baseUrl}/functions/v1/${CHAT_FUNCTION_NAME}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: publishableKey,
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseText = await response.text();
+      const parsed = responseText ? JSON.parse(responseText) : {};
+
+      if (!response.ok) {
+        const message = parsed?.error || `Edge function error (${response.status})`;
+        throw new Error(message);
+      }
+
+      console.log(`✅ ${CHAT_FUNCTION_NAME} success via: ${baseUrl}`);
+      return parsed;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error("Unknown edge function error");
+      console.warn(`⚠️ ${CHAT_FUNCTION_NAME} failed via: ${baseUrl}`, lastError.message);
+    }
+  }
+
+  throw new Error(lastError?.message || "Edge function unreachable via proxy/direct route");
+};
+
 export async function generateResponse(
   prompt: string, 
   history: Message[] = [], 
@@ -13,36 +66,24 @@ export async function generateResponse(
     console.log(`🚀 Calling Lovable AI Gateway with model:`, model);
 
     const sanitizeForAI = (text: string) => {
-      // Remove/shorten embedded image payloads to avoid huge prompts + gateway failures
-      return (text || '')
-        // Remove base64/data-url image blocks like: [Image: data:image/...]
-        .replace(/\[Image:\s*data:image\/[^\]]+\]/g, '[Image attached]')
-        // Remove inline image links like: [image:https://...]
-        .replace(/\[image:[^\]]+\]/gi, '[Image attached]')
+      return (text || "")
+        .replace(/\[Image:\s*data:image\/[^\]]+\]/g, "[Image attached]")
+        .replace(/\[image:[^\]]+\]/gi, "[Image attached]")
         .trim();
     };
 
-    // Convert history to the format expected by the edge function (sanitized)
     const formattedHistory = history.map((msg) => ({
       role: msg.role,
-      content: sanitizeForAI(msg.content)
+      content: sanitizeForAI(msg.content),
     }));
 
     const sanitizedPrompt = sanitizeForAI(prompt);
 
-    // Call the Lovable AI edge function
-    const { data, error } = await supabase.functions.invoke('chat-completion', {
-      body: {
-        prompt: sanitizedPrompt,
-        history: formattedHistory,
-        model
-      }
+    const data = await invokeChatCompletion({
+      prompt: sanitizedPrompt,
+      history: formattedHistory,
+      model,
     });
-
-    if (error) {
-      console.error(`❌ Edge function error:`, error);
-      throw new Error(error.message || "AI service unavailable");
-    }
 
     if (data?.error) {
       console.error(`❌ AI Gateway error:`, data.error);
