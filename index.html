@@ -141,10 +141,50 @@
     <link rel="preconnect" href="https://csylbxuiukwhpybuhizr.supabase.co" />
     <link rel="dns-prefetch" href="https://csylbxuiukwhpybuhizr.supabase.co" />
 
+    <!-- ResponsiveVoice Text-to-Speech with API Key -->
+    <script>
+      window.responsiveVoiceReady = false;
+      window.responsiveVoiceError = false;
+      
+      function initResponsiveVoice() {
+        if (typeof responsiveVoice !== 'undefined') {
+          if (responsiveVoice.OnVoiceReady) {
+            responsiveVoice.OnVoiceReady = function() {
+              window.responsiveVoiceReady = true;
+            };
+          }
+          if (responsiveVoice.voiceSupport && responsiveVoice.voiceSupport()) {
+            window.responsiveVoiceReady = true;
+          }
+        } else {
+          window.responsiveVoiceError = true;
+        }
+      }
+      
+      function handleResponsiveVoiceError() {
+        window.responsiveVoiceError = true;
+        window.responsiveVoiceReady = false;
+      }
+      
+      document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(initResponsiveVoice, 1000);
+      });
+      document.addEventListener('deviceready', function() {
+        setTimeout(initResponsiveVoice, 500);
+      }, false);
+      window.addEventListener('load', function() {
+        setTimeout(initResponsiveVoice, 1500);
+      });
+    </script>
+    <script 
+      src="https://code.responsivevoice.org/responsivevoice.js?key=5topRmyr" 
+      onload="setTimeout(initResponsiveVoice, 200)" 
+      onerror="handleResponsiveVoiceError()"
+    ></script>
   <meta property="og:title" content="StudyAI – AI Notes Generator & Quiz Maker for Students">
   <meta name="twitter:title" content="StudyAI – AI Notes Generator & Quiz Maker for Students">
-  <meta property="og:description" content="StudyAI is a smart AI learning assistant that helps students generate notes, quizzes and study answers instantly using AI.">
-  <meta name="twitter:description" content="StudyAI is a smart AI learning assistant that helps students generate notes, quizzes and study answers instantly using AI.">
+  <meta property="og:description" content="StudyAI is a smart AI learning assistant that helps students generate notes, quizzes and study answers instantly using AI. Free for Bihar Board, SSC CGL & competitive exam preparation.">
+  <meta name="twitter:description" content="StudyAI is a smart AI learning assistant that helps students generate notes, quizzes and study answers instantly using AI. Free for Bihar Board, SSC CGL & competitive exam preparation.">
   <link rel="icon" type="image/png" href="/notification-icon.png">
 </head>
   <body>

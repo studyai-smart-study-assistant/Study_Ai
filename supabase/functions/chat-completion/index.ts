@@ -3,36 +3,30 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     const { prompt, history = [], model = 'google/gemini-2.5-flash' } = await req.json();
     
-    console.log('📥 Received chat completion request:', { 
-      promptLength: prompt?.length, 
-      historyLength: history?.length,
-      model 
-    });
+    console.log('📥 Request:', { promptLength: prompt?.length, historyLength: history?.length, model });
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    // Limit history to last 6 messages to prevent AI from repeating all previous answers
-    // This keeps context for personalization but avoids token waste and repetition
-    const recentHistory = history.slice(-6);
-    
-    console.log('📜 Using recent history:', recentHistory.length, 'messages (from', history.length, 'total)');
+    // Limit history and fix role names (frontend sends "bot", API expects "assistant")
+    const recentHistory = history.slice(-6).map((msg: { role: string; content: string }) => ({
+      role: msg.role === 'bot' ? 'assistant' : msg.role,
+      content: msg.content,
+    }));
 
-    // Prepare messages array with optimized system prompt
     const messages = [
       {
         role: 'system',
@@ -46,13 +40,10 @@ serve(async (req) => {
 5. प्रत्येक प्रश्न का एक ही बार जवाब दें`
       },
       ...recentHistory,
-      {
-        role: 'user',
-        content: prompt
-      }
+      { role: 'user', content: prompt }
     ];
 
-    console.log('🚀 Calling Lovable AI Gateway with model:', model);
+    console.log('🚀 Calling AI Gateway with model:', model);
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -61,8 +52,8 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: model,
-        messages: messages,
+        model,
+        messages,
         temperature: 0.7,
         max_tokens: 8000
       }),
@@ -70,7 +61,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Lovable AI Gateway error:', response.status, errorText);
+      console.error('❌ AI Gateway error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ 
@@ -90,28 +81,24 @@ serve(async (req) => {
         });
       }
       
-      throw new Error(`Lovable AI Gateway error: ${response.status} ${errorText}`);
+      throw new Error(`AI Gateway error: ${response.status} ${errorText}`);
     }
 
     const data = await response.json();
-
     const generatedText = data?.choices?.[0]?.message?.content;
+    
     if (!generatedText) {
-      console.error('❌ Unexpected AI Gateway response (no text). Keys:', Object.keys(data || {}));
-      console.error('❌ Full response snippet:', JSON.stringify(data).slice(0, 800));
+      console.error('❌ No text in response:', JSON.stringify(data).slice(0, 800));
       throw new Error('AI response missing text');
     }
 
-    console.log('✅ Successfully generated response, length:', generatedText.length);
-    return new Response(JSON.stringify({ 
-      response: generatedText,
-      model: model 
-    }), {
+    console.log('✅ Response generated, length:', generatedText.length);
+    return new Response(JSON.stringify({ response: generatedText, model }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
     
   } catch (error) {
-    console.error('❌ Error in chat-completion function:', error);
+    console.error('❌ Error:', error);
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'Unknown error occurred' 
     }), {
