@@ -298,6 +298,19 @@ const Index = () => {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* New Chat Button - like ChatGPT/Gemini */}
+              {currentChatId && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-full"
+                  onClick={handleNewChat}
+                  title="New Chat"
+                >
+                  <Plus className="h-5 w-5" />
+                </Button>
+              )}
+
               {/* Theme Toggle in Header */}
               <Button
                 variant="ghost"
