@@ -1,11 +1,13 @@
+
 import React, { ReactNode } from 'react';
 import { Button } from "@/components/ui/button";
-import { Info, ArrowLeft, Users, UserPlus, MoreVertical } from 'lucide-react';
+import { Info, ArrowLeft, Users, UserPlus, MoreVertical, PlusSquare } from 'lucide-react';
 
 interface ChatHeaderProps {
   displayName: string;
   isGroup: boolean;
   onBack: () => void;
+  onNewChat: () => void;
   onManageMembers: () => void;
   isAdmin: boolean;
   memberAvatars: React.ReactNode;
@@ -16,6 +18,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   displayName,
   isGroup,
   onBack,
+  onNewChat,
   onManageMembers,
   isAdmin,
   memberAvatars,
@@ -44,6 +47,17 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
 
       {/* Right Section - Menu */}
       <div className="flex items-center gap-2">
+
+        {/* New Chat Button */}
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onNewChat}
+          className="text-gray-600 border-gray-200 bg-gray-50 hover:bg-gray-100"
+          title="New Chat"
+        >
+          <PlusSquare className="h-4 w-4" />
+        </Button>
 
         {/* Group Management Button */}
         {isGroup && isAdmin && (
