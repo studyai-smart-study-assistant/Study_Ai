@@ -34,6 +34,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [localMessages, setLocalMessages] = useState<any[]>([]);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   
+  // Hooks must be called unconditionally at the top level
   const { displayName, loadError } = useChatData(chatId);
   const { messages, isLoading, groupDetails } = useGroupChat(chatId);
 
@@ -99,7 +100,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   const isAdmin = isGroup && groupDetails?.admins && groupDetails.admins[currentUser?.uid];
   const memberCount = isGroup && groupDetails?.members ? Object.keys(groupDetails.members).length : 0;
-
+  
+  // FIX: Conditional returns must happen AFTER all hooks have been called.
   if (loadError) {
     return <ChatError onBack={onBack} error={loadError} />;
   }
