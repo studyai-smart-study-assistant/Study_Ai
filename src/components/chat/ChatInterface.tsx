@@ -126,7 +126,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       <GroupMessageInput onSendMessage={handleSendMessage} isLoading={isSendingMessage} />
       
       {isGroup && groupDetails && (
-        <EnhancedGroupMembersModal isOpen={membersModal} onClose={() => setMembersModal(false)} groupId={chatId} groupName={displayName || 'Group'} currentMembers={groupDetails.members || {}} admins={groupDetails.admins || {}} />
+        <EnhancedGroupMembersModal isOpen={membersModal} onClose={() => setMembersModal(false)} groupId={chatId} groupName={displayName || 'Group'} admins={groupDetails.admins || {}} />
       )}
 
       <DeleteGroupDialog isOpen={deleteDialog} setIsOpen={setDeleteDialog} chatId={chatId} onDeleteSuccess={onBack} currentUserId={currentUser?.uid} />
