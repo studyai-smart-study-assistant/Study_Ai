@@ -8,17 +8,15 @@ export default defineConfig(({ mode }) => ({
   base: "/", // Explicitly set the base path for production builds
   server: {
    host: "0.0.0.0", // Listen on all network interfaces
-   port: 9002, // Match the port from the error message
+   port: 9000, // Match the port from the error message
    hmr: {
-     // This is the fix for the websocket connection error in Cloud Workstations.
-     // It tells the client to use the standard public port (443 for HTTPS)
-     // and secure websockets.
-     clientPort: 443,
-     protocol: "wss",
+    protocol: 'wss',
+    host: '9000-firebase-studyai-1772675251327.cluster-cz5nqyh5nreq6ua6gaqd7okl7o.cloudworkstations.dev',
+    clientPort: 443,
    },
 },
 define: {
-  // Cloudflare Reverse Proxy for India ISP bypass (Jio/Airtel block supabase.co)
+  // Cloudflare Reverse Proxy for India ISP bypass (Jio/Airtel block Supabase)
   'import.meta.env.VITE_SUPABASE_URL': JSON.stringify('https://icy-fog-5f24.ajit91884270.workers.dev'),
 },
   plugins: [
@@ -29,16 +27,7 @@ define: {
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      react: path.resolve(__dirname, "./node_modules/react"),
-      "react-dom": path.resolve(__dirname, "./node_modules/react-dom"),
-      "react/jsx-runtime": path.resolve(__dirname, "./node_modules/react/jsx-runtime"),
-      "react/jsx-dev-runtime": path.resolve(__dirname, "./node_modules/react/jsx-dev-runtime"),
     },
-    dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
-  },
-  optimizeDeps: {
-    force: true,
-    include: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
-    exclude: ["@lovable.dev/cloud-auth-js"],
+    dedupe: ["react", "react-dom"],
   },
 }));

@@ -8,7 +8,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { QueryProvider } from '@/contexts/QueryContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
-import { ThemeProvider } from './providers/ThemeProvider';
+import { ThemeProvider } from '@/providers/ThemeProvider';
 import UsageTracker from '@/components/UsageTracker';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import AppShell from '@/components/layout/AppShell';
@@ -65,16 +65,16 @@ const PageWrapper = ({ children, variant = 'default' }: { children: React.ReactN
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-      <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <QueryProvider>
-            <AuthProvider>
-              <UsageTracker />
-              <LanguageProvider>
-                <NotificationProvider>
-                  <TooltipProvider>
-                    <Router>
+    <Router>
+      <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+        <ErrorBoundary>
+          <QueryClientProvider client={queryClient}>
+            <QueryProvider>
+              <AuthProvider>
+                <UsageTracker />
+                <LanguageProvider>
+                  <NotificationProvider>
+                    <TooltipProvider>
                       <div className="min-h-screen bg-background">
                         <Routes>
                           {/* Routes wrapped in persistent AppShell */}
@@ -111,15 +111,15 @@ function App() {
                       </div>
                       <Toaster />
                       <ToastToaster />
-                    </Router>
-                  </TooltipProvider>
-                </NotificationProvider>
-              </LanguageProvider>
-            </AuthProvider>
-          </QueryProvider>
-        </QueryClientProvider>
-      </ErrorBoundary>
-    </ThemeProvider>
+                    </TooltipProvider>
+                  </NotificationProvider>
+                </LanguageProvider>
+              </AuthProvider>
+            </QueryProvider>
+          </QueryClientProvider>
+        </ErrorBoundary>
+      </ThemeProvider>
+    </Router>
   );
 }
 
