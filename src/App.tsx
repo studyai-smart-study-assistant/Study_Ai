@@ -76,7 +76,7 @@ function App() {
                   <NotificationProvider>
                     <TooltipProvider>
                       <div className="min-h-screen bg-background">
-                        <Routes>
+                        <Routes future={{ v7_relativeSplatPath: true }}>
                           {/* Routes wrapped in persistent AppShell */}
                           <Route element={<AppShell />}>
                             <Route path="/" element={<PageWrapper><Index /></PageWrapper>} />
