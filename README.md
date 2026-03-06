@@ -1,69 +1,53 @@
-# Welcome to your Lovable project
+# 📚 Study AI: Smart Study Assistant
+> **"Empowering Students with AI-Driven Personalized Learning"**
 
-## Project info
+Study AI एक अत्याधुनिक शैक्षिक मंच (Educational Platform) है जो आर्टिफिशियल इंटेलिजेंस का उपयोग करके छात्रों के सीखने के अनुभव को पूरी तरह से बदल देता है। यह छात्रों को उनके लक्ष्य (जैसे SSC CGL,UPSC, बोर्ड परीक्षा,इत्यादि) तक पहुँचने के लिए एक व्यवस्थित और स्मार्ट रास्ता प्रदान करता है।
 
-**URL**: https://lovable.dev/projects/62577999-0002-4525-a5d6-632c132625b6
+---
 
-## How can I edit this code?
+## 🚀 विजन और उद्देश्य (The Vision)
+Study AI का निर्माण छात्रों की उन बुनियादी समस्याओं को हल करने के लिए किया गया है जहाँ उन्हें सही मार्गदर्शन, व्यवस्थित नोट्स और समय प्रबंधन (Time Management) में कठिनाई होती है। हमारा उद्देश्य हर छात्र को एक व्यक्तिगत 'AI Teacher' प्रदान करना है जो उनके अनुसार पढ़ाई को ढाल सके।
 
-There are several ways of editing your application.
+---
 
-**Use Lovable**
+## ✨ मुख्य विशेषताएं (Key Features)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/62577999-0002-4525-a5d6-632c132625b6) and start prompting.
+### 👨‍🏫 AI Teacher Mode
+- **संवादात्मक शिक्षा:** AI के साथ बातचीत करके कठिन विषयों को सरल भाषा में समझना।
+- **अनुकूली शिक्षण (Adaptive Learning):** छात्र की प्रतिक्रिया के आधार पर शिक्षण शैली को बदलना।
+- **शंका समाधान:** किसी भी समय, किसी भी विषय पर तुरंत डाउट क्लियरिंग।
 
-Changes made via Lovable will be committed automatically to this repo.
+### 📅 Smart Exam Planner
+- **Dynamic Scheduling:** परीक्षा की तारीख और उपलब्ध समय (जैसे प्रतिदिन 6-8 घंटे) के आधार पर ऑटोमैटिक प्लान।
+- **Focus Areas:** कमजोर विषयों पर 40% अधिक ध्यान और मजबूत विषयों का स्मार्ट रिवीजन।
+- **Daily Tasks:** हर दिन के लिए विशिष्ट टॉपिक्स और समय स्लॉट का आवंटन।
 
-**Use your preferred IDE**
+### 📝 AI Content Tools
+- **Notes Generator:** किसी भी अध्याय के लिए संक्षिप्त (Concise) या विस्तृत नोट्स।
+- **Quiz Generator:** कठिनाई स्तर (Beginner to Advanced) के आधार पर ऑब्जेक्टिव प्रश्न तैयार करना।
+- **Live Interactive Tests:** टाइमर और विस्तृत व्याख्या के साथ वास्तविक परीक्षा जैसा अनुभव।
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### 🏆 Gamification (छात्रों के लिए प्रोत्साहन)
+- **XP System:** हर टास्क पूरा करने पर अनुभव अंक (Experience Points) अर्जित करना।
+- **Leaderboards:** छात्रों की प्रगति को ट्रैक करना और स्वस्थ प्रतिस्पर्धा को बढ़ावा देना।
+- **Daily Streaks:** लगातार पढ़ाई की आदत डालने के लिए बैज और पुरस्कार।
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## 🛠️ तकनीकी स्टैक (Technology Stack)
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+- **Frontend:** [React.js](https://reactjs.org/) + [TypeScript](https://www.typescriptlang.org/)
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/)
+- **Framework:** [Vite](https://vitejs.dev/)
+- **Backend/Auth/DB:** [Supabase](https://supabase.com/)
+- **Intelligence:** Google Gemini API (Multi-API Intelligent Routing)
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+---
 
-# Step 3: Install the necessary dependencies.
-npm i
+## 💻 स्थानीय सेटअप (Local Installation)
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+यदि आप इस प्रोजेक्ट को अपने लोकल सिस्टम पर चलाना चाहते हैं:
 
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with .
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/62577999-0002-4525-a5d6-632c132625b6) and click on Share -> Publish.
-
-## I want to use a custom domain - is that possible?
-
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+1. **रिपॉजिटरी क्लोन करें:**
+   ```bash
+   git clone [https://github.com/studyai-smart-study-assistant/Study_Ai.git](https://github.com/studyai-smart-study-assistant/Study_Ai.git)
