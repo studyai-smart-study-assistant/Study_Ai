@@ -15,7 +15,7 @@ const BookCard: React.FC<BookCardProps> = ({ book }) => {
   const handleLike = async () => { try { await likeBook(book.id); toast.success("पुस्तक को सराहा गया!"); } catch { toast.error("लाइक करने में समस्या"); } };
   const handleDownload = async () => { try { if (!book.fileUrl) return toast.error("डाउनलोड लिंक उपलब्ध नहीं"); await incrementDownload(book.id); window.open(book.fileUrl, '_blank'); toast.success("पुस्तक डाउनलोड हो रही है"); } catch { toast.error("डाउनलोड में समस्या"); } };
   const handleExternalLink = () => { if (book.externalLink) window.open(book.externalLink, '_blank'); else toast.error("बाहरी लिंक उपलब्ध नहीं"); };
-  const getUploadDate = () => book.uploadedAt instanceof Date ? book.uploadedAt : new Date(book.uploadedAt as any);
+  const getUploadDate = () => book.uploadedAt && typeof (book.uploadedAt as any).toDate === 'function' ? (book.uploadedAt as any).toDate() : new Date(book.uploadedAt as any);
   const timeAgo = formatDistanceToNow(getUploadDate(), { addSuffix: true, locale: hi });
 
   return (

@@ -114,9 +114,9 @@ async function makeAPICallWithRetry(url: string, options: any, maxRetries: numbe
       const errorData = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
       throw new Error(`API error (${response.status}): ${errorData.error?.message || 'Unknown error'}`);
       
-    } catch (error) {
+    } catch (error: unknown) {
       lastError = error;
-      console.error(`❌ Attempt ${attempt} failed:`, error.message);
+      console.error(`❌ Attempt ${attempt} failed:`, (error as Error).message);
       
       if (attempt < maxRetries) {
         // Wait before retry
@@ -214,15 +214,15 @@ serve(async (req) => {
       }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ Final error in gemini-chat function:", error);
     
-    // Enhanced error response with more details
+    const err = error as Error;
     const errorResponse = {
-      error: error.message || 'Unknown error occurred',
+      error: err.message || 'Unknown error occurred',
       success: false,
       timestamp: new Date().toISOString(),
-      details: error.stack ? error.stack.substring(0, 500) : 'No stack trace'
+      details: err.stack ? err.stack.substring(0, 500) : 'No stack trace'
     };
     
     return new Response(
