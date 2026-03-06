@@ -46,23 +46,27 @@ const ChatMessageList = memo(({ messages, isGroup, chatId, onMessageUpdated }: C
     };
   }, []);
 
-  if (messages.length === 0) {
+  // FIX: Handle cases where messages array might be null or undefined before it's loaded.
+  if (!messages || messages.length === 0) {
     return <EmptyMessageState />;
   }
 
   return (
     <>
       {messages.map((msg) => (
-        <MessageItem
-          key={msg.id}
-          message={msg}
-          isGroup={isGroup}
-          chatId={chatId}
-          activeMessageId={activeMessageId}
-          currentTime={currentTime}
-          onMessageClick={handleMessageClick}
-          onMessageUpdated={onMessageUpdated}
-        />
+        // Add a check to ensure msg object is not null/undefined to prevent crashes
+        msg && (
+          <MessageItem
+            key={msg.id}
+            message={msg}
+            isGroup={isGroup}
+            chatId={chatId}
+            activeMessageId={activeMessageId}
+            currentTime={currentTime}
+            onMessageClick={handleMessageClick}
+            onMessageUpdated={onMessageUpdated}
+          />
+        )
       ))}
     </>
   );
