@@ -1,154 +1,119 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Copy, Trash, ThumbsUp, ThumbsDown, Volume2 } from 'lucide-react';
+import React, { useState, useRef, useCallback } from 'react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Copy, Trash, ThumbsUp, ThumbsDown, Volume2, X, Pause, Play, Loader } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 interface LongPressMenuProps {
   children: React.ReactNode;
-  isUserMessage: boolean;
-  onCopy: () => void;
-  onDelete: () => void;
-  onLike?: () => void;
-  onDislike?: () => void;
-  onListen?: () => void;
+  message: { id: string; content: string; isUser: boolean; };
+  onCopy: (content: string) => void;
+  onDelete: (id: string) => void;
+  onFeedback?: (id: string, rating: 'like' | 'dislike') => void;
   isLiked?: boolean;
 }
 
-const LONG_PRESS_DURATION = 600; // ms — snappy for mobile
+const LONG_PRESS_DURATION = 500; // ms
 
 const LongPressMenu: React.FC<LongPressMenuProps> = ({
   children,
-  isUserMessage,
+  message,
   onCopy,
   onDelete,
-  onLike,
-  onDislike,
-  onListen,
+  onFeedback,
   isLiked,
 }) => {
-  const [showMenu, setShowMenu] = useState(false);
-  const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
-  const containerRef = useRef<HTMLDivElement>(null);
+  const { isGenerating, isPlaying, togglePlayPause, cancel: cancelTTS } = useTextToSpeech();
 
-  const startPress = useCallback((clientX: number, clientY: number) => {
+  const startPress = useCallback(() => {
     timerRef.current = setTimeout(() => {
-      // Position menu near the press point
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (rect) {
-        const x = Math.min(clientX - rect.left, rect.width - 180);
-        const y = clientY - rect.top - 50;
-        setMenuPos({ x: Math.max(0, x), y: Math.max(0, y) });
-      }
-      setShowMenu(true);
+      setIsSheetOpen(true);
     }, LONG_PRESS_DURATION);
   }, []);
 
   const cancelPress = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
   }, []);
 
-  // Touch events
-  const onTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    startPress(touch.clientX, touch.clientY);
-  };
-
-  // Mouse events (desktop fallback)
-  const onMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return; // left click only
-    startPress(e.clientX, e.clientY);
-  };
-
-  // Close menu on outside click
-  useEffect(() => {
-    if (!showMenu) return;
-    const close = () => setShowMenu(false);
-    document.addEventListener('click', close);
-    document.addEventListener('touchstart', close);
-    return () => {
-      document.removeEventListener('click', close);
-      document.removeEventListener('touchstart', close);
-    };
-  }, [showMenu]);
-
-  const handleAction = (action: () => void) => (e: React.MouseEvent | React.TouchEvent) => {
-    e.stopPropagation();
+  const handleAction = (action: () => void) => () => {
     action();
-    setShowMenu(false);
+    setIsSheetOpen(false);
   };
+  
+  const handleListen = () => {
+    togglePlayPause(message.content);
+  };
+
+  const handleSheetOpenChange = (open: boolean) => {
+    if (!open) {
+       cancelTTS();
+    }
+    setIsSheetOpen(open);
+  }
 
   return (
-    <div
-      ref={containerRef}
-      className="relative"
-      onTouchStart={onTouchStart}
-      onTouchEnd={cancelPress}
-      onTouchMove={cancelPress}
-      onMouseDown={onMouseDown}
-      onMouseUp={cancelPress}
-      onMouseLeave={cancelPress}
-    >
-      {children}
-
-      {showMenu && (
+    <Sheet open={isSheetOpen} onOpenChange={handleSheetOpenChange}>
+      <SheetTrigger asChild>
         <div
-          className={cn(
-            "absolute z-50 animate-in fade-in-0 zoom-in-95 duration-150",
-            "bg-popover border border-border rounded-xl shadow-lg py-1.5 px-1",
-            "min-w-[160px]"
-          )}
-          style={{ left: menuPos.x, top: menuPos.y }}
-          onClick={e => e.stopPropagation()}
-          onTouchStart={e => e.stopPropagation()}
+          onTouchStart={startPress}
+          onTouchEnd={cancelPress}
+          onTouchMove={cancelPress}
+          onMouseDown={startPress} // Fallback for desktop
+          onMouseUp={cancelPress}
+          onMouseLeave={cancelPress}
         >
-          <button
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground/80 hover:bg-muted rounded-lg transition-colors"
-            onClick={handleAction(onCopy)}
-          >
-            <Copy className="h-4 w-4" /> Copy
-          </button>
-
-          {isUserMessage && (
-            <button
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-              onClick={handleAction(onDelete)}
-            >
-              <Trash className="h-4 w-4" /> Delete
-            </button>
-          )}
-
-          {!isUserMessage && onLike && (
-            <button
-              className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted rounded-lg transition-colors",
-                isLiked ? "text-primary" : "text-foreground/80"
+          {children}
+        </div>
+      </SheetTrigger>
+      <SheetContent side="bottom" className="p-4 rounded-t-2xl">
+        <SheetHeader className="text-left mb-4">
+          <SheetTitle>Message Actions</SheetTitle>
+        </SheetHeader>
+        <div className="grid grid-cols-1 gap-2">
+          {!message.isUser && (
+            <Button variant="outline" className="justify-start py-6" onClick={handleListen}>
+              {isGenerating ? (
+                <Loader className="h-5 w-5 mr-3 animate-spin" />
+              ) : isPlaying ? (
+                <Pause className="h-5 w-5 mr-3" />
+              ) : (
+                <Play className="h-5 w-5 mr-3" />
               )}
-              onClick={handleAction(onLike)}
-            >
-              <ThumbsUp className="h-4 w-4" /> Like
-            </button>
+              {isGenerating ? 'Generating...' : isPlaying ? 'Pause Audio' : 'Listen to Message'}
+            </Button>
           )}
 
-          {!isUserMessage && onDislike && (
-            <button
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground/80 hover:bg-muted rounded-lg transition-colors"
-              onClick={handleAction(onDislike)}
-            >
-              <ThumbsDown className="h-4 w-4" /> Dislike
-            </button>
+          <Button variant="outline" className="justify-start py-6" onClick={handleAction(() => onCopy(message.content))}>
+            <Copy className="h-5 w-5 mr-3" /> Copy Text
+          </Button>
+
+          {!message.isUser && onFeedback && (
+            <div className="flex gap-2">
+              <Button variant={isLiked ? "secondary" : "outline"} className="w-full py-6" onClick={handleAction(() => onFeedback(message.id, 'like'))}>
+                <ThumbsUp className="h-5 w-5 mr-2" /> Like
+              </Button>
+              <Button variant={!isLiked ? "secondary" : "outline"} className="w-full py-6" onClick={handleAction(() => onFeedback(message.id, 'dislike'))}>
+                <ThumbsDown className="h-5 w-5 mr-2" /> Dislike
+              </Button>
+            </div>
           )}
 
-          {!isUserMessage && onListen && (
-            <button
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground/80 hover:bg-muted rounded-lg transition-colors"
-              onClick={handleAction(onListen)}
-            >
-              <Volume2 className="h-4 w-4" /> Listen
-            </button>
+          {message.isUser && (
+            <Button variant="destructive" className="justify-start py-6" onClick={handleAction(() => onDelete(message.id))}>
+              <Trash className="h-5 w-5 mr-3" /> Delete Message
+            </Button>
           )}
         </div>
-      )}
-    </div>
+        <SheetFooter className="mt-4">
+            <Button variant="ghost" className="w-full" onClick={() => handleSheetOpenChange(false)}>Cancel</Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 };
 

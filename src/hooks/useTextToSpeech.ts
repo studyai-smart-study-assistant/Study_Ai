@@ -1,7 +1,10 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+/**
+ * Represents the state of the Text-to-Speech hook.
+ */
 interface TTSState {
   isGenerating: boolean;
   isPlaying: boolean;
@@ -11,78 +14,12 @@ interface TTSState {
   audioReady: boolean;
 }
 
-const MAX_CHUNK_CHARS = 400;
-
-/** Clean markdown for TTS */
-function cleanForTTS(text: string): string {
-  let t = text;
-  t = t.replace(/```[\s\S]*?```/g, '');
-  t = t.replace(/`([^`]+)`/g, '$1');
-  t = t.replace(/^#{1,6}\s+/gm, '');
-  t = t.replace(/\*\*([^*]+)\*\*/g, '$1');
-  t = t.replace(/\*([^*]+)\*/g, '$1');
-  t = t.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-  t = t.replace(/!\[([^\]]*)\]\([^)]+\)/g, '');
-  t = t.replace(/\n+/g, ' ');
-  return t.trim();
-}
-
-/** Split text into chunks at sentence boundaries, never breaking words */
-function smartChunk(text: string, maxLen: number): string[] {
-  // Split on sentence endings
-  const sentences = text.split(/(?<=[.?!।])\s+/).filter(s => s.trim().length > 0);
-  const chunks: string[] = [];
-  let current = '';
-
-  for (const sentence of sentences) {
-    if (sentence.length > maxLen) {
-      // sentence itself is too long, split at word boundaries
-      if (current.trim()) { chunks.push(current.trim()); current = ''; }
-      const words = sentence.split(/\s+/);
-      let wordChunk = '';
-      for (const word of words) {
-        if ((wordChunk + ' ' + word).trim().length > maxLen) {
-          if (wordChunk.trim()) chunks.push(wordChunk.trim());
-          wordChunk = word;
-        } else {
-          wordChunk = wordChunk ? wordChunk + ' ' + word : word;
-        }
-      }
-      if (wordChunk.trim()) { current = wordChunk.trim(); }
-    } else if ((current + ' ' + sentence).trim().length > maxLen) {
-      if (current.trim()) chunks.push(current.trim());
-      current = sentence;
-    } else {
-      current = current ? current + ' ' + sentence : sentence;
-    }
-  }
-  if (current.trim()) chunks.push(current.trim());
-  return chunks;
-}
-
-/** Web Speech API fallback */
-function speakWithWebTTS(text: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (!('speechSynthesis' in window)) {
-      return reject(new Error('Web TTS not supported'));
-    }
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'hi-IN';
-    utterance.rate = 1.0;
-    utterance.onend = () => resolve();
-    utterance.onerror = (e) => reject(e);
-    window.speechSynthesis.speak(utterance);
-  });
-}
-
 export const useTextToSpeech = () => {
-  const [state, setState] = useState<TTSState>({
+  const [ttsState, setTtsState] = useState<TTSState>({
     isGenerating: false,
     isPlaying: false,
-    progress: 0,
-    duration: 0,
-    currentTime: 0,
-    audioReady: false,
+    isAudioReady: false,
+    isSpeakingNatively: false,
   });
 
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -91,7 +28,6 @@ export const useTextToSpeech = () => {
   const startTimeRef = useRef<number>(0);
   const animFrameRef = useRef<number>(0);
   const abortRef = useRef(false);
-  const webTTSFallbackRef = useRef(false);
 
   const getAudioContext = () => {
     if (!audioContextRef.current) {
@@ -111,12 +47,15 @@ export const useTextToSpeech = () => {
   };
 
   const mergeAudioBuffers = (buffers: AudioBuffer[]): AudioBuffer => {
-    if (buffers.length === 0) throw new Error("No audio buffers to merge");
+    if (buffers.length === 0) {
+        throw new Error("Cannot merge empty audio buffers");
+    }
     const ctx = getAudioContext();
     const totalLength = buffers.reduce((sum, b) => sum + b.length, 0);
     const sampleRate = buffers[0].sampleRate;
     const channels = buffers[0].numberOfChannels;
     const merged = ctx.createBuffer(channels, totalLength, sampleRate);
+
     for (let ch = 0; ch < channels; ch++) {
       const output = merged.getChannelData(ch);
       let offset = 0;
@@ -130,90 +69,96 @@ export const useTextToSpeech = () => {
 
   const generateAudio = useCallback(async (text: string, language = 'hi-IN') => {
     abortRef.current = false;
-    webTTSFallbackRef.current = false;
-    setState({ isGenerating: true, isPlaying: false, progress: 0, duration: 0, currentTime: 0, audioReady: false });
+    setState({
+      isGenerating: true,
+      isPlaying: false,
+      progress: 0,
+      duration: 0,
+      currentTime: 0,
+      audioReady: false,
+    });
     mergedBufferRef.current = null;
 
-    const cleanText = cleanForTTS(text);
-    if (!cleanText) {
-      setState(prev => ({ ...prev, isGenerating: false }));
-      return;
-    }
+    try {
+      const textChunks = text.match(/[^.!?।\n,]+[.!?।\n,]?/g)?.map(s => s.trim()).filter(Boolean) || [];
+      if (textChunks.length === 0 && text.trim()) {
+        textChunks.push(text.trim());
+      }
 
-    const chunks = smartChunk(cleanText, MAX_CHUNK_CHARS);
-    console.log(`TTS: ${chunks.length} chunks from ${cleanText.length} chars`);
+      if (textChunks.length === 0) {
+        setState(prev => ({ ...prev, isGenerating: false }));
+        return;
+      }
 
-    const allBuffers: AudioBuffer[] = [];
-    let sarvamFailed = false;
+      const allAudioBuffers: AudioBuffer[] = [];
+      let chunksProcessed = 0;
 
-    for (let i = 0; i < chunks.length; i++) {
-      if (abortRef.current) return;
-      setState(prev => ({ ...prev, progress: (i / chunks.length) * 90 }));
+      for (const chunk of textChunks) {
+        if (abortRef.current) return;
 
-      try {
-        const { data, error } = await supabase.functions.invoke('text-to-speech', {
-          body: { text: chunks[i], language },
-        });
+        try {
+          const { data, error } = await supabase.functions.invoke('text-to-speech', {
+            body: { text: chunk, language },
+          });
 
-        if (error) {
-          console.warn(`TTS chunk ${i} failed:`, error);
-          sarvamFailed = true;
-          break;
-        }
+          if (error) {
+            console.warn(`TTS chunk failed: ${chunk}`, error);
+            toast.warning('Skipped an audio segment.');
+            continue;
+          }
 
-        if (data?.audioChunks?.length > 0) {
-          for (const audioBase64 of data.audioChunks) {
-            if (abortRef.current) return;
-            try {
-              const buffer = await decodeBase64Audio(audioBase64);
-              allBuffers.push(buffer);
-            } catch (decodeErr) {
-              console.error('Decode error:', decodeErr);
+          if (abortRef.current) return;
+
+          if (data.audioChunks && data.audioChunks.length > 0) {
+            for (const audioChunkBase64 of data.audioChunks) {
+              if (abortRef.current) return;
+              try {
+                const buffer = await decodeBase64Audio(audioChunkBase64);
+                allAudioBuffers.push(buffer);
+              } catch (decodeError) {
+                console.error('Error decoding audio chunk:', decodeError);
+              }
             }
           }
-        }
-      } catch (e) {
-        console.error(`Chunk ${i} error:`, e);
-        sarvamFailed = true;
-        break;
-      }
-    }
-
-    // If Sarvam AI failed completely, fallback to Web TTS
-    if (allBuffers.length === 0 || sarvamFailed) {
-      if (allBuffers.length === 0) {
-        console.log('Sarvam AI failed, falling back to Web Speech TTS');
-        webTTSFallbackRef.current = true;
-        try {
-          setState(prev => ({ ...prev, progress: 50 }));
-          await speakWithWebTTS(cleanText);
-          setState({ isGenerating: false, isPlaying: false, progress: 100, duration: 0, currentTime: 0, audioReady: false });
-          toast.info('ब्राउज़र TTS का उपयोग किया गया');
-          return;
-        } catch (webErr) {
-          console.error('Web TTS also failed:', webErr);
-          setState(prev => ({ ...prev, isGenerating: false }));
-          toast.error('ऑडियो जनरेट नहीं हो सका');
-          return;
+        } catch (e) {
+          console.error(`Error processing chunk: ${chunk}`, e);
+        } finally {
+          chunksProcessed++;
+          setState(prev => ({ ...prev, progress: (chunksProcessed / textChunks.length) * 100 }));
         }
       }
-    }
 
-    try {
-      const merged = mergeAudioBuffers(allBuffers);
+      if (allAudioBuffers.length === 0) {
+        throw new Error('Audio generation failed for all text segments.');
+      }
+
+      const merged = mergeAudioBuffers(allAudioBuffers);
       mergedBufferRef.current = merged;
-      setState(prev => ({ ...prev, isGenerating: false, audioReady: true, duration: merged.duration, progress: 100 }));
-    } catch (mergeErr) {
-      console.error('Merge error:', mergeErr);
+
+      setState(prev => ({
+        ...prev,
+        isGenerating: false,
+        audioReady: true,
+        duration: merged.duration,
+        progress: 100,
+      }));
+
+    } catch (error: any) {
+      console.error('TTS generation error:', error);
       setState(prev => ({ ...prev, isGenerating: false }));
-      toast.error('ऑडियो merge नहीं हो सका');
+      if (!abortRef.current) {
+        toast.error(error.message || 'Audio generation failed. Please try again.');
+      }
     }
   }, []);
 
   const play = useCallback(() => {
     if (!mergedBufferRef.current) return;
     const ctx = getAudioContext();
-    if (sourceRef.current) { try { sourceRef.current.stop(); } catch {} }
+
+    if (sourceRef.current) {
+      try { sourceRef.current.stop(); } catch {}
+    }
 
     const source = ctx.createBufferSource();
     source.buffer = mergedBufferRef.current;
@@ -237,31 +182,52 @@ export const useTextToSpeech = () => {
         cancelAnimationFrame(animFrameRef.current);
         return;
       }
-      setState(prev => ({ ...prev, currentTime: elapsed, progress: (elapsed / dur) * 100 }));
+      setState(prev => ({
+        ...prev,
+        currentTime: elapsed,
+        progress: (elapsed / dur) * 100,
+      }));
       animFrameRef.current = requestAnimationFrame(track);
     };
     animFrameRef.current = requestAnimationFrame(track);
   }, []);
 
   const pause = useCallback(() => {
-    if (webTTSFallbackRef.current) {
-      window.speechSynthesis?.cancel();
+    if (sourceRef.current) {
+      try { sourceRef.current.stop(); } catch {}
     }
-    if (sourceRef.current) { try { sourceRef.current.stop(); } catch {} }
     cancelAnimationFrame(animFrameRef.current);
     setState(prev => ({ ...prev, isPlaying: false }));
   }, []);
 
   const togglePlayPause = useCallback(() => {
-    if (state.isPlaying) pause(); else play();
+    if (state.isPlaying) {
+      pause();
+    } else {
+      play();
+    }
   }, [state.isPlaying, play, pause]);
 
   const cancel = useCallback(() => {
     abortRef.current = true;
     pause();
     mergedBufferRef.current = null;
-    setState({ isGenerating: false, isPlaying: false, progress: 0, duration: 0, currentTime: 0, audioReady: false });
+    setState({
+      isGenerating: false,
+      isPlaying: false,
+      progress: 0,
+      duration: 0,
+      currentTime: 0,
+      audioReady: false,
+    });
   }, [pause]);
 
-  return { ...state, generateAudio, play, pause, togglePlayPause, cancel };
+  return {
+    ...state,
+    generateAudio,
+    play,
+    pause,
+    togglePlayPause,
+    cancel,
+  };
 };
