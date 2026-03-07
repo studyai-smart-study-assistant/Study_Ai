@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
-import { AuthContext, User } from '@/hooks/useAuth';
+import { AuthContext, User } from '@/contexts/AuthContext';
 
 // Helper to convert Supabase user to extended User
 const toExtendedUser = (user: any): User | null => {
