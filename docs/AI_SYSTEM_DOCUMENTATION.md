@@ -5,13 +5,7 @@
 
 ---
 
-## 1. AI Provider Configuration
-
-### Primary Provider: Lovable AI Gateway
-- **Endpoint**: `https://ai.gateway.lovable.dev/v1/chat/completions`
-- **Auth**: Bearer token via `LOVABLE_API_KEY` (auto-provided by Lovable Cloud)
-
-### Secondary Provider: Gemini Direct (Legacy)
+### Provider: Gemini Direct (Legacy)
 - **Endpoint**: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`
 - **Auth**: API key rotation via `GEMINI_API_KEYS` secret (comma-separated)
 - **Status**: Used for specific interactive features
