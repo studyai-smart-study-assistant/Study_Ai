@@ -1,3 +1,4 @@
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
@@ -9,6 +10,11 @@ export default defineConfig(({ mode }) => ({
   server: {
    host: "0.0.0.0",
    port: 9000,
+   hmr: {
+     protocol: 'wss',
+     host: '9000-firebase-studyai-1772675251327.cluster-cz5nqyh5nreq6ua6gaqd7okl7o.cloudworkstations.dev',
+     clientPort: 443
+   }
   },
   plugins: [
     react(),
