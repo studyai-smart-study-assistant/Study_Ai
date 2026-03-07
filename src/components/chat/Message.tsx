@@ -1,13 +1,11 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Message as MessageType } from "@/lib/db";
 import MessageBody from '../message/MessageBody';
 import MessageActions from '../message/MessageActions';
 import LongPressMenu from '../message/LongPressMenu';
-import AudioPlayer from '../message/AudioPlayer';
 import { useMessageState } from '@/hooks/useMessageState';
 import { useMessageBookmark } from '@/hooks/useMessageBookmark';
-import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { cn } from "@/lib/utils";
 import { toast } from 'sonner';
 
@@ -32,23 +30,32 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted }) => {
     setIsBookmarked
   );
 
-  const tts = useTextToSpeech();
-  const [showAudioPlayer, setShowAudioPlayer] = useState(false);
-
   const isUserMessage = message.role === "user";
-
-  const handleListen = () => {
-    setShowAudioPlayer(true);
-    tts.generateAudio(message.content);
-  };
 
   const handleDislike = () => {
     toast.info('Feedback recorded');
   };
 
-  const handleCancelAudio = () => {
-    tts.cancel();
-    setShowAudioPlayer(false);
+  const messageForMenu = {
+    id: message.id,
+    content: message.content,
+    isUser: isUserMessage,
+  };
+
+  const handleCopyForMenu = (content: string) => {
+    handleCopy();
+  };
+
+  const handleDeleteForMenu = (id: string) => {
+    handleDelete();
+  };
+
+  const handleFeedbackForMenu = (id: string, rating: 'like' | 'dislike') => {
+    if (rating === 'like') {
+      handleLike();
+    } else {
+      handleDislike();
+    }
   };
 
   return (
@@ -59,12 +66,10 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted }) => {
       )}
     >
       <LongPressMenu
-        isUserMessage={isUserMessage}
-        onCopy={handleCopy}
-        onDelete={handleDelete}
-        onLike={!isUserMessage ? handleLike : undefined}
-        onDislike={!isUserMessage ? handleDislike : undefined}
-        onListen={!isUserMessage ? handleListen : undefined}
+        message={messageForMenu}
+        onCopy={handleCopyForMenu}
+        onDelete={handleDeleteForMenu}
+        onFeedback={!isUserMessage ? handleFeedbackForMenu : undefined}
         isLiked={isLiked}
       >
         <MessageBody 
@@ -78,22 +83,6 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted }) => {
           displayedContent={displayedContent}
         />
       </LongPressMenu>
-
-      {/* Audio Player */}
-      {!isUserMessage && showAudioPlayer && (
-        <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8">
-          <AudioPlayer
-            isGenerating={tts.isGenerating}
-            isPlaying={tts.isPlaying}
-            audioReady={tts.audioReady}
-            progress={tts.progress}
-            duration={tts.duration}
-            currentTime={tts.currentTime}
-            onTogglePlay={tts.togglePlayPause}
-            onCancel={handleCancelAudio}
-          />
-        </div>
-      )}
       
       {!isEditing && (
         <div className={cn(
