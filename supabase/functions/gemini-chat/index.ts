@@ -147,7 +147,7 @@ serve(async (req) => {
 
     // Get initial API key
     let GEMINI_API_KEY = rotationService.getApiKey(apiKeyType);
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
     // Format conversation history for the API
     const messages = history.map((msg: any) => ({
