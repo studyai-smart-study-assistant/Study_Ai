@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Message as MessageType } from '@/lib/db';
 
 // Adding constant for guest message limit
-const GUEST_MESSAGE_LIMIT = 2;
+const GUEST_MESSAGE_LIMIT = 50;
 
 export const useChat = (chatId: string, onChatUpdated?: () => void) => {
   const [messages, setMessages] = useState<MessageType[]>([]);
