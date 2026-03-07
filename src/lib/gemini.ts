@@ -188,5 +188,5 @@ export async function generateStudyPlan(
     मार्कडाउन और टेबल्स का उपयोग करके इसे बहुत ही व्यवस्थित बनाएं।`;
   }
   
-  return await generateResponse(prompt, [], undefined, 'google/gemini-2.0-flash');
+  return await generateResponse(prompt, [], undefined, 'google/gemini-3-flash');
 }
