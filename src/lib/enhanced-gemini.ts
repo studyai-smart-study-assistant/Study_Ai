@@ -1,4 +1,3 @@
-
 import { toast } from "sonner";
 import { Message } from "./db";
 import { chatDB } from "./db";
@@ -16,6 +15,11 @@ export interface EnhancedGenerationOptions {
   useAITeacherMode?: boolean;
 }
 
+/**
+ * Study AI - Enhanced Study Plan Generator
+ * Developed by Ajit Kumar
+ */
+
 export async function generateEnhancedStudyPlan(
   examData: ExamPlanData,
   options: EnhancedGenerationOptions = {}
@@ -25,9 +29,8 @@ export async function generateEnhancedStudyPlan(
   
   while (retryCount <= maxRetries) {
     try {
-      console.log(`🧠 Generating AI Teacher study plan attempt ${retryCount + 1}/${maxRetries + 1}`);
+      console.log(`🧠 Study AI Teacher: Generating personalized plan. Attempt ${retryCount + 1}`);
       
-      // Use comprehensive AI Teacher prompt instead of basic prompt
       const aiTeacherPrompt = generateComprehensiveAITeacherPrompt(examData, {
         includeFullSyllabus: options.includeSyllabusValidation ?? true,
         includeLearningStyleAdaptation: true,
@@ -36,8 +39,6 @@ export async function generateEnhancedStudyPlan(
         responseFormat: 'structured_json',
         personalizedMotivation: true
       }, options.userProgressData);
-
-      console.log('📤 AI Teacher prompt length:', aiTeacherPrompt.length);
 
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
         body: {
@@ -48,55 +49,35 @@ export async function generateEnhancedStudyPlan(
         }
       });
 
-      if (error) {
-        console.error(`❌ Supabase function error (attempt ${retryCount + 1}):`, error);
-        throw new Error(`Function error: ${error.message}`);
-      }
-
-      if (!data.success) {
-        console.error(`❌ API response failed (attempt ${retryCount + 1}):`, data.error);
-        throw new Error(data.error || "Unknown error from AI service");
-      }
+      if (error) throw new Error(`Supabase error: ${error.message}`);
+      if (!data?.success) throw new Error(data?.error || "AI service failed to respond");
 
       const responseText = data.response;
-      console.log(`✅ AI Teacher response generated, length: ${responseText.length}`);
       
-      // Parse and validate the response with enhanced processing
+      // Parse and validate with a focus on safety for live site
       const studyPlan = await parseAndValidateAITeacherResponse(responseText, examData);
       
-      // Apply syllabus validation if enabled
       if (options.includeSyllabusValidation) {
         await validateAndEnhanceWithSyllabus(studyPlan, examData);
       }
       
+      toast.success("आपका स्मार्ट स्टडी प्लान तैयार है! चलिए जीत की तैयारी शुरू करते हैं।");
       return studyPlan;
       
-    } catch (error) {
-      console.error(`❌ Error on attempt ${retryCount + 1}:`, error);
-      
+    } catch (error: any) {
+      console.error(`❌ Attempt ${retryCount + 1} failed:`, error);
       retryCount++;
       
       if (retryCount <= maxRetries) {
-        const waitTime = Math.min(1000 * Math.pow(2, retryCount - 1), 3000);
-        console.log(`⏳ Retrying in ${waitTime}ms...`);
-        
-        if (retryCount === 1) {
-          toast.info("AI Teacher processing taking longer, optimizing...", {
-            duration: 2000
-          });
-        }
-        
+        const waitTime = 2000;
+        toast.info("AI Teacher आपके लिए बेहतरीन नोट्स और प्लान तैयार कर रहा है, थोड़ा और समय लग रहा है...");
         await new Promise(resolve => setTimeout(resolve, waitTime));
         continue;
       }
       
-      console.error("❌ All AI Teacher generation attempts failed:", error);
-      
       const errorMessage = error.message?.includes('rate limit') 
-        ? "AI service is busy, please try again in a moment"
-        : error.message?.includes('Failed to fetch')
-        ? "Network connection issue, please check your internet"
-        : "Failed to generate AI Teacher study plan";
+        ? "AI सर्विस अभी बिजी है, कृपया 1 मिनट बाद कोशिश करें।"
+        : "स्टडी प्लान बनाने में समस्या आई। कृपया अपना इंटरनेट चेक करें।";
         
       toast.error(errorMessage, {
         duration: 5000,
@@ -115,54 +96,42 @@ export async function generateEnhancedStudyPlan(
 
 async function parseAndValidateAITeacherResponse(responseText: string, examData: ExamPlanData): Promise<StudyPlan> {
   try {
-    // Try to parse as JSON first (AI Teacher should return structured JSON)
     let parsedData;
     
-    if (responseText.trim().startsWith('{')) {
-      parsedData = JSON.parse(responseText);
+    // Safety check to extract JSON even if AI adds conversational text
+    const jsonStartIndex = responseText.indexOf('{');
+    const jsonEndIndex = responseText.lastIndexOf('}');
+    
+    if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+      const jsonString = responseText.substring(jsonStartIndex, jsonEndIndex + 1);
+      parsedData = JSON.parse(jsonString);
     } else {
-      // Extract JSON from markdown code blocks if present
-      const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
-      if (jsonMatch) {
-        parsedData = JSON.parse(jsonMatch[1]);
-      } else {
-        // Try to find any JSON-like structure in the response
-        const jsonStart = responseText.indexOf('{');
-        const jsonEnd = responseText.lastIndexOf('}');
-        if (jsonStart !== -1 && jsonEnd !== -1) {
-          parsedData = JSON.parse(responseText.substring(jsonStart, jsonEnd + 1));
-        } else {
-          throw new Error('No valid JSON found in response');
-        }
-      }
+      throw new Error('No valid JSON structure found');
     }
     
     return convertAITeacherJSONToStudyPlan(parsedData, examData);
     
   } catch (error) {
-    console.warn('Failed to parse as AI Teacher JSON, using fallback conversion');
+    console.warn('JSON parsing failed, falling back to natural language extraction');
     return await convertNaturalLanguageToStructured(responseText, examData);
   }
 }
 
 function convertAITeacherJSONToStudyPlan(aiData: any, examData: ExamPlanData): StudyPlan {
-  // Convert AI Teacher JSON format to our StudyPlan interface
-  const studyPlan: StudyPlan = {
-    overview: aiData.plan_overview?.exam_strategy || 'AI-generated comprehensive study plan',
+  return {
+    overview: aiData.plan_overview?.exam_strategy || `Specialized strategy for ${examData.examName}`,
     totalDaysAvailable: aiData.plan_overview?.total_days_available || 30,
     dailyStudyHours: aiData.plan_overview?.daily_study_hours || examData.dailyHours,
     subjectPlans: convertSubjectPlans(aiData.subject_wise_strategy || {}),
     dailyTasks: convertDailyTasks(aiData.daily_schedule || []),
     weeklyGoals: convertWeeklyGoals(aiData.weekly_milestones || []),
-    revisionStrategy: aiData.exam_preparation_strategy?.last_week_plan || 'Comprehensive revision in final week',
-    examTips: extractExamTips(aiData),
+    revisionStrategy: aiData.exam_preparation_strategy?.last_week_plan || 'Final week focused revision',
+    examTips: extractExamTips(aiData, examData),
     motivationalQuotes: aiData.daily_motivation_messages || generateDefaultMotivation(),
     progressMilestones: generateProgressMilestones(aiData.weekly_milestones || []),
     personalizedAnalysis: aiData.personalized_analysis,
     adaptiveRecommendations: aiData.adaptive_recommendations
   };
-
-  return studyPlan;
 }
 
 function convertSubjectPlans(subjectStrategy: any): any[] {
@@ -179,9 +148,9 @@ function convertSubjectPlans(subjectStrategy: any): any[] {
         topicName,
         importance: chapter.importance || 'medium',
         estimatedMinutes: Math.floor((chapter.estimated_hours || 2) * 60 / (chapter.topics?.length || 1)),
-        keyPoints: [chapter.study_approach || 'Standard study approach'],
+        keyPoints: [chapter.study_approach || 'Key concept focus'],
         studyTips: chapter.common_mistakes_to_avoid || [],
-        practiceQuestions: [`Practice ${chapter.practice_requirements || '10 questions'} for ${topicName}`]
+        practiceQuestions: [`Practice problems for ${topicName}`]
       }))
     }))
   }));
@@ -189,23 +158,21 @@ function convertSubjectPlans(subjectStrategy: any): any[] {
 
 function convertDailyTasks(dailySchedule: any[]): any[] {
   const tasks: any[] = [];
-  
   dailySchedule.forEach((day, index) => {
     const sessions = ['morning_session', 'afternoon_session', 'evening_session', 'revision_session'];
-    
     sessions.forEach(sessionKey => {
       const session = day[sessionKey];
       if (session && session.subject) {
         tasks.push({
-          id: `task_${index}_${sessionKey}`,
+          id: `task_${index}_${sessionKey}_${Date.now()}`,
           date: day.date || new Date(Date.now() + index * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           subject: session.subject,
-          chapter: session.chapter || 'General Study',
+          chapter: session.chapter || 'Chapter Focus',
           topics: session.topics || [session.subject],
           duration: session.duration_minutes || 60,
           type: sessionKey.includes('revision') ? 'revision' : 'study',
-          priority: session.importance_level === 'High' ? 'urgent' : session.importance_level === 'Medium' ? 'important' : 'normal',
-          description: session.study_method || `Study ${session.subject}`,
+          priority: session.importance_level === 'High' ? 'urgent' : 'important',
+          description: session.study_method || `Study session for ${session.subject}`,
           completed: false,
           studyMethod: session.study_method,
           whyThisTiming: session.why_this_timing
@@ -213,7 +180,6 @@ function convertDailyTasks(dailySchedule: any[]): any[] {
       }
     });
   });
-  
   return tasks;
 }
 
@@ -222,204 +188,31 @@ function convertWeeklyGoals(weeklyMilestones: any[]): any[] {
     week: milestone.week || index + 1,
     subjects: milestone.chapters_to_complete?.map((ch: string) => ch.split(' - ')[0]) || ['General'],
     chapters: milestone.chapters_to_complete || [],
-    targetCompletion: 80,
+    targetCompletion: 100,
     focus: milestone.goals?.join(', ') || 'Complete assigned chapters',
-    assessmentMethod: milestone.assessment_method || 'Self-evaluation',
-    successMetrics: milestone.success_metrics || 'Chapter completion'
+    assessmentMethod: milestone.assessment_method || 'Practice Test',
+    successMetrics: milestone.success_metrics || 'Accuracy > 80%'
   }));
 }
 
-function extractExamTips(aiData: any): string[] {
+function extractExamTips(aiData: any, examData: ExamPlanData): string[] {
   const tips: string[] = [];
   
-  if (aiData.exam_preparation_strategy) {
-    const strategy = aiData.exam_preparation_strategy;
-    if (strategy.stress_management) tips.push(`🧘 Stress Management: ${strategy.stress_management}`);
-    if (strategy.exam_day_preparation) tips.push(`📋 Exam Day: ${strategy.exam_day_preparation}`);
+  // Specific intelligence for Bihar Board
+  if (examData.examName.toLowerCase().includes('bihar') || examData.examName.toLowerCase().includes('bseb')) {
+    tips.push("💡 BSEB Tip: 15 मिनट का एक्स्ट्रा समय केवल लॉन्ग आंसर वाले सवालों को चुनने में बिताएं।");
+    tips.push("💡 No Negative Marking: एक भी ऑब्जेक्टिव सवाल खाली न छोड़ें।");
+  }
+
+  if (aiData.exam_preparation_strategy?.stress_management) {
+    tips.push(`🧘 ${aiData.exam_preparation_strategy.stress_management}`);
   }
   
-  if (aiData.adaptive_recommendations) {
-    const adaptive = aiData.adaptive_recommendations;
-    if (adaptive.motivation_boosters) {
-      adaptive.motivation_boosters.forEach((tip: string) => tips.push(`💪 ${tip}`));
-    }
+  if (aiData.adaptive_recommendations?.motivation_boosters) {
+    aiData.adaptive_recommendations.motivation_boosters.forEach((tip: string) => tips.push(`💪 ${tip}`));
   }
   
   return tips.length > 0 ? tips : [
-    '📝 नियमित नोट्स बनाएं और revision करें',
-    '🔄 Mock tests को seriously लें',
-    '⏰ Time management पर focus करें',
-    '💪 Consistent effort से ही success मिलती है'
-  ];
-}
-
-function generateDefaultMotivation(): string[] {
-  return [
-    '🌟 "आज का मेहनत कल की सफलता का आधार है!"',
-    '📚 "हर page आपको goal के करीब ले जाता है!"',
-    '🎯 "Focus और consistency ही आपकी सबसे बड़ी ताकत है!"',
-    '💪 "मुश्किलें आपको मजबूत बनाने के लिए आती हैं!"'
-  ];
-}
-
-function generateProgressMilestones(weeklyMilestones: any[]): any[] {
-  return weeklyMilestones.map((milestone, index) => ({
-    week: index + 1,
-    target: milestone.goals?.join(', ') || `Week ${index + 1} targets`,
-    description: milestone.success_metrics || 'Complete assigned tasks',
-    completed: false
-  }));
-}
-
-async function convertNaturalLanguageToStructured(responseText: string, examData: ExamPlanData): Promise<StudyPlan> {
-  // Enhanced natural language parsing for fallback
-  const lines = responseText.split('\n').filter(line => line.trim());
-  const studyPlan: StudyPlan = {
-    overview: 'AI Teacher generated personalized study plan',
-    totalDaysAvailable: Math.ceil((new Date(examData.examDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)),
-    dailyStudyHours: examData.dailyHours,
-    subjectPlans: [],
-    dailyTasks: [],
-    weeklyGoals: [],
-    revisionStrategy: 'Smart spaced repetition with AI-optimized intervals',
-    examTips: extractExamTipsFromText(responseText),
-    motivationalQuotes: generateDefaultMotivation(),
-    progressMilestones: []
-  };
-
-  // Extract daily tasks from natural language with better parsing
-  studyPlan.dailyTasks = extractDailyTasksFromText(responseText, examData);
-  
-  return studyPlan;
-}
-
-function extractExamTipsFromText(responseText: string): string[] {
-  const tips: string[] = [];
-  const lines = responseText.split('\n');
-  
-  lines.forEach(line => {
-    if (line.includes('टिप') || line.includes('सुझाव') || line.includes('ध्यान') || line.includes('tip') || line.includes('strategy')) {
-      tips.push(line.trim());
-    }
-  });
-  
-  return tips.length > 0 ? tips : [
-    '📝 AI Teacher recommends active note-taking',
-    '🔄 Regular self-assessment और progress tracking',
-    '⏰ Time-bound practice sessions',
-    '💪 Consistent daily effort with smart breaks'
-  ];
-}
-
-function extractDailyTasksFromText(responseText: string, examData: ExamPlanData): any[] {
-  // Enhanced task extraction with better intelligence
-  const tasks: any[] = [];
-  const currentDate = new Date();
-  
-  examData.subjects.forEach((subject, subjectIndex) => {
-    for (let day = 0; day < 14; day++) { // 2 weeks of tasks
-      const taskDate = new Date(currentDate);
-      taskDate.setDate(currentDate.getDate() + day);
-      
-      // Create morning task
-      tasks.push({
-        id: `task_morning_${subject}_${day}`,
-        date: taskDate.toISOString().split('T')[0],
-        subject,
-        chapter: `Chapter ${Math.floor(day / 2) + 1}`,
-        topics: [`${subject} - Core Concepts Day ${day + 1}`],
-        duration: Math.floor(examData.dailyHours * 60 / 3), // Divide daily hours
-        type: 'study',
-        priority: day < 7 ? 'urgent' : 'important',
-        description: `Comprehensive study session focusing on understanding concepts`,
-        completed: false,
-        studyMethod: 'Read → Understand → Make Notes → Practice',
-        whyThisTiming: 'Morning hours are optimal for complex concept learning'
-      });
-      
-      // Create evening revision task
-      if (day > 0) { // Start revision from day 2
-        tasks.push({
-          id: `task_evening_${subject}_${day}`,
-          date: taskDate.toISOString().split('T')[0],
-          subject,
-          chapter: `Revision - Chapter ${Math.floor((day - 1) / 2) + 1}`,
-          topics: [`${subject} - Quick Revision`],
-          duration: Math.floor(examData.dailyHours * 60 / 4),
-          type: 'revision',
-          priority: 'normal',
-          description: `Quick revision और practice problems`,
-          completed: false,
-          studyMethod: 'Review Notes → Solve Practice Questions → Clear Doubts',
-          whyThisTiming: 'Evening revision helps consolidate learning'
-        });
-      }
-    }
-  });
-  
-  return tasks.slice(0, 30); // Limit to manageable number
-}
-
-async function validateAndEnhanceWithSyllabus(studyPlan: StudyPlan, examData: ExamPlanData): Promise<void> {
-  console.log('🔍 Validating AI Teacher plan with official syllabus...');
-  
-  // Validate each subject's content against official syllabus
-  for (const subjectPlan of studyPlan.subjectPlans) {
-    const validation = validateTopicsAgainstSyllabus(
-      examData.examName,
-      subjectPlan.subjectName,
-      subjectPlan.chapters.flatMap(ch => ch.topics.map(t => t.topicName))
-    );
-    
-    if (validation.invalidTopics.length > 0) {
-      console.warn(`⚠️ Invalid topics found in ${subjectPlan.subjectName}:`, validation.invalidTopics);
-      
-      // Add syllabus validation feedback
-      studyPlan.examTips.push(`⚠️ ${subjectPlan.subjectName}: ${validation.suggestions.join(', ')}`);
-    }
-    
-    console.log(`✅ ${subjectPlan.subjectName}: ${validation.validTopics.length} valid topics confirmed`);
-  }
-  
-  console.log('✅ Syllabus validation completed with AI Teacher plan');
-}
-
-// Function for adaptive plan updates
-export async function generateAdaptiveStudyPlanUpdate(
-  originalPlan: StudyPlan,
-  examData: ExamPlanData,
-  completedTasks: any[],
-  pendingTasks: any[],
-  userFeedback: string,
-  difficulties: string[]
-): Promise<StudyPlan> {
-  
-  const adaptivePrompt = generateAdaptiveUpdatePrompt(
-    originalPlan,
-    completedTasks,
-    pendingTasks,
-    userFeedback,
-    difficulties
-  );
-  
-  console.log('🔄 Generating adaptive plan update...');
-  
-  const { data, error } = await supabase.functions.invoke('gemini-chat', {
-    body: {
-      prompt: adaptivePrompt,
-      history: [],
-      chatId: undefined,
-      apiKeyType: 'default'
-    }
-  });
-
-  if (error || !data.success) {
-    throw new Error('Failed to generate adaptive update');
-  }
-
-  const updatedPlan = await parseAndValidateAITeacherResponse(data.response, examData);
-  
-  toast.success('🚀 Study plan updated based on your progress!');
-  
-  return updatedPlan;
-}
+    '📝 नियमित रूप से रिवीजन करें।',
+    '⏰ समय का सही प्रबंधन ही सफलता की कुंजी है।',
+    '🔄 पुराने पेपर्स सॉल्व
