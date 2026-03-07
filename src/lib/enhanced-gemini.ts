@@ -6,6 +6,12 @@ import { generateComprehensiveAITeacherPrompt, generateAdaptiveUpdatePrompt, AIT
 import { validateTopicsAgainstSyllabus } from "@/data/syllabus/syllabusDatabase";
 import { ExamPlanData, StudyPlan } from "@/components/study/examplanner/types";
 
+/**
+ * Study AI - Smart Study Assistant
+ * Developer: Ajit Kumar
+ * Version: 3.0 (Powered by Gemini 3 Flash)
+ */
+
 export interface EnhancedGenerationOptions {
   promptConfig?: AITeacherPromptConfig;
   includeSyllabusValidation?: boolean;
@@ -14,12 +20,6 @@ export interface EnhancedGenerationOptions {
   performanceData?: any;
   useAITeacherMode?: boolean;
 }
-
-/**
- * Study AI - Smart Study Assistant
- * Developer: Ajit Kumar
- * Version: 2.1 (Build Fixed)
- */
 
 export async function generateEnhancedStudyPlan(
   examData: ExamPlanData,
@@ -30,7 +30,7 @@ export async function generateEnhancedStudyPlan(
   
   while (retryCount <= maxRetries) {
     try {
-      console.log(`🧠 Study AI: Generating plan attempt ${retryCount + 1}`);
+      console.log(`🧠 Study AI: Generating advanced plan using Gemini 3. Attempt ${retryCount + 1}`);
       
       const aiTeacherPrompt = generateComprehensiveAITeacherPrompt(examData, {
         includeFullSyllabus: options.includeSyllabusValidation ?? true,
@@ -41,12 +41,14 @@ export async function generateEnhancedStudyPlan(
         personalizedMotivation: true
       }, options.userProgressData);
 
+      // ✅ बैकएंड को निर्देश: google/gemini-3-flash-preview का उपयोग करें
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
         body: {
           prompt: aiTeacherPrompt,
           history: [],
           chatId: undefined,
-          apiKeyType: 'default'
+          apiKeyType: 'default',
+          model: 'google/gemini-3-flash-preview' 
         }
       });
 
@@ -60,7 +62,7 @@ export async function generateEnhancedStudyPlan(
         await validateAndEnhanceWithSyllabus(studyPlan, examData);
       }
       
-      toast.success("आपका स्मार्ट स्टडी प्लान तैयार है!");
+      toast.success("आपका स्मार्ट स्टडी प्लान तैयार है! चलिए जीत की तैयारी शुरू करते हैं।");
       return studyPlan;
       
     } catch (error: any) {
@@ -68,8 +70,9 @@ export async function generateEnhancedStudyPlan(
       retryCount++;
       
       if (retryCount <= maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        toast.info("AI Teacher प्लान को रिफाइन कर रहा है...");
+        const waitTime = 2000;
+        toast.info("Study AI आपके लिए एक सटीक और आधुनिक प्लान तैयार कर रहा है...");
+        await new Promise(resolve => setTimeout(resolve, waitTime));
         continue;
       }
       
@@ -77,11 +80,12 @@ export async function generateEnhancedStudyPlan(
       throw error;
     }
   }
-  throw new Error("Max retries exceeded");
+  throw new Error("Maximum retry attempts exceeded");
 }
 
 async function parseAndValidateAITeacherResponse(responseText: string, examData: ExamPlanData): Promise<StudyPlan> {
   try {
+    // क्लीनिंग लॉजिक: AI कभी-कभी JSON के साथ एक्स्ट्रा टेक्स्ट जोड़ देता है
     const jsonStartIndex = responseText.indexOf('{');
     const jsonEndIndex = responseText.lastIndexOf('}');
     
@@ -90,23 +94,24 @@ async function parseAndValidateAITeacherResponse(responseText: string, examData:
       const parsedData = JSON.parse(jsonString);
       return convertAITeacherJSONToStudyPlan(parsedData, examData);
     }
-    throw new Error('No JSON found');
+    throw new Error('No valid JSON found');
   } catch (error) {
+    console.warn('Fallback: AI response was not valid JSON, converting natural language');
     return await convertNaturalLanguageToStructured(responseText, examData);
   }
 }
 
 function convertAITeacherJSONToStudyPlan(aiData: any, examData: ExamPlanData): StudyPlan {
   return {
-    overview: aiData.plan_overview?.exam_strategy || "Custom Study Strategy",
+    overview: aiData.plan_overview?.exam_strategy || `Specialized strategy for ${examData.examName}`,
     totalDaysAvailable: aiData.plan_overview?.total_days_available || 30,
     dailyStudyHours: aiData.plan_overview?.daily_study_hours || examData.dailyHours,
     subjectPlans: convertSubjectPlans(aiData.subject_wise_strategy || {}),
     dailyTasks: convertDailyTasks(aiData.daily_schedule || []),
     weeklyGoals: convertWeeklyGoals(aiData.weekly_milestones || []),
-    revisionStrategy: aiData.exam_preparation_strategy?.last_week_plan || "Focused Revision",
+    revisionStrategy: aiData.exam_preparation_strategy?.last_week_plan || "Comprehensive Final Revision",
     examTips: extractExamTips(aiData, examData),
-    motivationalQuotes: aiData.daily_motivation_messages || ["Keep pushing forward!"],
+    motivationalQuotes: aiData.daily_motivation_messages || ["आज की मेहनत कल की सफलता है!"],
     progressMilestones: generateProgressMilestones(aiData.weekly_milestones || []),
     personalizedAnalysis: aiData.personalized_analysis,
     adaptiveRecommendations: aiData.adaptive_recommendations
@@ -127,9 +132,9 @@ function convertSubjectPlans(subjectStrategy: any): any[] {
         topicName,
         importance: chapter.importance || 'medium',
         estimatedMinutes: 45,
-        keyPoints: [chapter.study_approach || "Focus on concepts"],
+        keyPoints: [chapter.study_approach || "Concept focus"],
         studyTips: chapter.common_mistakes_to_avoid || [],
-        practiceQuestions: [`Practice ${topicName}`]
+        practiceQuestions: [`Practice problems for ${topicName}`]
       }))
     }))
   }));
@@ -146,12 +151,12 @@ function convertDailyTasks(dailySchedule: any[]): any[] {
           id: `task_${index}_${sessionKey}_${Date.now()}`,
           date: day.date || new Date(Date.now() + index * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           subject: session.subject,
-          chapter: session.chapter || "Study Session",
+          chapter: session.chapter || "Core Study",
           topics: session.topics || [session.subject],
           duration: session.duration_minutes || 60,
           type: sessionKey.includes('revision') ? 'revision' : 'study',
           priority: 'important',
-          description: session.study_method || "Core study session",
+          description: session.study_method || "Smart learning session",
           completed: false,
           studyMethod: session.study_method,
           whyThisTiming: session.why_this_timing
@@ -168,42 +173,49 @@ function convertWeeklyGoals(weeklyMilestones: any[]): any[] {
     subjects: m.chapters_to_complete || [],
     chapters: m.chapters_to_complete || [],
     targetCompletion: 100,
-    focus: m.goals?.join(', ') || "Weekly Goals",
-    assessmentMethod: "Self Assessment",
-    successMetrics: "Completion"
+    focus: m.goals?.join(', ') || "Weekly Milestone",
+    assessmentMethod: "Self Assessment / Quiz",
+    successMetrics: "Completion of topics"
   }));
 }
 
 function extractExamTips(aiData: any, examData: ExamPlanData): string[] {
   const tips: string[] = [];
   const name = examData.examName.toLowerCase();
+  
+  // BSEB specific intelligence
   if (name.includes('bihar') || name.includes('bseb')) {
     tips.push("BSEB Tip: No negative marking, do not leave any MCQ blank.");
-    tips.push("Use 15 min extra time for reading long questions.");
+    tips.push("💡 Use 15 min extra time specifically for reading long-form questions.");
   }
-  return tips.length > 0 ? tips : ["Stay consistent", "Revise daily"];
+  
+  if (aiData.exam_preparation_strategy?.exam_day_preparation) {
+    tips.push(`📋 ${aiData.exam_preparation_strategy.exam_day_preparation}`);
+  }
+  
+  return tips.length > 0 ? tips : ["Stay consistent", "Revise daily", "Make short notes"];
 }
 
 function generateProgressMilestones(milestones: any[]): any[] {
   return milestones.map((m, i) => ({
     week: i + 1,
-    target: m.goals?.[0] || "Target reached",
-    description: m.success_metrics || "Progress tracking",
+    target: m.goals?.[0] || `Week ${i + 1} targets reached`,
+    description: m.success_metrics || "Progress tracking active",
     completed: false
   }));
 }
 
 async function convertNaturalLanguageToStructured(text: string, examData: ExamPlanData): Promise<StudyPlan> {
   return {
-    overview: "Plan generated from AI analysis",
+    overview: "Plan generated from AI Teacher analysis",
     totalDaysAvailable: 30,
     dailyStudyHours: examData.dailyHours,
     subjectPlans: [],
     dailyTasks: [],
     weeklyGoals: [],
     revisionStrategy: "Active Recall",
-    examTips: ["Focus on weak areas"],
-    motivationalQuotes: ["Consistency is key"],
+    examTips: ["Focus on high-weightage topics first"],
+    motivationalQuotes: ["Consistency is the key to success!"],
     progressMilestones: []
   };
 }
@@ -215,7 +227,7 @@ async function validateAndEnhanceWithSyllabus(plan: StudyPlan, examData: ExamPla
       validateTopicsAgainstSyllabus(examData.examName, sub.subjectName, topics);
     }
   } catch (e) {
-    console.warn("Validation skipped");
+    console.warn("Official syllabus validation skipped to ensure stability.");
   }
 }
 
@@ -228,9 +240,17 @@ export async function generateAdaptiveStudyPlanUpdate(
   difficulties: string[]
 ): Promise<StudyPlan> {
   const adaptivePrompt = generateAdaptiveUpdatePrompt(originalPlan, completedTasks, pendingTasks, userFeedback, difficulties);
+  
   const { data, error } = await supabase.functions.invoke('gemini-chat', {
-    body: { prompt: adaptivePrompt, history: [], chatId: undefined, apiKeyType: 'default' }
+    body: { 
+      prompt: adaptivePrompt, 
+      history: [], 
+      chatId: undefined, 
+      apiKeyType: 'default',
+      model: 'google/gemini-3-flash-preview' // ✅ यहाँ भी लेटेस्ट मॉडल
+    }
   });
-  if (error || !data?.success) throw new Error('Update failed');
+
+  if (error || !data?.success) throw new Error('Adaptive plan update failed');
   return await parseAndValidateAITeacherResponse(data.response, examData);
 }
