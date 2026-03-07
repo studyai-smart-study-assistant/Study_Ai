@@ -61,7 +61,7 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted }) => {
   return (
     <div 
       className={cn(
-        "py-5 sm:py-7 group transition-colors duration-200 w-full max-w-full overflow-hidden",
+        "py-5 sm:py-7 group transition-colors duration-200 w-full max-w-full overflow-hidden select-none",
         isBookmarked && "border-l-4 border-amber-400"
       )}
     >
