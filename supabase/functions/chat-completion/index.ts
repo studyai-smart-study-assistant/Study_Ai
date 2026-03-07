@@ -12,16 +12,16 @@ serve(async (req) => {
   }
 
   try {
+    // मॉडल को 'google/gemini-2.5-flash' पर डिफ़ॉल्ट किया गया है
     const { prompt, history = [], model = 'google/gemini-2.5-flash' } = await req.json();
     
-    console.log('📥 Request:', { promptLength: prompt?.length, historyLength: history?.length, model });
+    console.log('📥 Request Received for Study AI:', { promptLength: prompt?.length, model });
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    // Limit history and fix role names (frontend sends "bot", API expects "assistant")
     const recentHistory = history.slice(-6).map((msg: { role: string; content: string }) => ({
       role: msg.role === 'bot' ? 'assistant' : msg.role,
       content: msg.content,
@@ -30,20 +30,22 @@ serve(async (req) => {
     const messages = [
       {
         role: 'system',
-        content: `आप एक सहायक AI शिक्षक हैं। आप हिंदी और अंग्रेजी दोनों में छात्रों की मदद करते हैं।
+        content: `आप 'Study AI' हैं, जिसे अजित कुमार (Ajit Kumar) ने छात्रों की मदद के लिए बनाया है।
 
-महत्वपूर्ण निर्देश:
-1. केवल वर्तमान प्रश्न का उत्तर दें - पिछले प्रश्नों को दोहराएं नहीं
-2. उत्तर सीधा और संक्षिप्त हो - अनावश्यक विस्तार न करें
-3. यदि 2 अंक का प्रश्न है तो 3-4 लाइन में उत्तर दें
-4. पिछली बातचीत का संदर्भ रखें लेकिन उसे repeat न करें
-5. प्रत्येक प्रश्न का एक ही बार जवाब दें`
+आपकी बातचीत का टोन (Tone Instructions):
+1. **इंसानी एहसास:** एक मशीन की तरह नहीं, बल्कि एक बड़े भाई या एक अच्छे दोस्त (Mentor) की तरह बात करें जो पढ़ाई को आसान बनाता है।
+2. **सहज भाषा:** शुद्ध किताबी हिंदी के बजाय सरल और स्वाभाविक भाषा का प्रयोग करें (जैसे हम और आप बात करते हैं)।
+3. **प्रोत्साहन:** छात्र की मेहनत की तारीफ करें और उसे मोटिवेट करें। 'बहुत अच्छा सवाल है', 'चिंता मत करो, मैं इसे आसान बना देता हूँ' जैसे वाक्यों का उपयोग करें।
+4. **टू-द-पॉइंट:** सीधे मुद्दे पर बात करें। अगर सवाल छोटा है तो जवाब भी प्यारा और सटीक हो।
+5. **अजित का विजन:** हमेशा याद रखें कि आप अजित कुमार के मिशन का हिस्सा हैं—छात्रों की पढ़ाई को तनावमुक्त और मजेदार बनाना।
+
+महत्वपूर्ण: जवाब में 'मैं एक AI हूँ' जैसी बातें न कहें। बस एक मददगार इंसान की तरह समस्या सुलझाएं।`
       },
       ...recentHistory,
       { role: 'user', content: prompt }
     ];
 
-    console.log('🚀 Calling AI Gateway with model:', model);
+    console.log('🚀 Executing Study AI Logic with:', model);
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -54,53 +56,43 @@ serve(async (req) => {
       body: JSON.stringify({
         model,
         messages,
-        temperature: 0.7,
+        temperature: 0.8, // टोन को थोड़ा और क्रिएटिव और नेचुरल बनाने के लिए इसे 0.8 किया गया है
         max_tokens: 8000
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ AI Gateway error:', response.status, errorText);
+      console.error('❌ AI Gateway Error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ 
-          error: 'Rate limit exceeded. कृपया कुछ समय बाद पुनः प्रयास करें।' 
+          error: 'दोस्त, अभी बहुत सारे छात्र सवाल पूछ रहे हैं। बस एक मिनट रुकें और फिर पूछें!' 
         }), {
           status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
       
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ 
-          error: 'Payment required. कृपया अपने Lovable AI credits को top up करें।' 
-        }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      
-      throw new Error(`AI Gateway error: ${response.status} ${errorText}`);
+      throw new Error(`Gateway Error: ${response.status}`);
     }
 
     const data = await response.json();
     const generatedText = data?.choices?.[0]?.message?.content;
     
     if (!generatedText) {
-      console.error('❌ No text in response:', JSON.stringify(data).slice(0, 800));
-      throw new Error('AI response missing text');
+      throw new Error('Response content missing');
     }
 
-    console.log('✅ Response generated, length:', generatedText.length);
+    console.log('✅ Response generated for user');
     return new Response(JSON.stringify({ response: generatedText, model }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
     
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('❌ Error in Execution:', error);
     return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Unknown error occurred' 
+      error: 'माफ़ करना दोस्त, कुछ तकनीकी दिक्कत आ गई है। एक बार फिर कोशिश करो!' 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
