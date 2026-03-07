@@ -6,7 +6,7 @@ import { LogIn, UserCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ChatHistory from '@/components/ChatHistory';
 import NotificationBell from '@/components/notifications/NotificationBell';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 
 interface HeaderActionsProps {
   currentChatId: string | null;

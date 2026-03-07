@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import LeaderboardHeader from '@/components/leaderboard/LeaderboardHeader';
 import LeaderboardSidePanel from '@/components/leaderboard/LeaderboardSidePanel';
 import { useSupabaseLeaderboard } from '@/hooks/useSupabaseLeaderboard';

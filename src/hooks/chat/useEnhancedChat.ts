@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { chatDB } from '@/lib/db';
 import { generateResponse } from '@/lib/gemini';
 import { toast } from "sonner";
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { Message as MessageType } from '@/lib/db';
 import { chatHandler } from '@/utils/enhancedChatHandler';
 

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useInteractiveTeacher } from '@/hooks/interactive-teacher';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { ComprehensiveActivityTracker } from '@/utils/comprehensiveActivityTracker';
 import { trackGuestFeatureUsage, shouldShowSignupPrompt } from '@/utils/guestUsageTracker';
 import InteractiveTeacherSetup from './interactive-teacher/InteractiveTeacherSetup';

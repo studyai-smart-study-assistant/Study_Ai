@@ -1,6 +1,6 @@
 
 import { useEffect, useRef, useState, memo } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import MessageItem from './MessageItem';
 import EmptyMessageState from './EmptyMessageState';
 

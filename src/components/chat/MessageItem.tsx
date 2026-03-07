@@ -1,5 +1,5 @@
 import React, { memo, useCallback } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import LongPressMenu from '@/components/message/LongPressMenu';
 import { toast } from 'sonner';

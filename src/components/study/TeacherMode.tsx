@@ -4,7 +4,7 @@ import { TeacherModeProps } from './teacher/types';
 import TeacherModeHeader from './teacher/TeacherModeHeader';
 import TeacherModeTabs from './teacher/TeacherModeTabs';
 import { ComprehensiveActivityTracker } from '@/utils/comprehensiveActivityTracker';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { trackGuestFeatureUsage, shouldShowSignupPrompt } from '@/utils/guestUsageTracker';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
 

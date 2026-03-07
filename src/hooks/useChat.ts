@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { chatDB, Message as MessageType } from '@/lib/db';
 import { generateResponse } from '@/lib/gemini';
 import { toast } from "sonner";
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { getGroupDetails, listenForMessages } from '@/lib/supabase/chat-functions';
 
 const GUEST_MESSAGE_LIMIT = 2;

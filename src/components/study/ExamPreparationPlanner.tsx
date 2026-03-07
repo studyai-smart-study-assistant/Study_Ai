@@ -29,7 +29,7 @@ import {
   School,
   CheckCircle
 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { generateResponse } from '@/lib/gemini';
 import { toast } from 'sonner';
 

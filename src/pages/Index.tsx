@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import Chat from '@/components/Chat';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { useChatInitialization } from '@/hooks/home/useChatInitialization';

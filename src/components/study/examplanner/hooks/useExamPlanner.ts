@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { generateEnhancedStudyPlan } from '@/lib/enhanced-gemini';
 import { ExamPlanData, StudyPlan } from '../types';
 

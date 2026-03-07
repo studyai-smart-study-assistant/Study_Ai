@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Plus, MessageCircle } from 'lucide-react';
 import { toast } from "sonner";
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import GroupChatModal from '@/components/chat/GroupChatModal';
 import ChatInterface from '@/components/chat/ChatInterface';
 import GroupAvatar from '@/components/chat/GroupAvatar';

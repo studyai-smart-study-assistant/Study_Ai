@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { getLeaderboardData, createChatGroup } from "@/lib/supabase/chat-functions";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { Palette } from "lucide-react";
 import ColorSelector from './ColorSelector';
 import UserList from './UserList';

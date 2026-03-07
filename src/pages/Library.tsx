@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getPublicBooks, getBooksByCategory, getPopularBooks } from '@/lib/supabase/library-functions';
 import { BookCategory } from '@/types/library';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const Library: React.FC = () => {

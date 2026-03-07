@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { generateResponse } from '@/lib/gemini';
 import { toast } from 'sonner';
 import { addPointsToUser } from '@/utils/points';

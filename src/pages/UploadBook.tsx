@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { Book } from 'lucide-react';
 import UploadBookModal from '@/components/library/UploadBookModal';

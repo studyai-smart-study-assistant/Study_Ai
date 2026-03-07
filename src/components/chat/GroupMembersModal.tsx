@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { getLeaderboardData, updateGroupMembership } from "@/lib/supabase/chat-functions";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { UserPlus, UserMinus } from "lucide-react";
 
 interface GroupMembersModalProps {

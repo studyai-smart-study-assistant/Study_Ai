@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import StudentActivitiesContainer from './student-activities/StudentActivitiesContainer';
 import StudentActivitiesLoading from './student-activities/StudentActivitiesLoading';

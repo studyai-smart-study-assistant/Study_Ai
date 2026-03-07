@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Plus, MessageCircle, Users, Image, Mic, FileText } from 'lucide-react';
 import { toast } from "sonner";
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from "@/integrations/supabase/client";
 import type { SupabaseClient } from '@supabase/supabase-js';
 import SupabaseGroupChatModal from '@/components/chat/SupabaseGroupChatModal';

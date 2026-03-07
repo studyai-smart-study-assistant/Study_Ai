@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { chatDB } from '@/lib/db';
 import { generateResponse } from '@/lib/gemini';
 import { toast } from "sonner";
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { Message as MessageType } from '@/lib/db';
 
 // Adding constant for guest message limit

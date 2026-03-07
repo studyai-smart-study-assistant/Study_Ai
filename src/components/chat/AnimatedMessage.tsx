@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { Heart, Bookmark, Copy, Edit3, Trash2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';

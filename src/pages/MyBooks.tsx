@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { getUserBooks } from '@/lib/supabase/library-functions';
 import BooksList from '@/components/library/BooksList';

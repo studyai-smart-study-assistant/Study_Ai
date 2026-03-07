@@ -1,17 +1,11 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { User as SupabaseUser, Session } from '@supabase/supabase-js';
-
-// Extended User type for backward compatibility with Firebase User properties
-export interface User extends SupabaseUser {
-  uid: string;
-  displayName: string | null;
-  photoURL: string | null;
-}
+import { Session } from '@supabase/supabase-js';
+import { AuthContext, User } from '@/hooks/useAuth';
 
 // Helper to convert Supabase user to extended User
-const toExtendedUser = (user: SupabaseUser | null): User | null => {
+const toExtendedUser = (user: any): User | null => {
   if (!user) return null;
   return {
     ...user,
@@ -21,28 +15,6 @@ const toExtendedUser = (user: SupabaseUser | null): User | null => {
   };
 };
 
-interface AuthContextType {
-  currentUser: User | null;
-  session: Session | null;
-  login: (email: string, password: string) => Promise<any>;
-  signup: (email: string, password: string, metadata?: Record<string, any>) => Promise<any>;
-  signInWithGoogle: () => Promise<any>;
-  logout: () => Promise<void>;
-  isLoading: boolean;
-  messageLimitReached: boolean;
-  setMessageLimitReached: (value: boolean) => void;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -50,14 +22,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [messageLimitReached, setMessageLimitReached] = useState(false);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setCurrentUser(toExtendedUser(session?.user ?? null));
         setIsLoading(false);
         
-        // Sync points on login (deferred to avoid deadlock)
         if (session?.user) {
           setTimeout(() => {
             syncUserPoints(session.user.id);
@@ -66,7 +36,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setCurrentUser(toExtendedUser(session?.user ?? null));
@@ -92,53 +61,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     return data;
   };
 
   const signup = async (email: string, password: string, metadata?: Record<string, any>) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: metadata
-      }
+      options: { data: metadata }
     });
     if (error) throw error;
-    
-    // Update profile with additional info if provided
-    if (data.user && metadata) {
-      await supabase.from('profiles').update({
-        display_name: metadata.full_name || metadata.name,
-        user_category: metadata.user_category,
-        education_level: metadata.education_level,
-        referred_by: metadata.referral_code
-      }).eq('user_id', data.user.id);
-    }
-    
     return data;
   };
 
   const signInWithGoogle = async () => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: redirectUrl,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        }
-      }
-    });
+    const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
     if (error) throw error;
     return data;
   };

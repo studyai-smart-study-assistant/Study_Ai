@@ -15,7 +15,7 @@ import {
   Zap,
   Activity
 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { StudyPlan, ExamPlanData, UserProgress } from './types';
 
 interface SmartRecommendationsProps {

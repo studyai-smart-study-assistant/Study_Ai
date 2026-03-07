@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { addPointsToUser } from '@/utils/points';
 import { playTimerCompletionSound } from '@/utils/timerUtils';

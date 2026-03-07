@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { toast } from "sonner";
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { getCurrentStreakSync, updateDailyStreak } from '@/utils/streakUtils';
 import { awardDailyLoginBonus } from '@/utils/points/bonusPoints';
 import { getUserTimezone, getTimezoneDebugInfo } from '@/utils/timezoneUtils';

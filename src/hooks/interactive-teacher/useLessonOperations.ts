@@ -2,7 +2,7 @@
 import { useCallback } from 'react';
 import { generateResponse } from '@/lib/gemini';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { TeacherMessage, ConversationContext } from './types';
 import { extractFirstSegment } from './messageUtils';
 import { buildContinuationPrompt, buildInitialLessonPrompt } from './promptBuilder';
