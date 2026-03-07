@@ -13,61 +13,34 @@ interface ChatMessageListProps {
 
 const ChatMessageList = memo(({ messages, isGroup, chatId, onMessageUpdated }: ChatMessageListProps) => {
   const { currentUser } = useAuth();
-  const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
-  const messageTimerRef = useRef<number | null>(null);
-  const [currentTime, setCurrentTime] = useState<number>(Date.now());
-  
-  // Update current time every minute to refresh expiration countdowns
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 60000);
-    
-    return () => clearInterval(timer);
-  }, []);
 
-  const handleMessageClick = (messageId: string) => {
-    if (messageTimerRef.current) {
-      clearTimeout(messageTimerRef.current);
-    }
-
-    setActiveMessageId(messageId);
-
-    messageTimerRef.current = window.setTimeout(() => {
-      setActiveMessageId(null);
-    }, 3000);
+  const handleMessageDeleted = (messageId: string) => {
+    console.log("Message deleted:", messageId);
+    onMessageUpdated();
   };
 
-  useEffect(() => {
-    return () => {
-      if (messageTimerRef.current) {
-        clearTimeout(messageTimerRef.current);
-      }
-    };
-  }, []);
+  const handleMessageFeedback = (messageId: string, rating: 'like' | 'dislike') => {
+    console.log("Message feedback:", messageId, rating);
+    onMessageUpdated();
+  };
 
-  // FIX: Handle cases where messages array might be null or undefined before it's loaded.
   if (!messages || messages.length === 0) {
     return <EmptyMessageState />;
   }
 
   return (
     <>
-      {messages.map((msg) => (
-        // Add a check to ensure msg object is not null/undefined to prevent crashes
+      {messages.map((msg) =>
         msg && (
           <MessageItem
             key={msg.id}
             message={msg}
             isGroup={isGroup}
-            chatId={chatId}
-            activeMessageId={activeMessageId}
-            currentTime={currentTime}
-            onMessageClick={handleMessageClick}
-            onMessageUpdated={onMessageUpdated}
+            onMessageDeleted={handleMessageDeleted}
+            onMessageFeedback={handleMessageFeedback}
           />
         )
-      ))}
+      )}
     </>
   );
 });
