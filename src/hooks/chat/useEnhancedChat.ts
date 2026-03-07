@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Message as MessageType } from '@/lib/db';
 import { chatHandler } from '@/utils/enhancedChatHandler';
 
-const GUEST_MESSAGE_LIMIT = 20;
+const GUEST_MESSAGE_LIMIT = 50;
 
 export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
   const [messages, setMessages] = useState<MessageType[]>([]);
@@ -92,7 +92,7 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
       // Skip AI response if this is just an image message
       if (skipAIResponse) {
         // Just add a simple bot acknowledgment for image
-        await chatDB.addMessage(chatId, '✨ Image सफलतापूर्वक generate हो गई है!', 'bot');
+        await chatDB.addMessage(chatId, '✨ Image generated!', 'bot');
         await loadMessages();
       } else {
         // Get current conversation history
@@ -146,7 +146,7 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
         errorMessage = 'Network connection lost. Please check your internet connection.';
         setConnectionStatus('disconnected');
       } else if (error.message?.includes('rate limit')) {
-        errorMessage = 'AI service is busy. Please wait a moment and try again.';
+        errorMessage = 'service is busy. Please wait a moment and try again.';
       } else if (error.message?.includes('timeout')) {
         errorMessage = 'Request timed out. Please try again.';
       }
