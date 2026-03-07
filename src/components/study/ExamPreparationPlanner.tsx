@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -200,7 +199,9 @@ const ExamPreparationPlanner: React.FC<ExamPreparationPlannerProps> = ({ onSendM
       }, 200);
       
       const prompt = buildExamPreparationPrompt(examDetails, preferences);
-      const response = await generateResponse(prompt);
+      
+      // ✅ मॉडल नाम अपडेट किया गया: google/gemini-2.5-flash
+      const response = await generateResponse(prompt, [], undefined, 'google/gemini-2.5-flash');
       
       clearInterval(progressInterval);
       setPlanProgress(100);
@@ -212,7 +213,6 @@ const ExamPreparationPlanner: React.FC<ExamPreparationPlannerProps> = ({ onSendM
         toast.success('आपका विस्तृत अध्ययन योजना तैयार हो गया है!');
       } catch (parseError) {
         console.error('JSON parsing error:', parseError);
-        // Fallback: create a basic plan structure
         const fallbackPlan = createFallbackPlan(response, examDetails);
         setStudyPlan(fallbackPlan);
         setActiveTab('overview');
@@ -270,7 +270,7 @@ const ExamPreparationPlanner: React.FC<ExamPreparationPlannerProps> = ({ onSendM
       "week": 1,
       "focus": "सप्ताह का मुख्य फोकस",
       "topics": ["विषय 1", "विषय 2"],
-      "goals": ["लक्ष्य 1", "लक्ष्य 2"],
+      "goals": ["लक्षय 1", "लक्ष्य 2"],
       "assessment": "मूल्यांकन विधि"
     }
   ],
@@ -428,7 +428,6 @@ ${studyPlan.tips.slice(0, 5).map(tip => `• ${tip}`).join('\n')}
 
             <TabsContent value="input" className="space-y-6">
               <div className="grid gap-6">
-                {/* Basic Information */}
                 <Card className="border-blue-200">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium text-blue-700 flex items-center gap-2">
@@ -489,7 +488,6 @@ ${studyPlan.tips.slice(0, 5).map(tip => `• ${tip}`).join('\n')}
                   </CardContent>
                 </Card>
 
-                {/* Personal Assessment */}
                 <Card className="border-green-200">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium text-green-700 flex items-center gap-2">
@@ -571,7 +569,6 @@ ${studyPlan.tips.slice(0, 5).map(tip => `• ${tip}`).join('\n')}
                   </CardContent>
                 </Card>
 
-                {/* Study Preferences */}
                 <Card className="border-orange-200">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium text-orange-700 flex items-center gap-2">
