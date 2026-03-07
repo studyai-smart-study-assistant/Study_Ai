@@ -3,6 +3,11 @@ import { Message } from "./db";
 import { chatDB } from "./db";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Study AI - Core Chat & AI Gateway Service
+ * Developed by Ajit Kumar
+ */
+
 const CHAT_FUNCTION_NAME = "chat-completion";
 
 const getFunctionBaseUrls = () => {
@@ -60,10 +65,10 @@ export async function generateResponse(
   prompt: string, 
   history: Message[] = [], 
   chatId?: string,
-  model: string = 'google/gemini-2.5-flash'
+  model: string = 'google/gemini-2.0-flash' // Default model
 ): Promise<string> {
   try {
-    console.log(`🚀 Calling Lovable AI Gateway with model:`, model);
+    console.log(`🚀 Study AI: Calling AI Gateway with model:`, model);
 
     const sanitizeForAI = (text: string) => {
       return (text || "")
@@ -72,10 +77,19 @@ export async function generateResponse(
         .trim();
     };
 
-    const formattedHistory = history.map((msg) => ({
-      role: msg.role,
-      content: sanitizeForAI(msg.content),
-    }));
+    // System Context Injection to ensure AI knows its identity (Study AI by Ajit Kumar)
+    const systemContext = {
+      role: "system",
+      content: "You are Study AI, created by Ajit Kumar. You are a smart, friendly AI teacher for Bihar Board and competitive exam students. Respond in natural Hinglish/Hindi/English based on user preference."
+    };
+
+    const formattedHistory = [
+      systemContext,
+      ...history.map((msg) => ({
+        role: msg.role,
+        content: sanitizeForAI(msg.content),
+      }))
+    ];
 
     const sanitizedPrompt = sanitizeForAI(prompt);
 
@@ -93,44 +107,40 @@ export async function generateResponse(
     const responseText = data.response;
     
     if (!responseText) {
-      throw new Error("No response from AI");
+      throw new Error("AI ने कोई जवाब नहीं दिया।");
     }
     
-    console.log(`✅ Success with Lovable AI:`, {
+    console.log(`✅ Study AI Success:`, {
       model: data.model || model,
       responseLength: responseText.length
     });
 
-    toast.success(`✨ AI Response generated successfully`, {
+    toast.success(`✨ Study AI: जवाब तैयार है`, {
       duration: 2000
     });
     
-    // If chatId is provided, store the response in local storage via chatDB
     if (chatId) {
       try {
         await chatDB.addMessage(chatId, responseText, "bot");
-        console.log("💾 Response stored in local storage for chat:", chatId);
       } catch (storageError) {
-        console.error("❌ Error storing response in local storage:", storageError);
-        // Continue even if storage fails - don't block the response
+        console.error("❌ Storage error:", storageError);
       }
     }
 
     return responseText;
     
   } catch (error) {
-    console.error("❌ Lovable AI request failed:", error);
+    console.error("❌ AI Request failed:", error);
     
-    // Show user-friendly error message
     const errorMessage = error instanceof Error 
       ? error.message.includes('rate limit') || error.message.includes('429')
-        ? "AI सेवा व्यस्त है, कृपया कुछ समय बाद पुनः प्रयास करें"
+        ? "AI सेवा अभी बहुत व्यस्त है, कृपया 1 मिनट बाद कोशिश करें।"
         : error.message.includes('Failed to fetch') || error.message.includes('network')
-        ? "Network connection issue, कृपया अपना internet चेक करें"
-        : error.message.includes('402') || error.message.includes('Payment')
-        ? "कृपया Lovable AI credits को top up करें"
+        ? "इंटरनेट कनेक्शन चेक करें, नेटवर्क में समस्या है।"
+        : error.message.includes('402')
+        ? "AI Credits समाप्त हो गए हैं, कृपया एडमिन (Ajit) से संपर्क करें।"
         : error.message
-      : "AI service से response प्राप्त करने में विफल";
+      : "AI service से जवाब पाने में विफलता।";
       
     toast.error(errorMessage, {
       duration: 5000
@@ -147,55 +157,36 @@ export async function generateStudyPlan(
   dailyHours: string, 
   language: string
 ): Promise<string> {
-  // Construct a detailed prompt for the study plan
+  // Construct a professional teacher-like prompt
+  const isBiharBoard = examName.toLowerCase().includes('bihar') || examName.toLowerCase().includes('bseb');
+  
   let prompt = '';
   
   if (language === 'en') {
-    prompt = `Create a detailed day-by-day study plan for my ${examName} exam on ${examDate}. 
-    I need to study these subjects: ${subjects}. I can dedicate ${dailyHours} hours daily.
+    prompt = `As my Study AI Teacher (created by Ajit Kumar), create a rigorous day-by-day study plan for ${examName} on ${examDate}.
+    Subjects: ${subjects}. Daily dedication: ${dailyHours} hours.
+    ${isBiharBoard ? "Note: This is for Bihar Board, focus on 50% MCQs and no negative marking strategy." : ""}
     
-    Please include:
-    1. A specific daily schedule with EXACT topics from each subject to study each day
-    2. How many minutes to spend on each topic
-    3. Which chapters and sub-topics to cover on specific days
-    4. When to take breaks and for how long
-    5. When to do revision sessions
+    Include:
+    1. Hourly breakdown for each day.
+    2. Specific chapters and sub-topics.
+    3. Revision sessions every 3rd day.
+    4. Mock test on Sundays.
     
-    FORMAT:
-    - Organize by DAY (Day 1, Day 2, etc.)
-    - For each day, list specific TASKS with:
-      * Subject name
-      * Chapter number and name
-      * Specific topic
-      * Duration in minutes
-      * Priority level
-      * Learning objective
-    
-    Make it very detailed and specific, like a teacher would prepare for their student.`;
+    Format using Markdown, Tables, and clear Headings.`;
   } else {
-    prompt = `मेरी ${examName} परीक्षा के लिए ${examDate} तक एक विस्तृत दिन-प्रतिदिन अध्ययन योजना बनाएं।
-    मुझे इन विषयों का अध्ययन करने की आवश्यकता है: ${subjects}। मैं दैनिक ${dailyHours} घंटे समर्पित कर सकता हूं।
+    prompt = `Study AI टीचर (अजीत कुमार द्वारा विकसित) के रूप में, मेरी ${examName} परीक्षा (${examDate}) के लिए एक विस्तृत स्टडी प्लान तैयार करें।
+    विषय: ${subjects}। समय: रोजाना ${dailyHours} घंटे।
+    ${isBiharBoard ? "ध्यान दें: यह बिहार बोर्ड के लिए है, 50% ऑब्जेक्टिव पैटर्न और नो नेगेटिव मार्किंग के हिसाब से रणनीति बनाएं।" : ""}
     
-    कृपया इन चीजों को शामिल करें:
-    1. प्रत्येक दिन के लिए एक विशिष्ट कार्यक्रम जिसमें प्रत्येक विषय के सटीक टॉपिक्स का उल्लेख हो
-    2. प्रत्येक टॉपिक पर कितने मिनट बिताने हैं
-    3. किस दिन कौन से अध्याय और उप-विषय कवर करने हैं
-    4. कब ब्रेक लेना है और कितने समय के लिए
-    5. कब रिवीजन सेशन करने हैं
+    शामिल करें:
+    1. हर दिन का घंटों के हिसाब से शेड्यूल।
+    2. सटीक अध्याय (Chapters) और टॉपिक्स।
+    3. हर तीसरे दिन रिवीजन सेशन।
+    4. रविवार को मॉक टेस्ट।
     
-    प्रारूप:
-    - दिन के अनुसार व्यवस्थित करें (दिन 1, दिन 2, आदि)
-    - प्रत्येक दिन के लिए, विशिष्ट कार्यों की सूची बनाएं:
-      * विषय का नाम
-      * अध्याय संख्या और नाम
-      * विशिष्ट टॉपिक
-      * मिनटों में अवधि
-      * प्राथमिकता स्तर
-      * सीखने का उद्देश्य
-    
-    इसे बहुत विस्तृत और विशिष्ट बनाएं, जैसे कि एक शिक्षक अपने छात्र के लिए तैयार करेगा।`;
+    मार्कडाउन और टेबल्स का उपयोग करके इसे बहुत ही व्यवस्थित बनाएं।`;
   }
   
-  // Use Lovable AI with default model
-  return await generateResponse(prompt, [], undefined, 'google/gemini-2.5-flash');
+  return await generateResponse(prompt, [], undefined, 'google/gemini-2.0-flash');
 }
