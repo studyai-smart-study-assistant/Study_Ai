@@ -1,5 +1,5 @@
-// Import required libraries
+// Your existing imports and code above
 
-const geminiModel = 'google/gemini-2.5-flash'; // Default model updated to 2.5
+const modelName = 'google/gemini-2.5-flash'; // updated model name
 
-// Other code remains unchanged
+// Rest of your existing code
