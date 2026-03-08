@@ -112,6 +112,7 @@ export async function generateResponse(
   chatId?: string,
   model: string = 'google/gemini-2.5-flash'
 ): Promise<string> {
+  // Even without explicit web search, auto-detect if needed
   const result = await generateResponseWithSearch(prompt, history, chatId, model, false);
   return result.text;
 }
