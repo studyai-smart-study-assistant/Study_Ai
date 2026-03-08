@@ -20,8 +20,21 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
-    if (!GOOGLE_API_KEY) throw new Error('GOOGLE_API_KEY not configured');
+    // Collect all Google API keys for rotation
+    const allKeys: string[] = [];
+    for (let i = 1; i <= 10; i++) {
+      const k = Deno.env.get(`GOOGLE_API_KEY_${i}`);
+      if (k) allKeys.push(k);
+    }
+    const baseKey = Deno.env.get('GOOGLE_API_KEY');
+    if (baseKey) allKeys.push(baseKey);
+    const keys = [...new Set(allKeys)];
+    
+    if (keys.length === 0) throw new Error('No GOOGLE_API_KEY configured');
+
+    // Pick key via round-robin (time-based for stateless rotation)
+    const keyIndex = Math.floor(Date.now() / 1000) % keys.length;
+    const GOOGLE_API_KEY = keys[keyIndex];
 
     let discovered: string[] = [];
 
@@ -58,6 +71,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       apiKey: GOOGLE_API_KEY,
+      allKeys: keys, // Send all keys so frontend can rotate on 429
       model: selectedModel,
       models: orderedModels,
     }), {
