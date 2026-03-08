@@ -135,19 +135,23 @@ const CampusTalkGroupList: React.FC<Props> = ({ searchQuery }) => {
 
   if (selectedGroup) {
     return (
-      <CampusTalkGroupConversation
-        group={selectedGroup}
-        onBack={() => { setSelectedGroup(null); loadGroups(); }}
-      />
+      <div className="fixed inset-0 z-[60] bg-background">
+        <CampusTalkGroupConversation
+          group={selectedGroup}
+          onBack={() => { setSelectedGroup(null); loadGroups(); }}
+        />
+      </div>
     );
   }
 
   if (showCreate) {
     return (
-      <CampusTalkCreateGroup
-        onBack={() => setShowCreate(false)}
-        onCreated={(group) => { setShowCreate(false); setSelectedGroup(group); loadGroups(); }}
-      />
+      <div className="fixed inset-0 z-[60] bg-background">
+        <CampusTalkCreateGroup
+          onBack={() => setShowCreate(false)}
+          onCreated={(group) => { setShowCreate(false); setSelectedGroup(group); loadGroups(); }}
+        />
+      </div>
     );
   }
 
