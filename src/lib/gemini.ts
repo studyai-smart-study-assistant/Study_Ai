@@ -23,6 +23,8 @@ const invokeChatCompletion = async (payload: {
   prompt: string;
   history: Array<{ role: string; content: string }>;
   model: string;
+  webSearchContext?: string | null;
+  webSearchSources?: Array<{ title: string; url: string }>;
 }) => {
   const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   const { data: { session } } = await supabase.auth.getSession();
@@ -61,14 +63,69 @@ const invokeChatCompletion = async (payload: {
   throw new Error(lastError?.message || "Edge function unreachable via proxy/direct route");
 };
 
+export interface WebSearchSource {
+  title: string;
+  url: string;
+}
+
+export interface GenerateResponseResult {
+  text: string;
+  sources: WebSearchSource[];
+  webSearchUsed: boolean;
+}
+
+/**
+ * Perform web search via Tavily
+ */
+async function performWebSearch(query: string, forceSearch: boolean): Promise<{
+  searchContext: string | null;
+  sources: WebSearchSource[];
+  shouldSearch: boolean;
+}> {
+  try {
+    const { data, error } = await supabase.functions.invoke('web-search', {
+      body: { query, forceSearch }
+    });
+
+    if (error) {
+      console.warn('⚠️ Web search failed, continuing without:', error);
+      return { searchContext: null, sources: [], shouldSearch: false };
+    }
+
+    return {
+      searchContext: data?.searchContext || null,
+      sources: data?.sources || [],
+      shouldSearch: data?.shouldSearch || false,
+    };
+  } catch (err) {
+    console.warn('⚠️ Web search error, continuing without:', err);
+    return { searchContext: null, sources: [], shouldSearch: false };
+  }
+}
+
 export async function generateResponse(
   prompt: string,
   history: Message[] = [],
   chatId?: string,
-  model: string = 'google/gemini-2.5-flash'
-): Promise<string> {
+  model: string = 'google/gemini-2.5-flash',
+  enableWebSearch: boolean = false
+): Promise<GenerateResponseResult> {
   try {
-    console.log(`🚀 Study AI: Calling AI Gateway with model:`, model);
+    console.log(`🚀 Study AI: Calling AI Gateway with model:`, model, `webSearch:`, enableWebSearch);
+
+    // Step 1: Optionally perform web search
+    let searchContext: string | null = null;
+    let sources: WebSearchSource[] = [];
+
+    if (enableWebSearch) {
+      const searchResult = await performWebSearch(prompt, true);
+      searchContext = searchResult.searchContext;
+      sources = searchResult.sources;
+      
+      if (searchResult.shouldSearch) {
+        toast.info('🔍 वेब से जानकारी खोज रहा हूँ...', { duration: 2000 });
+      }
+    }
 
     const sanitizeForAI = (text: string) => {
       return (text || "")
@@ -90,10 +147,13 @@ export async function generateResponse(
       }))
     ];
 
+    // Step 2: Call AI with optional web search context
     const data = await invokeChatCompletion({
       prompt: sanitizeForAI(prompt),
       history: formattedHistory,
       model,
+      webSearchContext: searchContext,
+      webSearchSources: sources,
     });
 
     if (data?.error) {
@@ -103,13 +163,20 @@ export async function generateResponse(
     const responseText = data.response;
     if (!responseText) throw new Error("AI ने कोई जवाब नहीं दिया।");
 
-    toast.success(`✨ Study AI: जवाब तैयार है`, { duration: 2000 });
+    const responseSources = data.sources || sources;
+    const webSearchUsed = data.webSearchUsed || false;
+
+    if (webSearchUsed) {
+      toast.success(`🌐 वेब सर्च के साथ जवाब तैयार है`, { duration: 2000 });
+    } else {
+      toast.success(`✨ Study AI: जवाब तैयार है`, { duration: 2000 });
+    }
 
     if (chatId) {
       await chatDB.addMessage(chatId, responseText, "bot");
     }
 
-    return responseText;
+    return { text: responseText, sources: responseSources, webSearchUsed };
   } catch (error: any) {
     console.error("❌ AI Request failed:", error);
     const errorMessage = error.message || "AI service से जवाब पाने में विफलता।";
@@ -134,5 +201,6 @@ export async function generateStudyPlan(
     prompt = `Study AI टीचर (अजीत कुमार द्वारा विकसित) के रूप में, मेरी ${examName} परीक्षा (${examDate}) के लिए एक विस्तृत स्टडी प्लान तैयार करें। विषय: ${subjects}। समय: रोजाना ${dailyHours} घंटे। ${isBiharBoard ? "ध्यान दें: यह बिहार बोर्ड के लिए है, 50% ऑब्जेक्टिव पैटर्न और नो नेगेटिव मार्किंग के हिसाब से रणनीति बनाएं।" : ""}`;
   }
 
-  return await generateResponse(prompt, [], undefined, 'google/gemini-3.1-pro-preview');
+  const result = await generateResponse(prompt, [], undefined, 'google/gemini-3.1-pro-preview', true);
+  return result.text;
 }
