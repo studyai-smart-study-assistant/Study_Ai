@@ -96,7 +96,8 @@ const MessageBody: React.FC<MessageBodyProps> = ({
   handleSaveEdit,
   handleCancelEdit,
   isTyping,
-  displayedContent
+  displayedContent,
+  onEditImage
 }) => {
   const [imageModalOpen, setImageModalOpen] = useState(false);
 
@@ -142,9 +143,9 @@ const MessageBody: React.FC<MessageBodyProps> = ({
     );
   }
 
-  // ── AI Message — parse thinking, image, text ──
-  const { thinking, rest: afterThinking } = parseThinking(displayedContent);
-  const { imageUrl: botImageUrl, rest: botTextContent } = parseImage(afterThinking);
+  // ── AI Message — parse image first (it's prepended last so appears first), then thinking ──
+  const { imageUrl: botImageUrl, rest: afterImage } = parseImage(displayedContent);
+  const { thinking, rest: botTextContent } = parseThinking(afterImage);
 
   const handleBotDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -157,6 +158,12 @@ const MessageBody: React.FC<MessageBodyProps> = ({
     document.body.removeChild(link);
   };
 
+  const handleEditImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!botImageUrl || !onEditImage) return;
+    onEditImage(botImageUrl, botTextContent);
+  };
+
   return (
     <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8 flex justify-start">
       <div className="flex flex-col gap-2 max-w-[80%]">
@@ -167,13 +174,25 @@ const MessageBody: React.FC<MessageBodyProps> = ({
 
         {/* Generated image */}
         {botImageUrl && !isEditing && (
-          <div className="relative group rounded-2xl overflow-hidden border border-border/40 shadow-sm cursor-pointer bg-muted/30" onClick={() => setImageModalOpen(true)}>
-            <img src={botImageUrl} alt="Generated" className="max-w-[280px] sm:max-w-[320px] max-h-[300px] rounded-2xl object-contain" />
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center gap-3">
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2"><ZoomIn className="h-5 w-5 text-white" /></div>
-              <button onClick={handleBotDownload} className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2 hover:bg-black/70"><Download className="h-5 w-5 text-white" /></button>
+          <>
+            <div className="relative group rounded-2xl overflow-hidden border border-border/40 shadow-sm cursor-pointer bg-muted/30" onClick={() => setImageModalOpen(true)}>
+              <img src={botImageUrl} alt="Generated" className="max-w-[280px] sm:max-w-[320px] max-h-[300px] rounded-2xl object-contain" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center gap-3">
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2"><ZoomIn className="h-5 w-5 text-white" /></div>
+                <button onClick={handleBotDownload} className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2 hover:bg-black/70"><Download className="h-5 w-5 text-white" /></button>
+              </div>
             </div>
-          </div>
+            {/* Edit image button */}
+            {onEditImage && (
+              <button
+                onClick={handleEditImage}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border border-border bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors w-fit"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit Image
+              </button>
+            )}
+          </>
         )}
         
         {/* Text bubble */}
