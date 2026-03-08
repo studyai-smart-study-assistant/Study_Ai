@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Copy, Pencil, Trash, Heart, Bookmark } from 'lucide-react';
+import { Copy, Pencil, Trash, Heart, Bookmark, FileDown, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MessageActionsProps {
@@ -14,6 +14,8 @@ interface MessageActionsProps {
   handleDelete: () => void;
   handleLike?: () => void;
   handleBookmark: () => void;
+  handleDownloadPdf?: () => void;
+  handleSharePdf?: () => void;
 }
 
 const MessageActions: React.FC<MessageActionsProps> = ({
@@ -26,6 +28,8 @@ const MessageActions: React.FC<MessageActionsProps> = ({
   handleDelete,
   handleLike,
   handleBookmark,
+  handleDownloadPdf,
+  handleSharePdf,
 }) => {
   return (
     <div className={cn(
@@ -83,6 +87,30 @@ const MessageActions: React.FC<MessageActionsProps> = ({
           fill={isBookmarked ? "currentColor" : "none"} 
         />
       </Button>
+
+      {!isUserMessage && handleDownloadPdf && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 rounded-md text-gray-500 hover:text-blue-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+          onClick={handleDownloadPdf}
+          title="Download as PDF"
+        >
+          <FileDown size={14} />
+        </Button>
+      )}
+
+      {!isUserMessage && handleSharePdf && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 rounded-md text-gray-500 hover:text-green-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+          onClick={handleSharePdf}
+          title="Share as PDF"
+        >
+          <Share2 size={14} />
+        </Button>
+      )}
 
       <Button
         variant="ghost"
