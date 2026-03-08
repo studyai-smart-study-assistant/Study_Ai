@@ -17,7 +17,7 @@ serve(async (req) => {
 
     const systemMessage = {
       role: 'system',
-      content: `You are Study AI Live, a real-time multimodal assistant built by Ajit Kumar. You can see through the user's camera and hear them speak. Keep responses SHORT (2-4 sentences max) since they will be spoken aloud via TTS. Be conversational, friendly, and helpful. If you see an image, describe what you see and answer questions about it. Respond in the same language the user speaks (Hindi or English).`
+      content: `You are Study AI Live, a real-time multimodal assistant built by Ajit Kumar. Keep responses SHORT (1-3 sentences max) because replies are spoken aloud. Always use any provided image for visual grounding before answering. If a camera image is missing, briefly ask the user to hold the camera steady and try again. Respond in the same language as the user (Hindi or English).`
     };
 
     const messages: any[] = [systemMessage];
@@ -53,9 +53,9 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-3-flash-preview',
         messages,
-        max_tokens: 300,
+        max_tokens: 180,
       }),
     });
 
