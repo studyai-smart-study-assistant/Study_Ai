@@ -5,15 +5,62 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const LOVABLE_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+const GOOGLE_NATIVE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+
+// ─── Fallback AI Call: Lovable Gateway → Google Native API ──
+async function callAI(body: any): Promise<any> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
+  const nativeModel = body.model?.replace('google/', '') || 'gemini-2.5-flash';
+
+  // Try Lovable Gateway first
+  if (LOVABLE_API_KEY) {
+    try {
+      const response = await fetch(LOVABLE_GATEWAY_URL, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (response.ok) {
+        console.log('✅ Lovable Gateway success');
+        return await response.json();
+      }
+      const status = response.status;
+      if (status === 402 || status === 429) {
+        console.warn(`⚠️ Lovable Gateway ${status}, falling back to Google API`);
+      } else {
+        console.warn(`⚠️ Lovable Gateway error: ${status}, falling back`);
+      }
+    } catch (err) {
+      console.warn('⚠️ Lovable Gateway unreachable, falling back:', err);
+    }
+  }
+
+  // Fallback: Google Native API
+  if (!GOOGLE_API_KEY) throw new Error('Both Lovable AI and Google API keys unavailable');
+  
+  console.log(`🔄 Using Google Native API: ${nativeModel}`);
+  const response = await fetch(GOOGLE_NATIVE_URL, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${GOOGLE_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, model: nativeModel }),
+  });
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error('❌ Google API error:', response.status, errText);
+    throw new Error(`Google API error: ${response.status}`);
+  }
+  console.log('✅ Google Native API success');
+  return await response.json();
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
     const { prompt, imageBase64, history = [] } = await req.json();
     if (!prompt) throw new Error('Prompt is required');
-
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
 
     const systemMessage = {
       role: 'system',
@@ -53,36 +100,12 @@ serve(async (req) => {
 
     messages.push({ role: 'user', content: userContent });
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
-        messages,
-        max_tokens: 180,
-      }),
+    const data = await callAI({
+      model: 'google/gemini-3-flash-preview',
+      messages,
+      max_tokens: 180,
     });
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limited, please wait' }), {
-          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: 'Credits exhausted' }), {
-          status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      const t = await response.text();
-      console.error('AI gateway error:', response.status, t);
-      throw new Error(`AI error: ${response.status}`);
-    }
-
-    const data = await response.json();
     const text = data.choices?.[0]?.message?.content || 'Sorry, no response.';
 
     return new Response(JSON.stringify({ response: text, success: true }), {
