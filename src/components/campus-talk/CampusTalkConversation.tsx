@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Send, Image as ImageIcon, Smile } from 'lucide-react';
+import { ArrowLeft, Send, Image as ImageIcon, Bot } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -38,14 +38,17 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [aiLoading, setAiLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Local AI messages (not saved to DB, shown only to current user)
+  const [aiMessages, setAiMessages] = useState<{ id: string; text: string; timestamp: string }[]>([]);
 
   const scrollToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Load messages
   useEffect(() => {
     const load = async () => {
       const { data, error } = await supabase
@@ -60,10 +63,8 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
     load();
   }, [chatId]);
 
-  // Scroll on new messages
-  useEffect(() => { scrollToBottom(); }, [messages]);
+  useEffect(() => { scrollToBottom(); }, [messages, aiMessages]);
 
-  // Realtime
   useEffect(() => {
     const channel = supabase
       .channel(`conv-${chatId}`)
@@ -84,12 +85,66 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
     return () => { supabase.removeChannel(channel); };
   }, [chatId]);
 
+  const isAiQuery = (content: string): string | null => {
+    const trimmed = content.trim();
+    if (trimmed.startsWith('/')) return trimmed.slice(1).trim();
+    const lower = trimmed.toLowerCase();
+    if (lower.startsWith('study ai ')) return trimmed.slice(9).trim();
+    if (lower.startsWith('studyai ')) return trimmed.slice(8).trim();
+    return null;
+  };
+
+  const handleAiQuery = async (query: string) => {
+    if (!query) return;
+    setAiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('gemini-chat', {
+        body: {
+          prompt: `You are Study AI, a helpful study assistant. Answer this question concisely in Hindi-English mix (Hinglish). Question: ${query}`,
+          history: []
+        }
+      });
+
+      if (error) throw error;
+
+      const aiResponse = data?.generatedText || data?.response || data?.text || 'माफ़ करें, जवाब नहीं मिल सका।';
+      
+      setAiMessages(prev => [...prev, {
+        id: `ai-${Date.now()}`,
+        text: `🤖 **Study AI:** ${aiResponse}`,
+        timestamp: new Date().toISOString(),
+      }]);
+    } catch (err) {
+      console.error('AI query failed:', err);
+      setAiMessages(prev => [...prev, {
+        id: `ai-${Date.now()}`,
+        text: '🤖 AI से जवाब लेने में error हुआ। कृपया बाद में try करें।',
+        timestamp: new Date().toISOString(),
+      }]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const handleSend = async () => {
     if (!text.trim() || !currentUser || sending) return;
     const content = text.trim();
     setText('');
-    setSending(true);
 
+    // Check if it's an AI query
+    const aiQuery = isAiQuery(content);
+    if (aiQuery) {
+      // Show user's query locally
+      setAiMessages(prev => [...prev, {
+        id: `user-ai-${Date.now()}`,
+        text: `📝 ${content}`,
+        timestamp: new Date().toISOString(),
+      }]);
+      await handleAiQuery(aiQuery);
+      return;
+    }
+
+    setSending(true);
     try {
       const { error } = await supabase.from('campus_messages').insert({
         chat_id: chatId,
@@ -97,10 +152,7 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
         text_content: content,
         message_type: 'text',
       });
-      if (error) {
-        console.error('Message insert error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       await supabase.from('campus_chats').update({
         last_message_at: new Date().toISOString()
@@ -149,6 +201,14 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Merge regular messages and AI messages by timestamp
+  const allMessages = [
+    ...messages.map(m => ({ type: 'chat' as const, data: m, ts: m.created_at })),
+    ...aiMessages.map(m => ({ type: 'ai' as const, data: m, ts: m.timestamp })),
+  ].sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+
+  const showAiHint = text.startsWith('/') || text.toLowerCase().startsWith('study ai');
+
   return (
     <div className="flex flex-col h-[100dvh] bg-background">
       {/* Header */}
@@ -175,12 +235,36 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
           <div className="flex justify-center py-10">
             <div className="animate-spin h-7 w-7 border-3 border-[hsl(230,70%,55%)] border-t-transparent rounded-full" />
           </div>
-        ) : messages.length === 0 ? (
-          <div className="text-center py-10">
+        ) : allMessages.length === 0 ? (
+          <div className="text-center py-10 space-y-2">
             <p className="text-sm text-muted-foreground">Start a conversation with {partnerName} 👋</p>
+            <p className="text-xs text-muted-foreground">
+              💡 <code className="bg-muted px-1 rounded">/</code> या <code className="bg-muted px-1 rounded">study ai</code> लिखकर AI से सवाल पूछें
+            </p>
           </div>
         ) : (
-          messages.map((msg) => {
+          allMessages.map((item) => {
+            if (item.type === 'ai') {
+              const aiMsg = item.data as { id: string; text: string; timestamp: string };
+              const isUserQuery = aiMsg.id.startsWith('user-ai-');
+              return (
+                <div key={aiMsg.id} className={`flex ${isUserQuery ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${
+                    isUserQuery 
+                      ? 'bg-purple-500/20 text-foreground border border-purple-500/30 rounded-br-md'
+                      : 'bg-gradient-to-br from-purple-500/10 to-blue-500/10 text-foreground border border-purple-500/20 rounded-bl-md'
+                  }`}>
+                    {!isUserQuery && <Bot className="h-3.5 w-3.5 text-purple-500 mb-1 inline-block mr-1" />}
+                    <p className="text-sm whitespace-pre-wrap break-words">{aiMsg.text}</p>
+                    <p className="text-[10px] mt-1 text-right text-muted-foreground">
+                      {formatTime(aiMsg.timestamp)}
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+
+            const msg = item.data as Msg;
             const isMine = msg.sender_uid === currentUser?.uid;
             return (
               <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
@@ -207,8 +291,28 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
             );
           })
         )}
+        {aiLoading && (
+          <div className="flex justify-start">
+            <div className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-2xl rounded-bl-md px-3 py-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Bot className="h-4 w-4 text-purple-500 animate-pulse" />
+                <span>Study AI सोच रहा है...</span>
+              </div>
+            </div>
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
+
+      {/* AI Hint */}
+      {showAiHint && (
+        <div className="px-3 py-1.5 bg-purple-500/10 border-t border-purple-500/20 flex items-center gap-2">
+          <Bot className="h-4 w-4 text-purple-500" />
+          <span className="text-xs text-purple-600 dark:text-purple-400">
+            AI Mode: आपका सवाल Study AI को भेजा जाएगा
+          </span>
+        </div>
+      )}
 
       {/* Input */}
       <div className="shrink-0 bg-background border-t border-border px-3 py-2 flex items-center gap-2">
@@ -224,14 +328,14 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-          placeholder="Type a message..."
+          placeholder="Message... ( / से AI पूछें)"
           className="flex-1 rounded-full bg-muted border-0"
-          disabled={sending}
+          disabled={sending || aiLoading}
         />
         
         <button
           onClick={handleSend}
-          disabled={!text.trim() || sending}
+          disabled={!text.trim() || sending || aiLoading}
           className="p-2.5 rounded-full bg-[hsl(230,70%,55%)] text-white disabled:opacity-40 hover:bg-[hsl(230,70%,45%)] transition-colors"
         >
           <Send className="h-4 w-4" />
