@@ -582,9 +582,9 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
     const directText = choice?.message?.content;
     if (!directText) throw new Error('Response content missing');
 
-    // ── Background Memory Extraction for logged-in users ──
+    // ── Reliable Memory Extraction for logged-in users ──
     if (authenticatedUserId && prompt) {
-      backgroundExtractMemories(adminClient, authenticatedUserId, prompt, model).catch(e => console.warn('⚠️ Background memory extraction failed:', e));
+      await backgroundExtractMemories(adminClient, authenticatedUserId, prompt, model);
     }
     
     // Normal conversation — no thinking badge needed
