@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Volume2, Play, Square, Check, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -65,14 +64,13 @@ export const getVoicePreferences = (): VoicePreferences => {
   return { voice: 'priya', speed: 1.0 };
 };
 
-const saveVoicePreferences = (prefs: VoicePreferences) => {
+export const saveVoicePreferences = (prefs: VoicePreferences) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
 };
 
 const VoiceSettings: React.FC = () => {
   const { language } = useLanguage();
   const [selectedVoice, setSelectedVoice] = useState('priya');
-  const [speed, setSpeed] = useState(1.0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
@@ -82,7 +80,6 @@ const VoiceSettings: React.FC = () => {
   useEffect(() => {
     const prefs = getVoicePreferences();
     setSelectedVoice(prefs.voice);
-    setSpeed(prefs.speed);
     audioRef.current = new Audio();
     return () => {
       if (audioRef.current) {
@@ -109,8 +106,9 @@ const VoiceSettings: React.FC = () => {
 
     try {
       const demoText = language === 'hi' ? DEMO_TEXT_HI : DEMO_TEXT_EN;
+      const langCode = language === 'hi' ? 'hi-IN' : 'en-IN';
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: demoText, language: language === 'hi' ? 'hi-IN' : 'en-IN', voice: voiceId },
+        body: { text: demoText, language: langCode, voice: voiceId },
       });
 
       if (error || !data?.audioContent) {
@@ -120,7 +118,6 @@ const VoiceSettings: React.FC = () => {
       const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
       if (audioRef.current) {
         audioRef.current.src = audioUrl;
-        audioRef.current.playbackRate = speed;
         audioRef.current.onended = () => {
           setIsPlaying(false);
           setPlayingVoiceId(null);
@@ -138,7 +135,8 @@ const VoiceSettings: React.FC = () => {
   };
 
   const handleSave = () => {
-    saveVoicePreferences({ voice: selectedVoice, speed });
+    const prefs = getVoicePreferences();
+    saveVoicePreferences({ ...prefs, voice: selectedVoice });
     setSaved(true);
     toast.success(language === 'hi' ? 'आवाज़ सेटिंग्स सेव हो गईं!' : 'Voice settings saved!');
     setTimeout(() => setSaved(false), 2000);
@@ -152,9 +150,14 @@ const VoiceSettings: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Volume2 className="h-5 w-5 text-purple-600" />
+            <Volume2 className="h-5 w-5 text-primary" />
             {language === 'hi' ? 'आवाज़ चुनें' : 'Select Voice'}
           </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            {language === 'hi' 
+              ? 'यहां आवाज़ चुनें। स्पीड कंट्रोल ऑडियो प्लेयर में मिलेगा।' 
+              : 'Select your voice here. Speed controls appear in the audio player.'}
+          </p>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Voice Selector */}
@@ -183,7 +186,7 @@ const VoiceSettings: React.FC = () => {
             </Select>
           </div>
 
-          {/* Demo button for selected voice */}
+          {/* Demo button */}
           <div className="flex items-center gap-3">
             <Button
               variant="outline"
@@ -204,36 +207,8 @@ const VoiceSettings: React.FC = () => {
             </span>
           </div>
 
-          {/* Speed Control */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-muted-foreground">
-                {language === 'hi' ? 'बोलने की गति' : 'Speech Speed'}
-              </label>
-              <Badge variant="secondary">{speed.toFixed(1)}x</Badge>
-            </div>
-            <Slider
-              value={[speed]}
-              onValueChange={([v]) => {
-                setSpeed(v);
-                if (audioRef.current && isPlaying) {
-                  audioRef.current.playbackRate = v;
-                }
-              }}
-              min={0.5}
-              max={2.0}
-              step={0.1}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{language === 'hi' ? 'धीमा' : 'Slow'} (0.5x)</span>
-              <span>{language === 'hi' ? 'सामान्य' : 'Normal'} (1.0x)</span>
-              <span>{language === 'hi' ? 'तेज़' : 'Fast'} (2.0x)</span>
-            </div>
-          </div>
-
           {/* Save */}
-          <Button onClick={handleSave} className="w-full bg-purple-600 hover:bg-purple-700">
+          <Button onClick={handleSave} className="w-full">
             {saved ? (
               <><Check className="h-4 w-4 mr-1" /> {language === 'hi' ? 'सेव हो गया!' : 'Saved!'}</>
             ) : (
@@ -257,7 +232,7 @@ const VoiceSettings: React.FC = () => {
                 key={v.id}
                 variant={selectedVoice === v.id ? 'default' : 'outline'}
                 size="sm"
-                className={`justify-between text-xs ${selectedVoice === v.id ? 'bg-purple-600 hover:bg-purple-700' : ''}`}
+                className="justify-between text-xs"
                 onClick={() => {
                   setSelectedVoice(v.id);
                   playDemo(v.id);

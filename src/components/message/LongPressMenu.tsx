@@ -1,9 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Copy, Trash, ThumbsUp, ThumbsDown, Volume2, X, Pause, Play, Loader } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { Copy, Trash, ThumbsUp, ThumbsDown, Volume2, Pause, Play, Loader } from 'lucide-react';
+import { useTTS } from '@/contexts/TTSContext';
 
 interface LongPressMenuProps {
   children: React.ReactNode;
@@ -14,7 +13,7 @@ interface LongPressMenuProps {
   isLiked?: boolean;
 }
 
-const LONG_PRESS_DURATION = 500; // ms
+const LONG_PRESS_DURATION = 500;
 
 const LongPressMenu: React.FC<LongPressMenuProps> = ({
   children,
@@ -26,18 +25,14 @@ const LongPressMenu: React.FC<LongPressMenuProps> = ({
 }) => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
-  const { isGenerating, isPlaying, togglePlayPause, cancel: cancelTTS } = useTextToSpeech();
+  const { isGenerating, isPlaying, togglePlayPause } = useTTS();
 
   const startPress = useCallback(() => {
-    timerRef.current = setTimeout(() => {
-      setIsSheetOpen(true);
-    }, LONG_PRESS_DURATION);
+    timerRef.current = setTimeout(() => setIsSheetOpen(true), LONG_PRESS_DURATION);
   }, []);
 
   const cancelPress = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-    }
+    if (timerRef.current) clearTimeout(timerRef.current);
   }, []);
 
   const handleAction = (action: () => void) => () => {
@@ -47,23 +42,17 @@ const LongPressMenu: React.FC<LongPressMenuProps> = ({
   
   const handleListen = () => {
     togglePlayPause(message.content);
+    setIsSheetOpen(false); // Close sheet, audio keeps playing
   };
 
-  const handleSheetOpenChange = (open: boolean) => {
-    if (!open) {
-       cancelTTS();
-    }
-    setIsSheetOpen(open);
-  }
-
   return (
-    <Sheet open={isSheetOpen} onOpenChange={handleSheetOpenChange}>
+    <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
       <SheetTrigger asChild>
         <div
           onTouchStart={startPress}
           onTouchEnd={cancelPress}
           onTouchMove={cancelPress}
-          onMouseDown={startPress} // Fallback for desktop
+          onMouseDown={startPress}
           onMouseUp={cancelPress}
           onMouseLeave={cancelPress}
         >
@@ -110,7 +99,7 @@ const LongPressMenu: React.FC<LongPressMenuProps> = ({
           )}
         </div>
         <SheetFooter className="mt-4">
-            <Button variant="ghost" className="w-full" onClick={() => handleSheetOpenChange(false)}>Cancel</Button>
+          <Button variant="ghost" className="w-full" onClick={() => setIsSheetOpen(false)}>Cancel</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>
