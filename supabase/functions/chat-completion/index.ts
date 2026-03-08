@@ -332,48 +332,35 @@ async function generateNotesContent(topic: string, detailLevel: string, model: s
   return data?.choices?.[0]?.message?.content || 'Notes generation failed';
 }
 
-// ─── Generate Quiz Content ──────────────────────────────────
+// ─── Generate Quiz Content (Structured JSON) ───────────────
 async function generateQuizContent(topic: string, numQuestions: number, difficulty: string, model: string): Promise<string> {
   const quizPrompt = `"${topic}" पर ${numQuestions} ${difficulty} level के MCQ quiz questions बनाएं।
 
-**STRICT FORMAT - Follow exactly:**
+You MUST respond with ONLY valid JSON in this exact format, no extra text:
+{
+  "title": "Quiz title here",
+  "topic": "${topic}",
+  "difficulty": "${difficulty}",
+  "questions": [
+    {
+      "id": 1,
+      "question": "Question text in Hindi-English mix",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correctAnswer": 0,
+      "explanation": "Explanation why this answer is correct"
+    }
+  ]
+}
 
-## 🎯 Quiz: ${topic}
-**Difficulty:** ${difficulty === 'easy' ? '🟢 Easy' : difficulty === 'hard' ? '🔴 Hard' : '🟡 Medium'} | **Questions:** ${numQuestions}
-
----
-
-### Q1. [Question text here]
-
-- A) Option 1
-- B) Option 2  
-- C) Option 3
-- D) Option 4
-
-<details>
-<summary>✅ Answer देखें</summary>
-
-**Correct Answer: B) Option 2**
-
-**Explanation:** यहाँ detailed explanation लिखें कि यह answer सही क्यों है और बाकी गलत क्यों हैं।
-
-</details>
-
----
-
-(Repeat for all questions)
-
-### 📊 Score Card
-अपने answers check करें और score calculate करें!
-- ${numQuestions}/${numQuestions} — 🏆 Excellent!
-- ${Math.ceil(numQuestions*0.7)}+/${numQuestions} — 👍 Good Job!
-- ${Math.ceil(numQuestions*0.5)}/${numQuestions} — 📚 More Practice Needed
-
-**Rules:**
-- Hindi-English mix language use करें
-- Questions exam-oriented हों
-- Each question का proper explanation दें
-- Options realistic और tricky हों`;
+Rules:
+- correctAnswer is the 0-based index of the correct option
+- Questions should be exam-oriented for Bihar Board / competitive exams
+- Use Hindi-English mix language
+- Options should be realistic and tricky
+- Each question MUST have exactly 4 options
+- Provide clear explanation for each answer
+- Generate exactly ${numQuestions} questions
+- ONLY output JSON, nothing else`;
 
   const resp = await callAI({
     model,
@@ -382,7 +369,23 @@ async function generateQuizContent(topic: string, numQuestions: number, difficul
     max_tokens: 10000,
   });
   const data = await resp.json();
-  return data?.choices?.[0]?.message?.content || 'Quiz generation failed';
+  const content = data?.choices?.[0]?.message?.content || '';
+  
+  // Try to parse as JSON and wrap in QUIZ_DATA tag
+  try {
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.questions && Array.isArray(parsed.questions)) {
+        return `[QUIZ_DATA:${JSON.stringify(parsed)}]`;
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️ Quiz JSON parse failed, falling back to text format');
+  }
+  
+  // Fallback: return as text
+  return content || 'Quiz generation failed';
 }
 
 // ─── Smart Background Memory Extraction (ChatGPT-level) ──
