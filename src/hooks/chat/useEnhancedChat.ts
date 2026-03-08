@@ -69,9 +69,19 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
       setConnectionStatus('connected');
       setLastSources([]); // Clear previous sources
       
+      // For display: store text + image marker separately
+      const isBase64Image = imageUrl?.startsWith('data:image/');
       let messageContent = input.trim();
-      if (imageUrl) {
-        messageContent = imageUrl ? `${messageContent}\n\n[Image: ${imageUrl}]` : `[Image: ${imageUrl}]`;
+      let imageBase64: string | undefined;
+      
+      if (isBase64Image && imageUrl) {
+        // Store a thumbnail marker in chat DB for display
+        messageContent = messageContent 
+          ? `[IMG_BASE64]${messageContent}` 
+          : '[IMG_BASE64]इस image के बारे में बताओ';
+        imageBase64 = imageUrl;
+      } else if (imageUrl) {
+        messageContent = messageContent ? `${messageContent}\n\n[Image: ${imageUrl}]` : `[Image: ${imageUrl}]`;
       }
       
       const userMessage = await chatDB.addMessage(chatId, messageContent, 'user');
