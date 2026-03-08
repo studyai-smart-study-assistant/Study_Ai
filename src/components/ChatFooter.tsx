@@ -332,6 +332,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
           </div>
         </div>
       </div>
+      <ImageGallery open={isGalleryOpen} onClose={() => setIsGalleryOpen(false)} />
     </div>
   );
 };
