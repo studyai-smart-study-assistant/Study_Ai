@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { getVoicePreferences } from '@/components/profile/VoiceSettings';
 
 /**
  * Represents the state of the Text-to-Speech hook.
@@ -160,12 +161,13 @@ export const useTextToSpeech = () => {
     try {
       const textChunks = chunkText(text);
       const audioBlobs: Blob[] = [];
+      const prefs = getVoicePreferences();
 
       for (const chunk of textChunks) {
         if (signal.aborted) throw new Error('TTS generation cancelled by user.');
         
         const { data, error } = await supabase.functions.invoke('text-to-speech', {
-          body: { text: chunk, language },
+          body: { text: chunk, language, voice: prefs.voice },
         });
 
         if (error || !data.audioContent) {
@@ -188,6 +190,7 @@ export const useTextToSpeech = () => {
       
       if (audioRef.current) {
         audioRef.current.src = audioUrl;
+        audioRef.current.playbackRate = prefs.speed;
         audioRef.current.play();
         setTtsState({ isGenerating: false, isPlaying: true, isAudioReady: true, isSpeakingNatively: false });
       }
