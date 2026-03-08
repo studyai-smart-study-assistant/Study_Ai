@@ -20,7 +20,7 @@ export const ThemeProvider = ({
   defaultTheme = 'system', 
   storageKey = 'theme' 
 }: ThemeProviderProps) => {
-  const [theme, setTheme] = React.useState<Theme>(() => {
+  const [theme, setTheme] = useState<Theme>(() => {
     try {
       const savedTheme = localStorage.getItem(storageKey) as Theme | null;
       if (savedTheme) {
