@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { CheckCircle, XCircle, ChevronRight, Trophy, RotateCcw, Download, SkipForward } from 'lucide-react';
+import { CheckCircle, XCircle, ChevronRight, Trophy, RotateCcw, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import QuizResultCard from './QuizResultCard';
 
 interface QuizQuestion {
   id: number;
@@ -82,31 +83,6 @@ const InlineQuizCard: React.FC<InlineQuizCardProps> = ({ quizData, onQuizComplet
     setAnswers([]);
   };
 
-  const handleDownloadResult = () => {
-    const pct = Math.round((score / total) * 100);
-    let text = `📋 ${quizData.title || `Quiz: ${quizData.topic}`}\n`;
-    text += `Score: ${score}/${total} (${pct}%)\n`;
-    text += `Difficulty: ${quizData.difficulty}\n\n`;
-    
-    quizData.questions.forEach((q, i) => {
-      const userAns = answers[i];
-      const correct = userAns === q.correctAnswer;
-      text += `${i + 1}. ${q.question}\n`;
-      text += `   आपका उत्तर: ${userAns !== undefined && userAns !== null ? q.options[userAns] : 'छोड़ा'} ${correct ? '✅' : '❌'}\n`;
-      if (!correct) text += `   सही उत्तर: ${q.options[q.correctAnswer]}\n`;
-      if (q.explanation) text += `   ${q.explanation}\n`;
-      text += '\n';
-    });
-
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `quiz_${quizData.topic.replace(/\s+/g, '_')}_${Date.now()}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const getDifficultyBadge = () => {
     const d = quizData.difficulty;
     if (d === 'easy') return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">🟢 Easy</span>;
@@ -126,19 +102,21 @@ const InlineQuizCard: React.FC<InlineQuizCardProps> = ({ quizData, onQuizComplet
     const pct = Math.round((score / total) * 100);
     return (
       <div
-        className="w-full max-w-md mx-auto rounded-2xl border border-border bg-card p-5 space-y-4"
+        className="w-full max-w-md mx-auto space-y-4"
         onTouchStart={stopPropagation} onTouchEnd={stopPropagation} onMouseDown={stopPropagation} onMouseUp={stopPropagation}
       >
-        <div className="text-center space-y-2">
-          <div className="text-4xl">{getScoreEmoji()}</div>
-          <h3 className="text-lg font-bold text-foreground">Quiz Complete!</h3>
-          <p className="text-2xl font-bold text-primary">{score}/{total}</p>
-          <p className="text-sm text-muted-foreground">{pct}% सही</p>
-          <Progress value={pct} className="h-2 mt-2" />
-        </div>
+        {/* Premium Result Card */}
+        <QuizResultCard
+          score={score}
+          total={total}
+          topic={quizData.topic}
+          difficulty={quizData.difficulty}
+          percentage={pct}
+        />
 
-        {/* Review */}
-        <div className="space-y-2 pt-2">
+        {/* Review answers */}
+        <div className="space-y-2 rounded-2xl border border-border bg-card p-4">
+          <p className="text-xs font-semibold text-muted-foreground mb-2">📝 Answer Review</p>
           {quizData.questions.map((q, i) => {
             const userAns = answers[i];
             const correct = userAns === q.correctAnswer;
@@ -166,14 +144,9 @@ const InlineQuizCard: React.FC<InlineQuizCardProps> = ({ quizData, onQuizComplet
           })}
         </div>
 
-        <div className="flex gap-2">
-          <Button onClick={handleDownloadResult} variant="outline" className="flex-1 gap-2">
-            <Download className="h-4 w-4" /> डाउनलोड
-          </Button>
-          <Button onClick={handleRestart} variant="outline" className="flex-1 gap-2">
-            <RotateCcw className="h-4 w-4" /> फिर से करें
-          </Button>
-        </div>
+        <Button onClick={handleRestart} variant="outline" className="w-full gap-2">
+          <RotateCcw className="h-4 w-4" /> फिर से करें
+        </Button>
       </div>
     );
   }
