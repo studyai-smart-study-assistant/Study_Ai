@@ -97,13 +97,17 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
         text_content: content,
         message_type: 'text',
       });
-      if (error) throw error;
+      if (error) {
+        console.error('Message insert error:', error);
+        throw error;
+      }
 
       await supabase.from('campus_chats').update({
         last_message_at: new Date().toISOString()
       }).eq('id', chatId);
-    } catch {
-      toast.error('Message भेजने में error');
+    } catch (err: any) {
+      console.error('Send message failed:', err);
+      toast.error('Message भेजने में error: ' + (err?.message || ''));
     } finally {
       setSending(false);
     }

@@ -29,6 +29,34 @@ const ChatSystem = () => {
   const [selectedChat, setSelectedChat] = useState<CampusChatItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Auto-register current user in campus_users
+  useEffect(() => {
+    if (!currentUser) return;
+    const registerCampusUser = async () => {
+      try {
+        await supabase.from('campus_users').upsert({
+          firebase_uid: currentUser.uid,
+          display_name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+          avatar_url: currentUser.photoURL,
+          email: currentUser.email,
+          status: 'online',
+          last_seen: new Date().toISOString(),
+        }, { onConflict: 'firebase_uid' });
+      } catch (err) {
+        console.error('Error registering campus user:', err);
+      }
+    };
+    registerCampusUser();
+
+    // Set offline on unmount
+    return () => {
+      supabase.from('campus_users').update({ 
+        status: 'offline', 
+        last_seen: new Date().toISOString() 
+      }).eq('firebase_uid', currentUser.uid).then(() => {});
+    };
+  }, [currentUser]);
+
   // Handle navigation state (from leaderboard chat button)
   useEffect(() => {
     const state = location.state as any;
