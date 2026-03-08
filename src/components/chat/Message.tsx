@@ -32,6 +32,7 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted, onEditI
   );
 
   const isUserMessage = message.role === "user";
+  const hasQuizContent = message.content.includes('[QUIZ_DATA:');
 
   const handleDislike = () => {
     toast.info('Feedback recorded');
@@ -72,6 +73,7 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted, onEditI
         onDelete={handleDeleteForMenu}
         onFeedback={!isUserMessage ? handleFeedbackForMenu : undefined}
         isLiked={isLiked}
+        hasInteractiveContent={hasQuizContent}
       >
         <MessageBody 
           isUserMessage={isUserMessage}
@@ -83,6 +85,7 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted, onEditI
           isTyping={isTyping}
           displayedContent={displayedContent}
           onEditImage={!isUserMessage ? onEditImage : undefined}
+          hasQuizContent={hasQuizContent}
         />
       </LongPressMenu>
       
