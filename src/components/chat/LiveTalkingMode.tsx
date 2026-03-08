@@ -137,17 +137,17 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
         const setupMsg = {
           setup: {
             model: 'models/gemini-2.0-flash-exp',
-            generation_config: {
-              response_modalities: ['AUDIO'],
-              speech_config: {
-                voice_config: {
-                  prebuilt_voice_config: {
-                    voice_name: 'Aoede'
+            generationConfig: {
+              responseModalities: ['AUDIO'],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: {
+                    voiceName: 'Aoede'
                   }
                 }
               }
             },
-            system_instruction: {
+            systemInstruction: {
               parts: [{
                 text: `You are Study AI Live, a real-time multimodal AI teacher built by Ajit Kumar. You help students learn by seeing their books, notes, diagrams through the camera and explaining concepts verbally. Keep responses concise (2-4 sentences) since you're speaking live. Respond in the same language as the student (Hindi or English). If the student shows a diagram or equation, explain it clearly. Be encouraging and patient like a good teacher.`
               }]
@@ -199,7 +199,7 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
 
       ws.onerror = (e) => {
         console.error('WebSocket error:', e);
-        toast.error('Connection error');
+        toast.error('Live connection failed');
       };
 
       ws.onclose = (e) => {
@@ -273,10 +273,10 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
 
         // Send audio chunk
         const msg = {
-          realtime_input: {
-            media_chunks: [{
+          realtimeInput: {
+            mediaChunks: [{
               data: b64,
-              mime_type: 'audio/pcm',
+              mimeType: 'audio/pcm;rate=16000',
             }]
           }
         };
@@ -298,10 +298,10 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
       if (!frame) return;
 
       const msg = {
-        realtime_input: {
-          media_chunks: [{
+        realtimeInput: {
+          mediaChunks: [{
             data: frame,
-            mime_type: 'image/jpeg',
+            mimeType: 'image/jpeg',
           }]
         }
       };
