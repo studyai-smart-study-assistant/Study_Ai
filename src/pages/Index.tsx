@@ -304,9 +304,9 @@ const Index = () => {
                 <button
                   onClick={handleNewChat}
                   title="New Chat"
-                  className="h-10 w-10 flex items-center justify-center rounded-2xl bg-foreground text-background hover:bg-foreground/85 active:scale-90 transition-all duration-150 shadow-md"
+                  className="h-7 w-7 flex items-center justify-center rounded-lg text-foreground hover:bg-secondary active:scale-90 transition-all duration-150"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 20h9" />
                     <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                   </svg>
