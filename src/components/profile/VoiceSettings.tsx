@@ -73,7 +73,7 @@ export const getVoicePreferences = (): VoicePreferences => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) return JSON.parse(stored);
   } catch {}
-  return { voice: 'shubh', speed: 1.0 };
+  return { voice: 'shubh', speed: 1.1 };
 };
 
 export const saveVoicePreferences = (prefs: VoicePreferences) => {
