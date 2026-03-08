@@ -2,7 +2,7 @@ import React from 'react';
 import { VideoCard } from './VideoCard';
 import { YouTubeVideo } from '@/services/youtubeService';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface VideoGridProps {
@@ -11,6 +11,8 @@ interface VideoGridProps {
   isLoading: boolean;
   onLoadMore: () => void;
   hasMore: boolean;
+  searchError?: boolean;
+  onRetry?: () => void;
 }
 
 export const VideoGrid: React.FC<VideoGridProps> = ({
@@ -18,7 +20,9 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   onVideoSelect,
   isLoading,
   onLoadMore,
-  hasMore
+  hasMore,
+  searchError,
+  onRetry
 }) => {
   const { language } = useLanguage();
   const isHindi = language === 'hi';
@@ -32,6 +36,26 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
             {isHindi ? 'वीडियो लोड हो रहे हैं...' : 'Loading videos...'}
           </p>
         </div>
+      </div>
+    );
+  }
+
+  if (searchError && videos.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <span className="text-4xl mb-4 block">⚠️</span>
+        <h3 className="text-lg font-semibold text-foreground mb-2">
+          {isHindi ? 'वीडियो लोड नहीं हो पाए' : 'Failed to load videos'}
+        </h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          {isHindi ? 'नेटवर्क में समस्या हो सकती है, फिर से कोशिश करें' : 'Network issue, please try again'}
+        </p>
+        {onRetry && (
+          <Button onClick={onRetry} variant="outline" size="sm" className="rounded-full gap-2">
+            <RefreshCw className="h-4 w-4" />
+            {isHindi ? 'फिर से कोशिश करें' : 'Retry'}
+          </Button>
+        )}
       </div>
     );
   }
@@ -52,7 +76,6 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Mobile: single column list, Tablet+: grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
         {videos.map((video, index) => (
           <VideoCard

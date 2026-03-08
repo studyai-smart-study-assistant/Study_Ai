@@ -26,6 +26,8 @@ const StudyTube: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchHistory, setShowSearchHistory] = useState(false);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>();
+  const [searchError, setSearchError] = useState(false);
+
 
   useEffect(() => {
     return () => { isMounted.current = false; };
@@ -38,20 +40,27 @@ const StudyTube: React.FC = () => {
     }
   }, [miniState.video, miniState.isMinimized]);
 
-  const handleSearch = async (query: string) => {
+  const handleSearch = async (query: string, retryCount = 0) => {
     if (!query.trim()) return;
     try {
       setIsLoading(true);
+      setSearchError(false);
       setShowSearchHistory(false);
       setCurrentVideo(null);
-      setVideos([]);
+      if (retryCount === 0) setVideos([]);
       const result = await YouTubeService.searchVideos(query, 20);
       if (!isMounted.current) return;
       setVideos(result.items || []);
       setNextPageToken(result.nextPageToken);
       setSearchQuery(query);
     } catch {
-      toast.error(isHindi ? 'खोज में त्रुटि हुई' : 'Search failed');
+      if (retryCount < 2) {
+        // Auto retry after a short delay
+        setTimeout(() => handleSearch(query, retryCount + 1), 1000);
+        return;
+      }
+      setSearchError(true);
+      toast.error(isHindi ? 'खोज में त्रुटि हुई, फिर से कोशिश करें' : 'Search failed, please retry');
     } finally {
       if (isMounted.current) setIsLoading(false);
     }
@@ -154,6 +163,8 @@ const StudyTube: React.FC = () => {
               isLoading={isLoading}
               onLoadMore={loadMoreVideos}
               hasMore={!!nextPageToken}
+              searchError={searchError}
+              onRetry={() => searchQuery && handleSearch(searchQuery)}
             />
           )}
         </div>
