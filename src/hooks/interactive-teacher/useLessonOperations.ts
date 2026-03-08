@@ -60,7 +60,7 @@ export const useLessonOperations = ({
       console.log('Starting lesson with improved prompt structure');
 
       // Use Lovable AI with Gemini Flash model for teacher mode
-      const response = await generateResponse(initialPrompt, [], undefined, 'google/gemini-2.5-flash');
+      const response = await generateResponse(initialPrompt, [], undefined, 'google/gemini-3-flash-preview');
       
       // Extract only the first segment until the first question
       const { firstSegment, hasQuestion } = extractFirstSegment(response);
@@ -142,7 +142,7 @@ export const useLessonOperations = ({
         console.log('Using enhanced prompt with conversation history:', updatedHistory.length, 'messages');
 
         // Use Lovable AI with Gemini Flash model for teacher mode
-        const response = await generateResponse(contextPrompt, [], undefined, 'google/gemini-2.5-flash');
+        const response = await generateResponse(contextPrompt, [], undefined, 'google/gemini-3-flash-preview');
         
         // Extract first segment until next question
         const { firstSegment, hasQuestion } = extractFirstSegment(response);
