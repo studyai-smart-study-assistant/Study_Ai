@@ -16,6 +16,8 @@ interface MessageBodyProps {
   isTyping: boolean;
   displayedContent: string;
   onEditImage?: (imageUrl: string, originalPrompt: string) => void;
+  onQuizComplete?: (result: { score: number; total: number; topic: string; skipped: boolean }) => void;
+  hasQuizContent?: boolean;
 }
 
 // Parse thinking block from content
@@ -112,7 +114,8 @@ const MessageBody: React.FC<MessageBodyProps> = ({
   handleCancelEdit,
   isTyping,
   displayedContent,
-  onEditImage
+  onEditImage,
+  onQuizComplete,
 }) => {
   const [imageModalOpen, setImageModalOpen] = useState(false);
 
@@ -212,7 +215,7 @@ const MessageBody: React.FC<MessageBodyProps> = ({
 
         {/* Interactive Quiz */}
         {quizData && !isEditing && (
-          <InlineQuizCard quizData={quizData} />
+          <InlineQuizCard quizData={quizData} onQuizComplete={onQuizComplete} />
         )}
         
         {/* Text bubble */}

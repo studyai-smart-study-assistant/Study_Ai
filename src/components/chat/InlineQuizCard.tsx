@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { CheckCircle, XCircle, ChevronRight, Trophy, RotateCcw } from 'lucide-react';
+import { CheckCircle, XCircle, ChevronRight, Trophy, RotateCcw, Download, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
@@ -21,9 +21,10 @@ interface QuizData {
 
 interface InlineQuizCardProps {
   quizData: QuizData;
+  onQuizComplete?: (result: { score: number; total: number; topic: string; skipped: boolean }) => void;
 }
 
-const InlineQuizCard: React.FC<InlineQuizCardProps> = ({ quizData }) => {
+const InlineQuizCard: React.FC<InlineQuizCardProps> = ({ quizData, onQuizComplete }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
@@ -34,6 +35,11 @@ const InlineQuizCard: React.FC<InlineQuizCardProps> = ({ quizData }) => {
   const question = quizData.questions[currentIndex];
   const total = quizData.questions.length;
   const progress = ((currentIndex + (isAnswered ? 1 : 0)) / total) * 100;
+
+  // Stop touch events from bubbling to LongPressMenu
+  const stopPropagation = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    e.stopPropagation();
+  }, []);
 
   const handleSelect = (index: number) => {
     if (isAnswered) return;
@@ -56,7 +62,15 @@ const InlineQuizCard: React.FC<InlineQuizCardProps> = ({ quizData }) => {
       setIsAnswered(false);
     } else {
       setFinished(true);
+      onQuizComplete?.({ score: score + (selectedOption === question.correctAnswer ? 1 : 0), total, topic: quizData.topic, skipped: false });
     }
+  };
+
+  const handleSkip = () => {
+    const finalScore = score;
+    const attempted = answers.length;
+    setFinished(true);
+    onQuizComplete?.({ score: finalScore, total, topic: quizData.topic, skipped: true });
   };
 
   const handleRestart = () => {
@@ -66,6 +80,31 @@ const InlineQuizCard: React.FC<InlineQuizCardProps> = ({ quizData }) => {
     setScore(0);
     setFinished(false);
     setAnswers([]);
+  };
+
+  const handleDownloadResult = () => {
+    const pct = Math.round((score / total) * 100);
+    let text = `📋 ${quizData.title || `Quiz: ${quizData.topic}`}\n`;
+    text += `Score: ${score}/${total} (${pct}%)\n`;
+    text += `Difficulty: ${quizData.difficulty}\n\n`;
+    
+    quizData.questions.forEach((q, i) => {
+      const userAns = answers[i];
+      const correct = userAns === q.correctAnswer;
+      text += `${i + 1}. ${q.question}\n`;
+      text += `   आपका उत्तर: ${userAns !== undefined && userAns !== null ? q.options[userAns] : 'छोड़ा'} ${correct ? '✅' : '❌'}\n`;
+      if (!correct) text += `   सही उत्तर: ${q.options[q.correctAnswer]}\n`;
+      if (q.explanation) text += `   ${q.explanation}\n`;
+      text += '\n';
+    });
+
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `quiz_${quizData.topic.replace(/\s+/g, '_')}_${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const getDifficultyBadge = () => {
@@ -86,7 +125,10 @@ const InlineQuizCard: React.FC<InlineQuizCardProps> = ({ quizData }) => {
   if (finished) {
     const pct = Math.round((score / total) * 100);
     return (
-      <div className="w-full max-w-md mx-auto rounded-2xl border border-border bg-card p-5 space-y-4">
+      <div
+        className="w-full max-w-md mx-auto rounded-2xl border border-border bg-card p-5 space-y-4"
+        onTouchStart={stopPropagation} onTouchEnd={stopPropagation} onMouseDown={stopPropagation} onMouseUp={stopPropagation}
+      >
         <div className="text-center space-y-2">
           <div className="text-4xl">{getScoreEmoji()}</div>
           <h3 className="text-lg font-bold text-foreground">Quiz Complete!</h3>
@@ -100,13 +142,16 @@ const InlineQuizCard: React.FC<InlineQuizCardProps> = ({ quizData }) => {
           {quizData.questions.map((q, i) => {
             const userAns = answers[i];
             const correct = userAns === q.correctAnswer;
+            const wasSkipped = userAns === undefined || userAns === null;
             return (
               <div key={q.id} className={cn(
                 "p-3 rounded-xl border text-sm",
+                wasSkipped ? "border-border bg-muted/30" :
                 correct ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20" : "border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20"
               )}>
                 <div className="flex items-start gap-2">
-                  {correct ? <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" /> : <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />}
+                  {wasSkipped ? <SkipForward className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" /> :
+                   correct ? <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" /> : <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />}
                   <div className="min-w-0">
                     <p className="font-medium text-foreground line-clamp-2">{q.question}</p>
                     {!correct && (
@@ -121,15 +166,24 @@ const InlineQuizCard: React.FC<InlineQuizCardProps> = ({ quizData }) => {
           })}
         </div>
 
-        <Button onClick={handleRestart} variant="outline" className="w-full gap-2">
-          <RotateCcw className="h-4 w-4" /> फिर से करें
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleDownloadResult} variant="outline" className="flex-1 gap-2">
+            <Download className="h-4 w-4" /> डाउनलोड
+          </Button>
+          <Button onClick={handleRestart} variant="outline" className="flex-1 gap-2">
+            <RotateCcw className="h-4 w-4" /> फिर से करें
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-md mx-auto rounded-2xl border border-border bg-card overflow-hidden">
+    <div
+      className="w-full max-w-md mx-auto rounded-2xl border border-border bg-card overflow-hidden"
+      onTouchStart={stopPropagation} onTouchEnd={stopPropagation} onTouchMove={stopPropagation}
+      onMouseDown={stopPropagation} onMouseUp={stopPropagation} onMouseLeave={stopPropagation}
+    >
       {/* Header */}
       <div className="px-4 py-3 border-b border-border bg-muted/30">
         <div className="flex items-center justify-between">
@@ -210,13 +264,18 @@ const InlineQuizCard: React.FC<InlineQuizCardProps> = ({ quizData }) => {
         {/* Actions */}
         <div className="flex gap-2 pt-1">
           {!isAnswered ? (
-            <Button
-              onClick={handleSubmit}
-              disabled={selectedOption === null}
-              className="flex-1"
-            >
-              उत्तर जमा करें
-            </Button>
+            <>
+              <Button
+                onClick={handleSubmit}
+                disabled={selectedOption === null}
+                className="flex-1"
+              >
+                उत्तर जमा करें
+              </Button>
+              <Button onClick={handleSkip} variant="ghost" size="sm" className="text-muted-foreground gap-1">
+                <SkipForward className="h-4 w-4" /> Skip
+              </Button>
+            </>
           ) : (
             <Button onClick={handleNext} className="flex-1 gap-2">
               {currentIndex < total - 1 ? (
