@@ -170,6 +170,48 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
     }
   }
 
+  // ── Fallback 3: OpenRouter ──
+  const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
+  if (OPENROUTER_API_KEY) {
+    console.log('🔄 All Google keys exhausted, trying OpenRouter fallback...');
+    try {
+      const orModel = body.model?.startsWith('google/') 
+        ? body.model.replace('google/', 'google/') // OpenRouter uses same format
+        : 'google/gemini-2.5-flash';
+      
+      const orPayload: any = { ...body, model: orModel };
+      if (options?.modalities) orPayload.modalities = options.modalities;
+      // Remove tools if present to avoid schema issues on OpenRouter
+      delete orPayload.tools;
+      delete orPayload.tool_choice;
+
+      const start = Date.now();
+      const orResponse = await fetch(OPENROUTER_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://study-ai-001-41.lovable.app',
+          'X-Title': 'Study AI',
+        },
+        body: JSON.stringify(orPayload),
+      });
+
+      if (orResponse.ok) {
+        console.log('✅ OpenRouter fallback success');
+        logApiUsage('openrouter', 'OPENROUTER_KEY', 'success', undefined, Date.now() - start);
+        return orResponse;
+      }
+
+      const orStatus = orResponse.status;
+      const orErr = await orResponse.text();
+      logApiUsage('openrouter', 'OPENROUTER_KEY', 'error', String(orStatus), Date.now() - start);
+      console.warn(`⚠️ OpenRouter error ${orStatus}: ${orErr.substring(0, 200)}`);
+    } catch (e) {
+      console.warn('⚠️ OpenRouter network error:', e);
+    }
+  }
+
   throw new AiProviderError(429, 'AI अभी थोड़ी देर के लिए busy है (rate limited). 1-2 मिनट बाद फिर try करें।');
 }
 
