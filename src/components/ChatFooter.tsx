@@ -53,19 +53,35 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     if (isImageMode && input.trim()) {
       try {
         setIsUploading(true);
-        toast.info('Image बन रही है... कृपया प्रतीक्षा करें');
+        toast.info(language === 'hi' ? 'Image बन रही है... कृपया प्रतीक्षा करें' : 'Generating image... please wait');
         const { data, error } = await supabase.functions.invoke('generate-image', {
           body: { prompt: input.trim() }
         });
         if (error) throw error;
         if (!data?.imageUrl) throw new Error('Image generation failed');
+        
+        // Save to IndexedDB gallery
+        await saveImageToGallery({
+          id: crypto.randomUUID(),
+          prompt: input.trim(),
+          imageData: data.imageUrl,
+          createdAt: Date.now(),
+        });
+        
         onSend(input.trim(), data.imageUrl, true);
-        toast.success('Image सफलतापूर्वक बन गई!');
+        toast.success(language === 'hi' ? 'Image सफलतापूर्वक बन गई!' : 'Image generated successfully!');
         setInput('');
         setIsImageMode(false);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error generating image:', error);
-        toast.error('Image बनाने में समस्या हुई');
+        const msg = error?.message || '';
+        if (msg.includes('Rate limit')) {
+          toast.error(language === 'hi' ? 'बहुत ज़्यादा requests — थोड़ी देर बाद try करें' : 'Rate limited — try again later');
+        } else if (msg.includes('Payment')) {
+          toast.error(language === 'hi' ? 'Credits खत्म हो गए' : 'Credits exhausted');
+        } else {
+          toast.error(language === 'hi' ? 'Image बनाने में समस्या हुई' : 'Image generation failed');
+        }
       } finally {
         setIsUploading(false);
       }
