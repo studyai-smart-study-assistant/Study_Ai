@@ -24,6 +24,7 @@ const invokeChatCompletion = async (payload: {
   webSearchContext?: string | null;
   webSearchSources?: Array<{ title: string; url: string }>;
   imageBase64?: string;
+  userId?: string;
 }) => {
   const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   const { data: { session } } = await supabase.auth.getSession();
@@ -152,13 +153,16 @@ export async function generateResponseWithSearch(
     let webSearchContext: string | null = null;
     let webSearchSources: WebSearchSource[] = [];
 
-    // Only pre-fetch when user explicitly toggled web search ON
     if (forceWebSearch) {
       toast.info('🔍 वेब से जानकारी खोज रहा हूँ...', { duration: 2000 });
       const searchResult = await performWebSearch(prompt);
       webSearchContext = searchResult.searchContext;
       webSearchSources = searchResult.sources;
     }
+
+    // Get current user ID for Mind Vault
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id || undefined;
 
     const data = await invokeChatCompletion({
       prompt: sanitizeForAI(prompt),
@@ -168,6 +172,7 @@ export async function generateResponseWithSearch(
       webSearchContext,
       webSearchSources,
       imageBase64,
+      userId,
     });
 
     if (data?.error) throw new Error(data.error);
