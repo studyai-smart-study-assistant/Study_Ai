@@ -424,7 +424,12 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ msg, isMine, partnerName,
           ? 'bg-[hsl(230,70%,55%)] text-white rounded-br-md'
           : 'bg-card text-foreground border border-border rounded-bl-md'
       }`}>
-        {msg.message_type === 'image' && msg.image_url ? (
+        {msg.message_type === 'audio' && msg.image_url ? (
+          <div className="space-y-1">
+            <audio src={msg.image_url} controls className="max-w-full h-10" />
+            {msg.text_content && <p className="text-xs text-muted-foreground">{msg.text_content}</p>}
+          </div>
+        ) : msg.message_type === 'image' && msg.image_url ? (
           <img src={msg.image_url} alt="Shared" className="rounded-lg max-w-full max-h-60 object-cover cursor-pointer" onClick={() => window.open(msg.image_url!, '_blank')} />
         ) : (
           <p className="text-sm whitespace-pre-wrap break-words">{msg.text_content}</p>
