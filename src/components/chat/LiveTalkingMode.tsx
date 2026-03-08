@@ -62,14 +62,28 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
   const captureFrame = useCallback((): string | null => {
     if (!videoRef.current || !canvasRef.current || !isCameraOn) return null;
     const video = videoRef.current;
+    if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) return null;
+
     const canvas = canvasRef.current;
-    canvas.width = 320;
-    canvas.height = 240;
+    const targetWidth = 320;
+    const aspect = video.videoHeight / video.videoWidth;
+    canvas.width = targetWidth;
+    canvas.height = Math.max(180, Math.round(targetWidth * aspect));
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
-    ctx.drawImage(video, 0, 0, 320, 240);
-    return canvas.toDataURL('image/jpeg', 0.6);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.55);
   }, [isCameraOn]);
+
+  const captureFrameWithRetry = useCallback(async (): Promise<string | null> => {
+    for (let i = 0; i < 4; i++) {
+      const frame = captureFrame();
+      if (frame) return frame;
+      await new Promise(resolve => setTimeout(resolve, 120));
+    }
+    return null;
+  }, [captureFrame]);
 
   // STT: transcribe audio blob
   const transcribeAudio = useCallback(async (audioBlob: Blob): Promise<string | null> => {
@@ -112,7 +126,24 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
 
   // TTS: speak text
   const speakText = useCallback(async (text: string): Promise<void> => {
-    if (!isSpeakerOn) return;
+    if (!isSpeakerOn || !text.trim()) return;
+
+    // Fast local TTS first (lower latency than network TTS)
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      await new Promise<void>((resolve) => {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = /[\u0900-\u097F]/.test(text) ? 'hi-IN' : 'en-IN';
+        utterance.rate = 1.02;
+        utterance.pitch = 1;
+        utterance.onend = () => resolve();
+        utterance.onerror = () => resolve();
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+      });
+      return;
+    }
+
+    // Fallback: server TTS
     try {
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: { text, language: 'hi-IN', voice: 'priya' }
@@ -138,10 +169,16 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
     isProcessingRef.current = true;
 
     try {
-      // Step 1: Transcribe
+      // Step 1+2: Run STT and camera-frame capture in parallel (lower latency)
       setStatus('thinking');
       setTranscript('...');
-      const text = await transcribeAudio(audioBlob);
+      setAiResponse('...');
+
+      const [text, frame] = await Promise.all([
+        transcribeAudio(audioBlob),
+        captureFrameWithRetry()
+      ]);
+
       if (!text) {
         setStatus('listening');
         isProcessingRef.current = false;
@@ -149,9 +186,7 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
       }
       setTranscript(text);
 
-      // Step 2: Capture frame + get AI response
-      const frame = captureFrame();
-      setAiResponse('...');
+      // Step 3: Get Gemini multimodal response
       const response = await getAIResponse(text, frame);
       if (!response) {
         setAiResponse('Sorry, try again.');
@@ -178,7 +213,7 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
       isProcessingRef.current = false;
       setStatus('listening');
     }
-  }, [transcribeAudio, captureFrame, getAIResponse, speakText]);
+  }, [transcribeAudio, captureFrameWithRetry, getAIResponse, speakText]);
 
   // Start continuous listening with silence detection
   const startListening = useCallback(async () => {
@@ -204,7 +239,7 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
 
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
       const SILENCE_THRESHOLD = 15;
-      const SILENCE_DURATION = 2500;
+      const SILENCE_DURATION = 1400;
       let hasSpoken = false;
 
       const check = () => {
@@ -242,7 +277,7 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
         }
         // Auto restart listening if mic is still on
         if (isMicOn && open) {
-          setTimeout(() => startListening(), 500);
+          setTimeout(() => startListening(), 150);
         }
       };
 

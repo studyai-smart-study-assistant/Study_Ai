@@ -17,7 +17,7 @@ serve(async (req) => {
 
     const systemMessage = {
       role: 'system',
-      content: `You are Study AI Live, a real-time multimodal assistant built by Ajit Kumar. You can see through the user's camera and hear them speak. Keep responses SHORT (2-4 sentences max) since they will be spoken aloud via TTS. Be conversational, friendly, and helpful. If you see an image, describe what you see and answer questions about it. Respond in the same language the user speaks (Hindi or English).`
+      content: `You are Study AI Live, a real-time multimodal assistant built by Ajit Kumar. Keep responses SHORT (1-3 sentences max) because replies are spoken aloud. Always use any provided image for visual grounding before answering. NEVER guess visual details when no image is provided. If camera image is missing, clearly say you cannot see the camera yet and ask user to hold camera steady and try again. Respond in the same language as the user (Hindi or English).`
     };
 
     const messages: any[] = [systemMessage];
@@ -30,17 +30,24 @@ serve(async (req) => {
       });
     }
 
-    // Build user message with optional image
+    // Build user message with required camera frame for multimodal live mode
+    if (!imageBase64) {
+      return new Response(JSON.stringify({
+        response: 'मैं अभी कैमरा फ़्रेम नहीं देख पा रहा हूँ, कृपया कैमरा स्थिर रखें और दोबारा बोलें।',
+        success: true,
+        needsCamera: true
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const userContent: any[] = [];
-    if (imageBase64) {
-      // Extract mime and data
-      const match = imageBase64.match(/^data:(image\/[^;]+);base64,(.+)$/);
-      if (match) {
-        userContent.push({
-          type: 'image_url',
-          image_url: { url: imageBase64 }
-        });
-      }
+    const match = imageBase64.match(/^data:(image\/[^;]+);base64,(.+)$/);
+    if (match) {
+      userContent.push({
+        type: 'image_url',
+        image_url: { url: imageBase64 }
+      });
     }
     userContent.push({ type: 'text', text: prompt });
 
@@ -53,9 +60,9 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-3-flash-preview',
         messages,
-        max_tokens: 300,
+        max_tokens: 180,
       }),
     });
 
