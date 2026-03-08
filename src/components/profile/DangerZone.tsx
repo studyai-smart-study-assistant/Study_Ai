@@ -6,7 +6,7 @@ import { LogOut, Trash2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { User } from '@/hooks/useAuth';
+import { User } from '@/contexts/AuthContext';
 
 interface DangerZoneProps {
   currentUser: User;
