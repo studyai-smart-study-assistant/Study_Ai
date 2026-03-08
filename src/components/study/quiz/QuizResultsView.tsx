@@ -1,23 +1,29 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, CheckCircle, XCircle, Trophy, RotateCcw, BookOpen, Award } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, Trophy, RotateCcw, BookOpen, Award, ImageIcon } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { QuizResult } from './types';
+import QuizResultCard from '@/components/chat/QuizResultCard';
 
 interface QuizResultsViewProps {
   result: QuizResult;
+  topic?: string;
+  difficulty?: string;
   onReset: () => void;
   onReviewAnswers: () => void;
 }
 
 export const QuizResultsView: React.FC<QuizResultsViewProps> = ({
   result,
+  topic = 'Quiz',
+  difficulty = 'medium',
   onReset,
   onReviewAnswers
 }) => {
   const { language } = useLanguage();
+  const [showCard, setShowCard] = useState(false);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -29,6 +35,22 @@ export const QuizResultsView: React.FC<QuizResultsViewProps> = ({
 
   return (
     <div className="w-full max-w-2xl mx-auto px-4 space-y-6">
+      {/* Premium Result Card */}
+      {showCard && (
+        <div className="space-y-4">
+          <QuizResultCard
+            score={result.score}
+            total={result.totalQuestions}
+            topic={topic}
+            difficulty={difficulty}
+            percentage={percentage}
+          />
+          <Button onClick={() => setShowCard(false)} variant="ghost" className="w-full text-sm">
+            {language === 'hi' ? 'कार्ड बंद करें' : 'Close Card'}
+          </Button>
+        </div>
+      )}
+
       <Card>
         <CardHeader className="text-center pb-4">
           <CardTitle className="text-xl sm:text-2xl text-purple-800 dark:text-purple-300">
