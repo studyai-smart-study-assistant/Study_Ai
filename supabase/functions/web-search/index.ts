@@ -72,16 +72,18 @@ async function searchTavilyWithRotation(query: string): Promise<{ results: any[]
       throw new Error(`Tavily search failed: ${response.status}`);
     }
 
-  const data = await response.json();
-  return {
-    results: (data.results || []).map((r: any) => ({
-      title: r.title,
-      url: r.url,
-      content: r.content?.substring(0, 500),
-      score: r.score,
-    })),
-    answer: data.answer,
-  };
+    const data = await response.json();
+    return {
+      results: (data.results || []).map((r: any) => ({
+        title: r.title,
+        url: r.url,
+        content: r.content?.substring(0, 500),
+        score: r.score,
+      })),
+      answer: data.answer,
+    };
+  }
+  throw new Error('All Tavily API keys exhausted (rate limited)');
 }
 
 serve(async (req) => {
