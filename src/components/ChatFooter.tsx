@@ -405,15 +405,23 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
                 onClick={toggleListening}
                 variant="ghost"
                 size="icon"
-                disabled={isLoading || isDisabled}
+                disabled={isLoading || isDisabled || isTranscribing}
                 className={`h-9 w-9 rounded-full transition-all duration-200 ${
                   isListening 
                     ? 'bg-destructive/10 text-destructive hover:bg-destructive/20 animate-pulse' 
+                    : isTranscribing
+                    ? 'bg-accent text-accent-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 }`}
-                title={language === 'hi' ? (isListening ? 'बंद करें' : 'बोलकर टाइप करें') : (isListening ? 'Stop' : 'Voice input')}
+                title={language === 'hi' ? (isListening ? 'बंद करें' : isTranscribing ? 'ट्रांसक्राइब हो रहा...' : 'बोलकर टाइप करें') : (isListening ? 'Stop' : isTranscribing ? 'Transcribing...' : 'Voice input')}
               >
-                {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                {isTranscribing ? (
+                  <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                ) : isListening ? (
+                  <MicOff className="h-4 w-4" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
               </Button>
 
               {/* Fast badge */}
