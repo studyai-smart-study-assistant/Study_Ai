@@ -1,16 +1,17 @@
 
 import React from 'react';
-import { MessageSquare, Users, User } from 'lucide-react';
+import { MessageSquare, Users, User, UsersRound } from 'lucide-react';
 
 interface Props {
-  activeTab: 'chats' | 'users' | 'groups';
-  onTabChange: (tab: 'chats' | 'users' | 'groups') => void;
+  activeTab: 'chats' | 'users' | 'groups' | 'account';
+  onTabChange: (tab: 'chats' | 'users' | 'groups' | 'account') => void;
 }
 
 const tabs = [
   { id: 'chats' as const, icon: MessageSquare, label: 'Chats' },
   { id: 'users' as const, icon: Users, label: 'Users' },
-  { id: 'groups' as const, icon: User, label: 'Account' },
+  { id: 'groups' as const, icon: UsersRound, label: 'Groups' },
+  { id: 'account' as const, icon: User, label: 'Account' },
 ];
 
 const CampusTalkBottomNav: React.FC<Props> = ({ activeTab, onTabChange }) => {
