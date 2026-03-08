@@ -228,6 +228,7 @@ export type Database = {
           education_level: string | null
           email: string | null
           id: string
+          is_blocked: boolean
           last_login: string | null
           level: number | null
           longest_streak: number | null
@@ -248,6 +249,7 @@ export type Database = {
           education_level?: string | null
           email?: string | null
           id?: string
+          is_blocked?: boolean
           last_login?: string | null
           level?: number | null
           longest_streak?: number | null
@@ -268,6 +270,7 @@ export type Database = {
           education_level?: string | null
           email?: string | null
           id?: string
+          is_blocked?: boolean
           last_login?: string | null
           level?: number | null
           longest_streak?: number | null
