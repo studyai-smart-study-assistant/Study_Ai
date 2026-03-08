@@ -122,99 +122,133 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
   // ── Connect WebSocket to Gemini ──
   const connectWebSocket = useCallback(async () => {
     try {
-      // Get API key from edge function
       const { data, error } = await supabase.functions.invoke('gemini-live-token');
       if (error || !data?.apiKey) {
         toast.error('Failed to get API key');
         return;
       }
 
-      const selectedLiveModel = data?.model || liveModel;
-      setLiveModel(selectedLiveModel);
+      const modelCandidates = Array.from(new Set([
+        ...(Array.isArray(data?.models) ? data.models : []),
+        data?.model,
+        liveModel,
+        'models/gemini-2.0-flash-live-001',
+        'models/gemini-2.0-flash-exp',
+      ].filter(Boolean)));
 
-      const ws = new WebSocket(`${GEMINI_WS_URL}?key=${data.apiKey}`);
-      wsRef.current = ws;
+      const tryModelAt = (index: number) => {
+        if (!open) return;
 
-      ws.onopen = () => {
-        console.log('Gemini WebSocket connected');
-        // Send setup message
-        const setupMsg = {
-          setup: {
-            model: selectedLiveModel,
-            generationConfig: {
-              responseModalities: ['AUDIO'],
-              speechConfig: {
-                voiceConfig: {
-                  prebuiltVoiceConfig: {
-                    voiceName: 'Aoede'
+        if (index >= modelCandidates.length) {
+          setStatus('idle');
+          toast.error('This API key has no compatible Live model');
+          return;
+        }
+
+        const modelToUse = modelCandidates[index];
+        setLiveModel(modelToUse);
+        console.log('Trying live model:', modelToUse);
+
+        const ws = new WebSocket(`${GEMINI_WS_URL}?key=${data.apiKey}`);
+        wsRef.current = ws;
+
+        let setupComplete = false;
+        const setupTimer = setTimeout(() => {
+          if (!setupComplete) {
+            console.warn(`Setup timeout on model ${modelToUse}, trying next model...`);
+            try { ws.close(4000, 'setup timeout'); } catch {}
+          }
+        }, 6000);
+
+        ws.onopen = () => {
+          console.log('Gemini WebSocket connected');
+          const setupMsg = {
+            setup: {
+              model: modelToUse,
+              generationConfig: {
+                responseModalities: ['AUDIO'],
+                speechConfig: {
+                  voiceConfig: {
+                    prebuiltVoiceConfig: {
+                      voiceName: 'Aoede'
+                    }
+                  }
+                }
+              },
+              systemInstruction: {
+                parts: [{
+                  text: `You are Study AI Live, a real-time multimodal AI teacher built by Ajit Kumar. You help students learn by seeing their books, notes, diagrams through the camera and explaining concepts verbally. Keep responses concise (2-4 sentences) since you're speaking live. Respond in the same language as the student (Hindi or English). If the student shows a diagram or equation, explain it clearly. Be encouraging and patient like a good teacher.`
+                }]
+              }
+            }
+          };
+          ws.send(JSON.stringify(setupMsg));
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+
+            if (msg.error) {
+              console.error('Gemini setup error:', msg.error);
+            }
+
+            if (msg.setupComplete) {
+              setupComplete = true;
+              clearTimeout(setupTimer);
+              isConnectedRef.current = true;
+              setStatus('listening');
+              toast.success(`🔴 Live Mode Active (${modelToUse.replace('models/', '')})`);
+              return;
+            }
+
+            if (msg.serverContent) {
+              const parts = msg.serverContent.modelTurn?.parts;
+              if (parts) {
+                for (const part of parts) {
+                  if (part.inlineData?.mimeType?.startsWith('audio/')) {
+                    playAudioChunk(part.inlineData.data);
+                  }
+                  if (part.text) {
+                    setAiResponse(prev => prev ? prev + ' ' + part.text : part.text);
                   }
                 }
               }
-            },
-            systemInstruction: {
-              parts: [{
-                text: `You are Study AI Live, a real-time multimodal AI teacher built by Ajit Kumar. You help students learn by seeing their books, notes, diagrams through the camera and explaining concepts verbally. Keep responses concise (2-4 sentences) since you're speaking live. Respond in the same language as the student (Hindi or English). If the student shows a diagram or equation, explain it clearly. Be encouraging and patient like a good teacher.`
-              }]
+
+              if (msg.serverContent.turnComplete) {
+                isSpeakingRef.current = false;
+                if (isConnectedRef.current) setStatus('listening');
+              }
             }
+          } catch (e) {
+            console.error('WS message parse error:', e);
           }
         };
-        ws.send(JSON.stringify(setupMsg));
-      };
 
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
+        ws.onerror = (e) => {
+          console.error('WebSocket error:', e);
+        };
 
-          // Setup complete
-          if (msg.setupComplete) {
-            console.log('Gemini setup complete');
-            isConnectedRef.current = true;
-            setStatus('listening');
-            toast.success('🔴 Live Mode Active — Gemini Connected!');
+        ws.onclose = (e) => {
+          clearTimeout(setupTimer);
+          console.log('WebSocket closed:', e.code, e.reason);
+
+          if (!setupComplete) {
+            isConnectedRef.current = false;
+            setStatus('idle');
+            tryModelAt(index + 1);
             return;
           }
 
-          // Server content (AI response)
-          if (msg.serverContent) {
-            const parts = msg.serverContent.modelTurn?.parts;
-            if (parts) {
-              for (const part of parts) {
-                // Audio response
-                if (part.inlineData?.mimeType?.startsWith('audio/')) {
-                  playAudioChunk(part.inlineData.data);
-                }
-                // Text response (transcript of AI speech)
-                if (part.text) {
-                  setAiResponse(prev => prev ? prev + ' ' + part.text : part.text);
-                }
-              }
-            }
-
-            // Turn complete
-            if (msg.serverContent.turnComplete) {
-              isSpeakingRef.current = false;
-              if (isConnectedRef.current) setStatus('listening');
-            }
+          isConnectedRef.current = false;
+          setStatus('idle');
+          if (open) {
+            setTimeout(() => connectWebSocket(), 2000);
           }
-        } catch (e) {
-          console.error('WS message parse error:', e);
-        }
+        };
       };
 
-      ws.onerror = (e) => {
-        console.error('WebSocket error:', e);
-        toast.error('Live connection failed');
-      };
-
-      ws.onclose = (e) => {
-        console.log('WebSocket closed:', e.code, e.reason);
-        isConnectedRef.current = false;
-        setStatus('idle');
-        // Auto-reconnect if still open
-        if (open) {
-          setTimeout(() => connectWebSocket(), 2000);
-        }
-      };
+      tryModelAt(0);
     } catch (e) {
       console.error('WebSocket connect error:', e);
       toast.error('Failed to connect');
