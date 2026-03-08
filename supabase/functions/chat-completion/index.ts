@@ -293,12 +293,28 @@ serve(async (req) => {
       return jsonResponse({ response: text, model, sources: webSearchSources || [], webSearchUsed: true, toolUsed: 'web_search' });
     }
 
-    // ── Agent Mode: Call with ALL tools ──
-    console.log('🤖 Agent Mode: Calling Gemini with all tools available');
+    // ── Step 1: THINKING — Agent analyzes the query first ──
+    console.log('🧠 Thinking Phase: Analyzing user query...');
+    
+    const thinkingSystemContent = systemContent + `\n\n**THINKING MODE INSTRUCTIONS:**
+Before responding, you must THINK about the user's query carefully. Consider:
+1. Is this a normal conversation/greeting? → Reply directly, no tools needed
+2. Does the user want an image, diagram, or visual? → Use generate_image tool
+3. Does the user want study notes or summary? → Use generate_notes tool
+4. Does the user want a quiz, test, or practice? → Use generate_quiz tool
+5. Does the user need latest/current information? → Use web_search tool
+6. Is the topic complex enough to need a diagram even if not asked? → Consider generate_image
+
+Think step-by-step and make the best decision. Most queries are normal conversations — don't overuse tools.`;
+
     const step1Response = await fetch(GATEWAY_URL, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, messages, tools: agentTools, temperature: 0.8, max_tokens: 8000 }),
+      body: JSON.stringify({ model, messages: [
+        { role: 'system', content: thinkingSystemContent },
+        ...recentHistory,
+        { role: 'user', content: userContent }
+      ], tools: agentTools, temperature: 0.7, max_tokens: 8000 }),
     });
 
     if (!step1Response.ok) return handleGatewayError(step1Response);
@@ -312,7 +328,16 @@ serve(async (req) => {
       const toolName = toolCall.function.name;
       const args = JSON.parse(toolCall.function.arguments);
       
-      console.log(`🔧 Agent chose tool: ${toolName}`, args);
+      console.log(`🔧 Agent decided: ${toolName}`, args);
+
+      // Generate thinking summary based on tool chosen
+      const thinkingMap: Record<string, string> = {
+        'web_search': `🔍 यूजर को latest जानकारी चाहिए → Web Search कर रहा हूँ: "${args.search_query}"`,
+        'generate_image': `🎨 यूजर को visual/diagram चाहिए → Image generate कर रहा हूँ: "${args.image_prompt?.substring(0, 80)}..."`,
+        'generate_notes': `📝 यूजर को study notes चाहिए → "${args.topic}" पर ${args.detail_level || 'detailed'} notes बना रहा हूँ`,
+        'generate_quiz': `🎯 यूजर quiz/test चाहता है → "${args.topic}" पर ${args.num_questions || 5} questions का ${args.difficulty || 'medium'} quiz बना रहा हूँ`,
+      };
+      const thinking = thinkingMap[toolName] || `🔧 Tool: ${toolName}`;
 
       // ── Web Search ──
       if (toolName === 'web_search') {
@@ -330,17 +355,15 @@ serve(async (req) => {
         if (!step2Response.ok) return handleGatewayError(step2Response);
         const step2Data = await step2Response.json();
         const finalText = step2Data?.choices?.[0]?.message?.content;
-        return jsonResponse({ response: finalText, model, sources: searchResult.sources, webSearchUsed: true, toolUsed: 'web_search' });
+        return jsonResponse({ response: finalText, model, sources: searchResult.sources, webSearchUsed: true, toolUsed: 'web_search', thinking });
       }
 
       // ── Image Generation ──
       if (toolName === 'generate_image') {
         const imagePrompt = args.image_prompt;
-        console.log('🎨 Generating image:', imagePrompt);
         const imageUrl = await generateImage(imagePrompt, LOVABLE_API_KEY, imageBase64 || undefined);
         
         if (imageUrl) {
-          // Now get explanatory text from Gemini
           const step2Messages = [
             ...messages,
             choice.message,
@@ -351,36 +374,36 @@ serve(async (req) => {
             headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ model, messages: step2Messages, temperature: 0.8, max_tokens: 2000 }),
           });
-          let explanationText = '✨ Image बन गई है! ऊपर देखें।';
+          let explanationText = '✨ Image बन गई है!';
           if (step2Response.ok) {
             const step2Data = await step2Response.json();
             explanationText = step2Data?.choices?.[0]?.message?.content || explanationText;
           }
-          return jsonResponse({ response: explanationText, model, toolUsed: 'generate_image', imageUrl, sources: [], webSearchUsed: false });
+          return jsonResponse({ response: explanationText, model, toolUsed: 'generate_image', imageUrl, sources: [], webSearchUsed: false, thinking });
         } else {
-          return jsonResponse({ response: '😔 Image बनाने में कुछ दिक्कत आई। कृपया दोबारा try करें!', model, toolUsed: 'generate_image', sources: [], webSearchUsed: false });
+          return jsonResponse({ response: '😔 Image बनाने में दिक्कत आई। दोबारा try करें!', model, toolUsed: 'generate_image', sources: [], webSearchUsed: false, thinking });
         }
       }
 
       // ── Notes Generation ──
       if (toolName === 'generate_notes') {
-        console.log('📝 Generating notes for:', args.topic);
         const notesContent = await generateNotesContent(args.topic, args.detail_level || 'detailed', LOVABLE_API_KEY, model);
-        return jsonResponse({ response: notesContent, model, toolUsed: 'generate_notes', sources: [], webSearchUsed: false });
+        return jsonResponse({ response: notesContent, model, toolUsed: 'generate_notes', sources: [], webSearchUsed: false, thinking });
       }
 
       // ── Quiz Generation ──
       if (toolName === 'generate_quiz') {
-        console.log('🎯 Generating quiz for:', args.topic);
         const quizContent = await generateQuizContent(args.topic, args.num_questions || 5, args.difficulty || 'medium', LOVABLE_API_KEY, model);
-        return jsonResponse({ response: quizContent, model, toolUsed: 'generate_quiz', sources: [], webSearchUsed: false });
+        return jsonResponse({ response: quizContent, model, toolUsed: 'generate_quiz', sources: [], webSearchUsed: false, thinking });
       }
     }
 
-    // ── No tool call — direct answer ──
+    // ── No tool call — direct answer (normal conversation) ──
     const directText = choice?.message?.content;
     if (!directText) throw new Error('Response content missing');
-    return jsonResponse({ response: directText, model, sources: [], webSearchUsed: false, toolUsed: null });
+    
+    const normalThinking = '💬 Normal conversation — सीधे जवाब दे रहा हूँ';
+    return jsonResponse({ response: directText, model, sources: [], webSearchUsed: false, toolUsed: null, thinking: normalThinking });
 
   } catch (error: unknown) {
     console.error('❌ Error:', error);
