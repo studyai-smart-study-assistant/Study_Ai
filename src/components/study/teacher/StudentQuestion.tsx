@@ -1,10 +1,9 @@
-
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, MessageSquare, Hand } from 'lucide-react';
-import { toast } from 'sonner';
+import { Mic, MicOff, Hand, Loader2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useSarvamSTT } from '@/hooks/useSarvamSTT';
 
 interface StudentQuestionProps {
   isListening: boolean;
@@ -13,11 +12,20 @@ interface StudentQuestionProps {
 }
 
 const StudentQuestion: React.FC<StudentQuestionProps> = ({ 
-  isListening, 
-  toggleListening, 
   sendStudentQuestion 
 }) => {
   const { language } = useLanguage();
+  const inputRef = useRef<HTMLInputElement>(null);
+  
+  const { isRecording, isProcessing, toggleRecording } = useSarvamSTT({
+    language,
+    onTranscript: (text) => {
+      if (inputRef.current) {
+        inputRef.current.value = text;
+      }
+    },
+    silenceThreshold: 2500 // 2.5 seconds silence = auto stop
+  });
   
   return (
     <div className="mt-6 border-t border-purple-100 dark:border-purple-800 pt-4 relative">
@@ -36,17 +44,25 @@ const StudentQuestion: React.FC<StudentQuestionProps> = ({
       <div className="flex gap-2">
         <Input
           id="student-question"
+          ref={inputRef}
           placeholder={language === 'hi' ? "शिक्षक जी, मुझे यह समझ नहीं आया..." : "Teacher, I don't understand..."}
           className="flex-1"
         />
         <Button
           type="button"
           variant="outline"
-          onClick={toggleListening}
-          className={`${isListening ? 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300 animate-pulse' : ''}`}
-          title={language === 'hi' ? "अपना प्रश्न बोलें" : "Speak your question"}
+          onClick={toggleRecording}
+          disabled={isProcessing}
+          className={`${isRecording ? 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300 animate-pulse' : ''} ${isProcessing ? 'opacity-50' : ''}`}
+          title={language === 'hi' ? "अपना प्रश्न बोलें (Sarvam AI)" : "Speak your question (Sarvam AI)"}
         >
-          {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+          {isProcessing ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : isRecording ? (
+            <MicOff size={16} />
+          ) : (
+            <Mic size={16} />
+          )}
         </Button>
         <Button
           type="button"
