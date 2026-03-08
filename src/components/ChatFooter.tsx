@@ -66,7 +66,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
 
     const dataArray = new Uint8Array(analyser.frequencyBinCount);
     const SILENCE_THRESHOLD = 15;
-    const SILENCE_DURATION = 2500; // 2.5s silence = auto stop
+    const SILENCE_DURATION = 25000; // 25s silence = auto stop
 
     const check = () => {
       if (!analyserRef.current) return;
