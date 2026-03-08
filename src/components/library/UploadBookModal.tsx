@@ -39,7 +39,6 @@ const UploadBookModal: React.FC<UploadBookModalProps> = ({ isOpen, onClose, onSu
       setIsLoading(false);
     }
   };
-  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
