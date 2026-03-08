@@ -494,6 +494,11 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
     const directText = choice?.message?.content;
     if (!directText) throw new Error('Response content missing');
     
+    // ── Background Memory Extraction for logged-in users ──
+    if (userId && prompt) {
+      backgroundExtractMemories(userId, prompt, model).catch(e => console.warn('⚠️ Background memory extraction failed:', e));
+    }
+    
     // Normal conversation — no thinking badge needed
     return jsonResponse({ response: directText, model, sources: [], webSearchUsed: false, toolUsed: null, thinking: null });
 
