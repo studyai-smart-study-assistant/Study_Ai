@@ -182,23 +182,44 @@ const agentTools = [
 ];
 
 // ─── Save Memories to DB ────────────────────────────────────
-async function saveMemories(userId: string, memories: Array<{key: string; value: string; category: string}>): Promise<void> {
+function normalizeMemoryKey(rawKey: string): string {
+  const key = (rawKey || '').trim().toLowerCase();
+  if (!key) return 'general_info';
+  if (key.includes('नाम') || key.includes('name')) return 'name';
+  if (key.includes('class') || key.includes('grade') || key.includes('कक्षा')) return 'class';
+  if (key.includes('goal') || key.includes('लक्ष्य') || key.includes('target')) return 'goal';
+  if (key.includes('subject') || key.includes('विषय')) return 'subject_preference';
+  return key.replace(/\s+/g, '_').slice(0, 64);
+}
+
+async function saveMemories(
+  adminClient: ReturnType<typeof createClient>,
+  userId: string,
+  memories: Array<{key: string; value: string; category: string}>
+): Promise<void> {
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const sb = createClient(supabaseUrl, supabaseKey);
-    for (const mem of memories) {
-      await sb.from('user_memories').upsert({
+    const validMemories = memories
+      .filter((m) => m?.key?.trim() && m?.value?.trim())
+      .map((m) => ({
         user_id: userId,
-        memory_key: mem.key,
-        memory_value: mem.value,
-        category: mem.category,
+        memory_key: normalizeMemoryKey(m.key),
+        memory_value: m.value.trim().slice(0, 500),
+        category: m.category || 'general',
         source: 'ai_detected',
         importance: 8,
-      }, { onConflict: 'user_id,memory_key' });
-    }
-    console.log(`🧠 Saved ${memories.length} memories for user`);
-  } catch (e) { console.warn('⚠️ Failed to save memories:', e); }
+      }));
+
+    if (!validMemories.length) return;
+
+    const { error } = await adminClient
+      .from('user_memories')
+      .upsert(validMemories, { onConflict: 'user_id,memory_key' });
+
+    if (error) throw error;
+    console.log(`🧠 Saved ${validMemories.length} memories for user ${userId.slice(0, 8)}...`);
+  } catch (e) {
+    console.warn('⚠️ Failed to save memories:', e);
+  }
 }
 
 // ─── Generate Notes Content ─────────────────────────────────
