@@ -249,6 +249,42 @@ export type Database = {
         }
         Relationships: []
       }
+      user_memories: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          importance: number
+          memory_key: string
+          memory_value: string
+          source: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          importance?: number
+          memory_key: string
+          memory_value: string
+          source?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          importance?: number
+          memory_key?: string
+          memory_value?: string
+          source?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_points: {
         Row: {
           balance: number
