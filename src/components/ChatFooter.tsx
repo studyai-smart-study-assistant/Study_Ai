@@ -31,6 +31,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   const [isImageMode, setIsImageMode] = useState(false);
   const [isAttachOpen, setIsAttachOpen] = useState(false);
   const [isToolsOpen, setIsToolsOpen] = useState(false);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
