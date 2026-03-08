@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import Chat from '@/components/Chat';
-import ErrorBoundary from '@/components/ErrorBoundary';
+import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { useChatInitialization } from '@/hooks/home/useChatInitialization';
 import { useHomeEffects } from '@/hooks/home/useHomeEffects';
 import { Button } from '@/components/ui/button';
