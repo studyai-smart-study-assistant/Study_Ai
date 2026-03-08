@@ -68,7 +68,15 @@ const Profile = () => {
           </div>
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5"><TabsTrigger value="info">{language === 'hi' ? 'प्रोफाइल' : 'Profile'}</TabsTrigger><TabsTrigger value="mindvault" className="flex items-center gap-1"><Brain className="h-3 w-3" />Mind Vault</TabsTrigger><TabsTrigger value="voice" className="flex items-center gap-1"><Volume2 className="h-3 w-3" />{language === 'hi' ? 'आवाज़' : 'Voice'}</TabsTrigger><TabsTrigger value="plans">{language === 'hi' ? 'स्टडी प्लान' : 'Study Plans'}</TabsTrigger><TabsTrigger value="nav">{language === 'hi' ? 'नेविगेशन' : 'Navigation'}</TabsTrigger></TabsList>
+            <div className="overflow-x-auto -mx-1 px-1">
+              <TabsList className="inline-flex w-auto min-w-full sm:grid sm:grid-cols-5 sm:w-full gap-1 p-1">
+                <TabsTrigger value="info" className="text-xs sm:text-sm px-2.5 sm:px-3 whitespace-nowrap">{language === 'hi' ? 'प्रोफाइल' : 'Profile'}</TabsTrigger>
+                <TabsTrigger value="mindvault" className="flex items-center gap-1 text-xs sm:text-sm px-2.5 sm:px-3 whitespace-nowrap"><Brain className="h-3 w-3 shrink-0" /><span>Mind Vault</span></TabsTrigger>
+                <TabsTrigger value="voice" className="flex items-center gap-1 text-xs sm:text-sm px-2.5 sm:px-3 whitespace-nowrap"><Volume2 className="h-3 w-3 shrink-0" /><span>{language === 'hi' ? 'आवाज़' : 'Voice'}</span></TabsTrigger>
+                <TabsTrigger value="plans" className="text-xs sm:text-sm px-2.5 sm:px-3 whitespace-nowrap">{language === 'hi' ? 'प्लान' : 'Plans'}</TabsTrigger>
+                <TabsTrigger value="nav" className="text-xs sm:text-sm px-2.5 sm:px-3 whitespace-nowrap">{language === 'hi' ? 'नेवि.' : 'Nav'}</TabsTrigger>
+              </TabsList>
+            </div>
             <ScrollArea className="h-[calc(100vh-12rem)]">
               <TabsContent value="info" className="m-0 p-4 sm:p-6 space-y-6">
                 <ProfileHeader currentUser={currentUser} />
