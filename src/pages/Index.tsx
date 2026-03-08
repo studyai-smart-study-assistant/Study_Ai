@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { 
   Menu, Plus, Sparkles, FileText, BookOpen, GraduationCap, Trophy, Clock,
-  Bookmark, User, LogOut, Moon, Sun, MessageSquare, Youtube, Wallet, Info,
+  Bookmark, User, LogOut, Moon, Sun, MessageSquare, MessageCircle, Youtube, Wallet, Info,
   X, ArrowUp, ClipboardList
 } from 'lucide-react';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -104,6 +104,7 @@ const Index = () => {
   const navigationItems = [
     { icon: MessageSquare, label: 'Chat History', path: '/chat-history' },
     { icon: Bookmark, label: 'Saved', path: '/saved-messages' },
+    { icon: MessageCircle, label: 'Campus Talk', path: '/chat-system' },
     { icon: Trophy, label: 'Leaderboard', path: '/leaderboard' },
     { icon: Wallet, label: 'Points Wallet', path: '/points-wallet' },
     { icon: GraduationCap, label: 'Activities', path: '/student-activities' },
