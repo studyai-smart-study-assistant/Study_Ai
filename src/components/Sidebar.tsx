@@ -102,6 +102,12 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       description: 'शिक्षक से पूछें'
     },
     { 
+      icon: MessageCircle, 
+      label: 'Campus Talk', 
+      path: '/chat-system',
+      description: 'दोस्तों से चैट करें'
+    },
+    { 
       icon: Trophy, 
       label: 'Leaderboard', 
       path: '/leaderboard',
