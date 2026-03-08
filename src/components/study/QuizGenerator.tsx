@@ -249,7 +249,7 @@ ${focusArea !== 'balanced' ? `फोकस: मुख्यतः ${focusArea} �
             <BrainCircuit className="h-6 w-6" />
           </div>
           <div className="flex-1">
-            <h2 className="text-xl font-bold">{t('quizGenerator')}</h2>
+            <h2 className="text-xl font-bold">{language === 'en' ? 'Quiz' : 'क्विज़'}</h2>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-2 py-1 rounded-full font-medium">
                 {language === 'en' ? 'Enhanced & Optimized' : 'उन्नत और अनुकूलित'}
@@ -266,170 +266,12 @@ ${focusArea !== 'balanced' ? `फोकस: मुख्यतः ${focusArea} �
       </CardHeader>
 
       <CardContent className="p-0">
-        {/* Quiz Mode Selection */}
-        <div className="p-6 border-b bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
-          <h3 className="text-lg font-semibold mb-4 text-center">
-            {language === 'en' ? 'Choose Quiz Mode' : 'क्विज़ मोड चुनें'}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Button
-              variant={quizMode === 'traditional' ? 'default' : 'outline'}
-              onClick={() => setQuizMode('traditional')}
-              className="h-auto p-4 flex flex-col items-center gap-2"
-            >
-              <BookOpenCheck className="h-8 w-8" />
-              <div className="text-center">
-                <div className="font-semibold">
-                  {language === 'en' ? 'Traditional Mode' : 'पारंपरिक मोड'}
-                </div>
-                <div className="text-xs opacity-70">
-                  {language === 'en' ? 'Q&A format in chat' : 'चैट में प्रश्न-उत्तर प्रारूप'}
-                </div>
-              </div>
-            </Button>
-            
-            <Button
-              variant={quizMode === 'interactive' ? 'default' : 'outline'}
-              onClick={() => setQuizMode('interactive')}
-              className="h-auto p-4 flex flex-col items-center gap-2"
-            >
-              <PlayCircle className="h-8 w-8" />
-              <div className="text-center">
-                <div className="font-semibold">
-                  {language === 'en' ? 'Interactive Test' : 'इंटरैक्टिव टेस्ट'}
-                </div>
-                <div className="text-xs opacity-70">
-                  {language === 'en' ? 'Live test with timer' : 'टाइमर के साथ लाइव टेस्ट'}
-                </div>
-              </div>
-            </Button>
-          </div>
+        {/* Quiz content - directly show interactive quiz */}
+        <div className="p-6">
+          <InteractiveQuiz />
         </div>
 
-        {quizMode === 'interactive' ? (
-          <div className="p-6">
-            <InteractiveQuiz />
-          </div>
-        ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5 mb-0 rounded-none border-b bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
-              <TabsTrigger value="templates" className="rounded-none data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
-                <BookOpenCheck className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">{language === 'en' ? 'Templates' : 'टेम्प्लेट'}</span>
-              </TabsTrigger>
-              <TabsTrigger value="generate" className="rounded-none data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
-                <Settings className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">{language === 'en' ? 'Generate' : 'जनरेट'}</span>
-              </TabsTrigger>
-              <TabsTrigger value="progress" className="rounded-none data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800" disabled={!isQuizActive}>
-                <GraduationCap className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">{language === 'en' ? 'Progress' : 'प्रगति'}</span>
-              </TabsTrigger>
-              <TabsTrigger value="results" className="rounded-none data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800" disabled={!showResults}>
-                <Sparkles className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">{language === 'en' ? 'Results' : 'परिणाम'}</span>
-              </TabsTrigger>
-              <TabsTrigger value="stats" className="rounded-none data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800">
-                <BarChart3 className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">{language === 'en' ? 'Stats' : 'आंकड़े'}</span>
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="templates" className="p-6 mt-0">
-              <QuizTemplates onSelectTemplate={handleSelectTemplate} />
-            </TabsContent>
-            
-            <TabsContent value="generate" className="p-6 mt-0">
-              <QuizConfiguration
-                topic={topic}
-                setTopic={setTopic}
-                selectedSubject={selectedSubject}
-                setSelectedSubject={setSelectedSubject}
-                quizType={quizType}
-                setQuizType={setQuizType}
-                difficulty={difficulty}
-                setDifficulty={setDifficulty}
-                numberOfQuestions={numberOfQuestions}
-                setNumberOfQuestions={setNumberOfQuestions}
-                timeLimit={timeLimit}
-                setTimeLimit={setTimeLimit}
-                includeExplanations={includeExplanations}
-                setIncludeExplanations={setIncludeExplanations}
-                focusArea={focusArea}
-                setFocusArea={setFocusArea}
-                onGenerateSample={generateSampleQuestions}
-              />
-            </TabsContent>
-            
-            <TabsContent value="progress" className="p-6 mt-0">
-              {isQuizActive && (
-                <QuizProgress
-                  currentQuestion={currentQuestion}
-                  totalQuestions={numberOfQuestions}
-                  timeElapsed={timeElapsed}
-                  correctAnswers={correctAnswers}
-                  wrongAnswers={wrongAnswers}
-                />
-              )}
-              <div className="mt-6 text-center">
-                <Button 
-                  onClick={finishQuiz} 
-                  variant="outline"
-                  className="border-purple-300 text-purple-700 hover:bg-purple-50"
-                >
-                  {language === 'en' ? 'Finish Quiz' : 'क्विज समाप्त करें'}
-                </Button>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="results" className="p-6 mt-0">
-              {showResults && (
-                <QuizResults
-                  score={correctAnswers}
-                  totalQuestions={numberOfQuestions}
-                  timeElapsed={timeElapsed}
-                  difficulty={difficulty}
-                  topic={topic}
-                  onRetakeQuiz={handleRetakeQuiz}
-                  onGenerateNewQuiz={handleNewQuiz}
-                />
-              )}
-            </TabsContent>
-
-            <TabsContent value="stats" className="p-6 mt-0">
-              <QuizStats
-                totalQuizzes={quizStats.totalQuizzes}
-                averageScore={quizStats.averageScore}
-                totalTimeSpent={quizStats.totalTimeSpent}
-                favoriteSubject={quizStats.favoriteSubject}
-                streak={quizStats.streak}
-              />
-            </TabsContent>
-          </Tabs>
-        )}
       </CardContent>
-
-      {activeTab === 'generate' && quizMode === 'traditional' && (
-        <CardFooter className="bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 dark:from-purple-900/20 dark:via-indigo-900/20 dark:to-blue-900/20 rounded-b-lg pt-6 border-t border-purple-200 dark:border-purple-800">
-          <Button 
-            onClick={handleGenerateQuiz} 
-            disabled={isLoading || !topic.trim()} 
-            className="w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-700 hover:via-indigo-700 hover:to-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02]"
-          >
-            {isLoading ? (
-              <>
-                <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
-                {t('processing')}
-              </>
-            ) : (
-              <>
-                <Sparkles className="mr-2 h-5 w-5" />
-                {t('generateQuiz')}
-              </>
-            )}
-          </Button>
-        </CardFooter>
-      )}
     </Card>
   );
 };

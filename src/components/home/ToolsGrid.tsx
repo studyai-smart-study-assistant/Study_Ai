@@ -25,7 +25,7 @@ const tools = [
   },
   { 
     icon: BookOpen, 
-    label: 'Quiz Generator', 
+    label: 'Quiz', 
     description: 'Create quizzes & earn XP',
     path: '/quiz-generator',
     color: 'text-green-500 dark:text-green-400',
