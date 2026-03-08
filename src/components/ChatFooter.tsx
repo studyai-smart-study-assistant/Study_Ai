@@ -2,7 +2,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal, X, Plus, Upload, Sparkles, Globe, SlidersHorizontal, Camera, ImageIcon, Download, Mic, MicOff } from "lucide-react";
+import { SendHorizonal, X, Plus, Upload, Sparkles, Globe, SlidersHorizontal, Camera, ImageIcon, Download, Mic, MicOff, Radio } from "lucide-react";
+import LiveTalkingMode from '@/components/chat/LiveTalkingMode';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +33,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   const [isAttachOpen, setIsAttachOpen] = useState(false);
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [isLiveMode, setIsLiveMode] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -451,6 +453,19 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
                       <p className="text-[11px] text-muted-foreground">{language === 'hi' ? 'बनाई गई images देखें' : 'View generated images'}</p>
                     </div>
                   </button>
+                  {/* Live Talking button */}
+                  <button
+                    onClick={() => { setIsLiveMode(true); setIsToolsOpen(false); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+                  >
+                    <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-red-500/10">
+                      <Radio className="h-4 w-4 text-red-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-foreground">Live Talking</p>
+                      <p className="text-[11px] text-muted-foreground">Gemini Live जैसा अनुभव</p>
+                    </div>
+                  </button>
                 </PopoverContent>
               </Popover>
             </div>
@@ -506,6 +521,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
         </div>
       </div>
       <ImageGallery open={isGalleryOpen} onClose={() => setIsGalleryOpen(false)} />
+      <LiveTalkingMode open={isLiveMode} onClose={() => setIsLiveMode(false)} />
     </div>
   );
 };
