@@ -10,7 +10,7 @@ interface LiveTalkingModeProps {
   onClose: () => void;
 }
 
-const GEMINI_WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent';
+const GEMINI_WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
 
 const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
   const [isMicOn, setIsMicOn] = useState(true);
