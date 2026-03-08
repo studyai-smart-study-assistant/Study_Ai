@@ -47,6 +47,86 @@ export type Database = {
         }
         Relationships: []
       }
+      book_likes: {
+        Row: {
+          book_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_likes_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      books: {
+        Row: {
+          author: string
+          category: string
+          cover_image_url: string | null
+          description: string | null
+          downloads: number
+          external_link: string | null
+          file_url: string | null
+          id: string
+          is_public: boolean
+          likes: number
+          tags: string[] | null
+          title: string
+          uploaded_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          author: string
+          category?: string
+          cover_image_url?: string | null
+          description?: string | null
+          downloads?: number
+          external_link?: string | null
+          file_url?: string | null
+          id?: string
+          is_public?: boolean
+          likes?: number
+          tags?: string[] | null
+          title: string
+          uploaded_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          author?: string
+          category?: string
+          cover_image_url?: string | null
+          description?: string | null
+          downloads?: number
+          external_link?: string | null
+          file_url?: string | null
+          id?: string
+          is_public?: boolean
+          likes?: number
+          tags?: string[] | null
+          title?: string
+          uploaded_at?: string
+          uploaded_by?: string
+        }
+        Relationships: []
+      }
       campus_chats: {
         Row: {
           created_at: string
