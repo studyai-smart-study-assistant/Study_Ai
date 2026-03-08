@@ -12,10 +12,9 @@ serve(async (req) => {
   }
 
   try {
-    // मॉडल को 'google/gemini-3-flash-preview' पर डिफ़ॉल्ट किया गया है
-    const { prompt, history = [], model = 'google/gemini-3-flash-preview' } = await req.json();
+    const { prompt, history = [], model = 'google/gemini-3-flash-preview', webSearchContext, webSearchSources } = await req.json();
     
-    console.log('📥 Request Received for Study AI:', { promptLength: prompt?.length, model });
+    console.log('📥 Request Received for Study AI:', { promptLength: prompt?.length, model, hasWebSearch: !!webSearchContext });
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -27,10 +26,8 @@ serve(async (req) => {
       content: msg.content,
     }));
 
-    const messages = [
-      {
-        role: 'system',
-        content: `आप 'Study AI' हैं, जिसे अजित कुमार (Ajit Kumar) ने छात्रों की मदद के लिए बनाया है।
+    // Build system prompt - with or without web search context
+    let systemContent = `आप 'Study AI' हैं, जिसे अजित कुमार (Ajit Kumar) ने छात्रों की मदद के लिए बनाया है।
 
 आपकी बातचीत का टोन (Tone Instructions):
 1. **इंसानी एहसास:** एक मशीन की तरह नहीं, बल्कि एक बड़े भाई या एक अच्छे दोस्त (Mentor) की तरह बात करें जो पढ़ाई को आसान बनाता है।
@@ -39,8 +36,20 @@ serve(async (req) => {
 4. **टू-द-पॉइंट:** सीधे मुद्दे पर बात करें। अगर सवाल छोटा है तो जवाब भी प्यारा और सटीक हो।
 5. **अजित का विजन:** हमेशा याद रखें कि आप अजित कुमार के मिशन का हिस्सा हैं—छात्रों की पढ़ाई को तनावमुक्त और मजेदार बनाना।
 
-महत्वपूर्ण: जवाब में 'मैं एक AI हूँ' जैसी बातें न कहें। बस एक मददगार इंसान की तरह समस्या सुलझाएं।`
-      },
+महत्वपूर्ण: जवाब में 'मैं एक AI हूँ' जैसी बातें न कहें। बस एक मददगार इंसान की तरह समस्या सुलझाएं।`;
+
+    // If web search context is provided, augment the system prompt
+    if (webSearchContext) {
+      systemContent += `
+
+🌐 **वेब सर्च से मिली ताज़ा जानकारी:**
+${webSearchContext}
+
+**निर्देश:** ऊपर दी गई वेब सर्च से मिली जानकारी का उपयोग करके यूजर को एक पर्सनलाइज्ड, अप-टू-डेट जवाब दो। जानकारी को अपने शब्दों में समझाओ ताकि यूजर को लगे कि यह रियल-टाइम जानकारी है। सोर्स लिंक जवाब में शामिल मत करो—वे अलग से दिखाए जाएंगे।`;
+    }
+
+    const messages = [
+      { role: 'system', content: systemContent },
       ...recentHistory,
       { role: 'user', content: prompt }
     ];
@@ -56,7 +65,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model,
         messages,
-        temperature: 0.8, // टोन को थोड़ा और क्रिएटिव और नेचुरल बनाने के लिए इसे 0.8 किया गया है
+        temperature: 0.8,
         max_tokens: 8000
       }),
     });
@@ -74,6 +83,15 @@ serve(async (req) => {
         });
       }
       
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ 
+          error: 'सर्विस में कुछ दिक्कत है, कृपया बाद में कोशिश करें।' 
+        }), {
+          status: 402,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
       throw new Error(`Gateway Error: ${response.status}`);
     }
 
@@ -85,12 +103,18 @@ serve(async (req) => {
     }
 
     console.log('✅ Response generated for user');
-    return new Response(JSON.stringify({ response: generatedText, model }), {
+    return new Response(JSON.stringify({ 
+      response: generatedText, 
+      model,
+      sources: webSearchSources || [],
+      webSearchUsed: !!webSearchContext,
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Error in Execution:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     return new Response(JSON.stringify({ 
       error: 'माफ़ करना दोस्त, कुछ तकनीकी दिक्कत आ गई है। एक बार फिर कोशिश करो!' 
     }), {
