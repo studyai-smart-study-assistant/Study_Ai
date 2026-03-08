@@ -33,19 +33,30 @@ function getNextGoogleApiKey(): string {
   return key;
 }
 
+// ─── Usage Logger ───────────────────────────────────────────
+async function logApiUsage(service: string, keyId: string, status: string, errorCode?: string, responseTimeMs?: number) {
+  try {
+    const url = Deno.env.get('SUPABASE_URL')!;
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const client = createClient(url, key);
+    await client.from('api_key_usage').insert({
+      service, key_identifier: keyId, status,
+      error_code: errorCode || null,
+      response_time_ms: responseTimeMs || null,
+    });
+  } catch (e) { console.warn('⚠️ Usage log failed:', e); }
+}
+
 // ─── Fallback AI Call: Lovable Gateway → Google Native API (with key rotation) ──
 async function callAI(body: any, options?: { modalities?: string[] }): Promise<Response> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-
-  // Strip google/ prefix for native API
   const nativeModel = body.model?.replace('google/', '') || 'gemini-2.5-flash';
 
-  // Try Lovable Gateway first
   if (LOVABLE_API_KEY) {
     try {
       const payload = { ...body };
       if (options?.modalities) payload.modalities = options.modalities;
-
+      const start = Date.now();
       const response = await fetch(LOVABLE_GATEWAY_URL, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
@@ -54,37 +65,34 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
 
       if (response.ok) {
         console.log('✅ Lovable Gateway success');
+        logApiUsage('lovable-gateway', 'LOVABLE_KEY', 'success', undefined, Date.now() - start);
         return response;
       }
 
       const status = response.status;
+      logApiUsage('lovable-gateway', 'LOVABLE_KEY', 'rate_limited', String(status), Date.now() - start);
       if (status !== 402 && status !== 429) {
-        // Non-quota error, still return it
         console.warn(`⚠️ Lovable Gateway error: ${status}`);
-        // Fall through to Google
       } else {
         console.warn(`⚠️ Lovable Gateway quota/rate limited (${status}), falling back to Google API`);
       }
     } catch (err) {
+      logApiUsage('lovable-gateway', 'LOVABLE_KEY', 'error', 'network');
       console.warn('⚠️ Lovable Gateway unreachable, falling back to Google API:', err);
     }
   }
 
-  // Fallback: Google Native API with key rotation
   const keys = getGoogleApiKeys();
-  if (keys.length === 0) {
-    throw new Error('Both Lovable AI and Google API keys are unavailable');
-  }
-
+  if (keys.length === 0) throw new Error('Both Lovable AI and Google API keys are unavailable');
   console.log(`🔄 Using Google Native API with model: ${nativeModel} (${keys.length} keys in pool)`);
 
   const payload: any = { ...body, model: nativeModel };
   if (options?.modalities) payload.modalities = options.modalities;
 
-  // Try each key until one works
   for (let attempt = 0; attempt < keys.length; attempt++) {
     const apiKey = getNextGoogleApiKey();
-    const keyLabel = `key#${(_keyIndex) % keys.length}`;
+    const keyLabel = `GOOGLE_KEY_${(_keyIndex) % keys.length}`;
+    const start = Date.now();
 
     const response = await fetch(GOOGLE_NATIVE_URL, {
       method: 'POST',
@@ -94,18 +102,20 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
 
     if (response.ok) {
       console.log(`✅ Google Native API success (${keyLabel})`);
+      logApiUsage('google-gemini', keyLabel, 'success', undefined, Date.now() - start);
       return response;
     }
 
     const status = response.status;
     if (status === 429 || status === 403) {
+      logApiUsage('google-gemini', keyLabel, 'rate_limited', String(status), Date.now() - start);
       console.warn(`⚠️ Google API ${status} on ${keyLabel}, rotating to next key...`);
-      try { await response.text(); } catch {} // consume body
+      try { await response.text(); } catch {}
       continue;
     }
 
-    // Non-rate-limit error, don't retry
     const errText = await response.text();
+    logApiUsage('google-gemini', keyLabel, 'error', String(status), Date.now() - start);
     console.error(`❌ Google Native API error (${keyLabel}):`, status, errText);
     throw new Error(`Google API error: ${status}`);
   }
@@ -143,6 +153,8 @@ async function searchTavily(query: string): Promise<{ context: string; sources: 
   }
   for (let attempt = 0; attempt < keys.length; attempt++) {
     const apiKey = getNextTavilyKey();
+    const keyLabel = `TAVILY_KEY_${(_tavilyKeyIndex) % keys.length}`;
+    const start = Date.now();
     try {
       const response = await fetch('https://api.tavily.com/search', {
         method: 'POST',
@@ -150,16 +162,18 @@ async function searchTavily(query: string): Promise<{ context: string; sources: 
         body: JSON.stringify({ api_key: apiKey, query, search_depth: 'basic', include_answer: true, max_results: 5 }),
       });
       if (response.status === 429 || response.status === 403) {
-        console.warn(`⚠️ Tavily key#${_tavilyKeyIndex} rate limited, trying next...`);
+        logApiUsage('tavily', keyLabel, 'rate_limited', String(response.status), Date.now() - start);
+        console.warn(`⚠️ Tavily ${keyLabel} rate limited, trying next...`);
         try { await response.text(); } catch {}
         continue;
       }
       if (!response.ok) return { context: '', sources: [] };
-    const data = await response.json();
-    const results = data.results || [];
-    const context = results.map((r: any, i: number) => `[Source ${i+1}] ${r.title}\n${r.content?.substring(0, 500)}\nURL: ${r.url}`).join('\n\n');
-    const sources = results.map((r: any) => ({ title: r.title, url: r.url }));
-    return { context, sources };
+      const data = await response.json();
+      logApiUsage('tavily', keyLabel, 'success', undefined, Date.now() - start);
+      const results = data.results || [];
+      const context = results.map((r: any, i: number) => `[Source ${i+1}] ${r.title}\n${r.content?.substring(0, 500)}\nURL: ${r.url}`).join('\n\n');
+      const sources = results.map((r: any) => ({ title: r.title, url: r.url }));
+      return { context, sources };
     } catch { continue; }
   }
   console.warn('⚠️ All Tavily keys exhausted');
