@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_settings: {
+        Row: {
+          ad_network: string
+          created_at: string
+          enabled: boolean
+          id: string
+          page: string
+          updated_at: string
+        }
+        Insert: {
+          ad_network: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          page?: string
+          updated_at?: string
+        }
+        Update: {
+          ad_network?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          page?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       api_key_usage: {
         Row: {
           created_at: string

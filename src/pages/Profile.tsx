@@ -21,6 +21,8 @@ import { logoutUser } from '@/lib/supabase/chat-functions';
 import { syncUserPoints } from '@/utils/points/core';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
+import AdsterraBanner from '@/components/ads/AdsterraBanner';
+import MonetagInterstitial from '@/components/ads/MonetagInterstitial';
 
 const Profile = () => {
   const { currentUser, isLoading } = useAuth();
@@ -62,6 +64,7 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-gray-900 dark:to-purple-950">
+      <MonetagInterstitial page="profile" />
       <div className="container mx-auto px-4 py-8">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
           <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-4 sm:p-6 text-white">
@@ -81,12 +84,14 @@ const Profile = () => {
             <ScrollArea className="h-[calc(100vh-12rem)]">
               <TabsContent value="info" className="m-0 p-4 sm:p-6 space-y-6">
                 <ProfileHeader currentUser={currentUser} />
+                <AdsterraBanner page="profile" />
                 <div className="p-4 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg border border-purple-200">
                   <div className="flex items-center justify-between mb-3"><h3 className="text-sm font-semibold flex items-center text-purple-700"><Star className="h-4 w-4 text-yellow-500 mr-2" />{language === 'hi' ? 'छात्र उपलब्धि' : 'Achievement'}</h3><span className="font-bold text-purple-700 text-lg">{studentPoints} {language === 'hi' ? 'अंक' : 'points'}</span></div>
                   <div className="mb-3"><div className="flex items-center justify-between text-xs mb-2 text-gray-600"><span className="font-medium">{language === 'hi' ? `स्तर ${studentLevel}` : `Level ${studentLevel}`}</span></div><Progress value={levelProgress} className="h-3 bg-gray-200" /></div>
                   <Button variant="outline" size="sm" className="w-full mt-3" asChild><Link to="/student-activities"><Activity className="h-4 w-4 mr-2" />{language === 'hi' ? 'गतिविधियां देखें' : 'View Activities'}</Link></Button>
                 </div>
                 <UserInfoCards userCategory={userCategory} educationLevel={educationLevel} />
+                <AdsterraBanner page="profile" />
                 <div className="mt-6"><ChangePassword /></div>
                 <div className="mt-8"><DangerZone currentUser={currentUser} onLogout={handleLogout} /></div>
               </TabsContent>

@@ -12,6 +12,8 @@ import { BookCategory } from '@/types/library';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import AdsterraBanner from '@/components/ads/AdsterraBanner';
+import MonetagInterstitial from '@/components/ads/MonetagInterstitial';
 
 const Library: React.FC = () => {
   const { currentUser } = useAuth();
@@ -30,7 +32,9 @@ const Library: React.FC = () => {
   return (
     <PageLayout>
       <div className="max-w-7xl mx-auto pb-24">
+        <MonetagInterstitial page="library" />
         <LibraryHeader onUploadClick={() => setIsUploadModalOpen(true)} isAuthenticated={!!currentUser} />
+        <AdsterraBanner page="library" />
         <div className="mt-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <ScrollArea className="w-full"><div className="pb-4"><TabsList className="bg-transparent h-auto p-0 w-full flex flex-nowrap overflow-x-auto">
