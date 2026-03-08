@@ -18,11 +18,12 @@ const getFunctionBaseUrls = () => {
 
 const invokeChatCompletion = async (payload: {
   prompt: string;
-  history: Array<{ role: string; content: string }>;
+  history: Array<{ role: string; content: string | any[] }>;
   model: string;
   forceWebSearch?: boolean;
   webSearchContext?: string | null;
   webSearchSources?: Array<{ title: string; url: string }>;
+  imageBase64?: string;
 }) => {
   const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   const { data: { session } } = await supabase.auth.getSession();
@@ -122,7 +123,8 @@ export async function generateResponseWithSearch(
   history: Message[] = [],
   chatId?: string,
   model: string = 'google/gemini-2.5-flash',
-  forceWebSearch: boolean = false
+  forceWebSearch: boolean = false,
+  imageBase64?: string
 ): Promise<GenerateResponseWithSearchResult> {
   try {
     console.log(`🚀 Study AI: model=${model}, forceWebSearch=${forceWebSearch}`);
@@ -162,6 +164,7 @@ export async function generateResponseWithSearch(
       forceWebSearch,
       webSearchContext,
       webSearchSources,
+      imageBase64,
     });
 
     if (data?.error) throw new Error(data.error);

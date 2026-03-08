@@ -77,9 +77,9 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, history = [], model = 'google/gemini-3-flash-preview', forceWebSearch = false, webSearchContext, webSearchSources } = await req.json();
+    const { prompt, history = [], model = 'google/gemini-3-flash-preview', forceWebSearch = false, webSearchContext, webSearchSources, imageBase64 } = await req.json();
     
-    console.log('📥 Request:', { promptLength: prompt?.length, model, forceWebSearch, hasPreSearchContext: !!webSearchContext });
+    console.log('📥 Request:', { promptLength: prompt?.length, model, forceWebSearch, hasPreSearchContext: !!webSearchContext, hasImage: !!imageBase64 });
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY is not configured');
@@ -105,10 +105,37 @@ serve(async (req) => {
       systemContent += `\n\n🌐 **वेब सर्च से मिली ताज़ा जानकारी:**\n${webSearchContext}\n\n**निर्देश:** ऊपर दी गई वेब सर्च से मिली जानकारी का उपयोग करके यूजर को एक पर्सनलाइज्ड, अप-टू-डेट जवाब दो। जानकारी को अपने शब्दों में समझाओ। सोर्स लिंक जवाब में शामिल मत करो—वे अलग से दिखाए जाएंगे।`;
     }
 
+    // Build user message content - handle image if present
+    let userContent: any;
+    if (imageBase64) {
+      // Extract mime type and clean base64
+      let mimeType = 'image/jpeg';
+      let cleanedBase64 = imageBase64;
+      
+      if (imageBase64.startsWith('data:')) {
+        const match = imageBase64.match(/^data:([^;]+);base64,(.+)$/);
+        if (match) {
+          mimeType = match[1];
+          cleanedBase64 = match[2];
+        }
+      }
+      
+      userContent = [
+        { type: 'text', text: prompt || 'इस image के बारे में बताओ' },
+        { 
+          type: 'image_url',
+          image_url: { url: `data:${mimeType};base64,${cleanedBase64}` }
+        }
+      ];
+      console.log('📷 Image attached, mimeType:', mimeType, 'base64 length:', cleanedBase64.length);
+    } else {
+      userContent = prompt;
+    }
+
     const messages = [
       { role: 'system', content: systemContent },
       ...recentHistory,
-      { role: 'user', content: prompt }
+      { role: 'user', content: userContent }
     ];
 
     // If we already have pre-fetched web context (force mode), skip tool calling

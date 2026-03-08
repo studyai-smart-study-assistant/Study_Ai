@@ -69,12 +69,31 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
       setConnectionStatus('connected');
       setLastSources([]); // Clear previous sources
       
+      // For display: store text + image marker separately
+      const isBase64Image = imageUrl?.startsWith('data:image/');
       let messageContent = input.trim();
-      if (imageUrl) {
-        messageContent = imageUrl ? `${messageContent}\n\n[Image: ${imageUrl}]` : `[Image: ${imageUrl}]`;
+      let imageBase64: string | undefined;
+      
+      if (isBase64Image && imageUrl) {
+        // Store a thumbnail marker in chat DB for display
+        messageContent = messageContent 
+          ? `[IMG_BASE64]${messageContent}` 
+          : '[IMG_BASE64]इस image के बारे में बताओ';
+        imageBase64 = imageUrl;
+      } else if (imageUrl) {
+        messageContent = messageContent ? `${messageContent}\n\n[Image: ${imageUrl}]` : `[Image: ${imageUrl}]`;
       }
       
+      // Store message - for base64 images, store a small placeholder in DB
+      const dbContent = imageBase64 
+        ? `${messageContent}\n[IMG_DATA:${imageBase64.substring(0, 100)}...]`
+        : messageContent;
       const userMessage = await chatDB.addMessage(chatId, messageContent, 'user');
+      
+      // For display, attach the full image data
+      if (imageBase64) {
+        (userMessage as any)._imageData = imageBase64;
+      }
       setMessages((prev) => [...prev, userMessage]);
       
       const chat = await chatDB.getChat(chatId);
@@ -94,13 +113,15 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
         
         const userId = currentUser?.uid || 'guest';
         
+        // Clean the prompt for AI - remove IMG_BASE64 marker
+        const aiPrompt = messageContent.replace('[IMG_BASE64]', '').trim() || 'इस image के बारे में बताओ';
+        
         const result = await chatHandler.processQuery(
-          messageContent,
+          aiPrompt,
           async (query: string) => {
             setConnectionStatus('reconnecting');
             
-            // Always call with search: forceSearch when toggle ON, auto-detect when OFF
-            const searchResult = await generateResponseWithSearch(query, chatHistory, chatId, 'google/gemini-2.5-flash', webSearchEnabled);
+            const searchResult = await generateResponseWithSearch(query, chatHistory, chatId, 'google/gemini-2.5-flash', webSearchEnabled, imageBase64);
             setLastSources(searchResult.sources);
             setConnectionStatus('connected');
             return searchResult.text;

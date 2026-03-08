@@ -95,25 +95,26 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   };
 
   const handleImageSelect = async (file: File) => {
-    if (!currentUser) {
-      toast.error('कृपया पहले लॉगिन करें');
-      return;
-    }
     try {
       setIsUploading(true);
       setIsAttachOpen(false);
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `${currentUser.uid}/${fileName}`;
-      const { error: uploadError } = await supabase.storage.from('chat_media').upload(filePath, file);
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('chat_media').getPublicUrl(filePath);
-      setUploadedImage(publicUrl);
-      toast.success('Image upload हो गई!');
+      
+      // Convert to base64 locally - no Supabase upload needed
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setUploadedImage(base64);
+        setIsUploading(false);
+        toast.success(language === 'hi' ? 'Image ready!' : 'Image ready!');
+      };
+      reader.onerror = () => {
+        setIsUploading(false);
+        toast.error(language === 'hi' ? 'Image पढ़ने में समस्या' : 'Failed to read image');
+      };
+      reader.readAsDataURL(file);
     } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error('Image upload में समस्या हुई');
-    } finally {
+      console.error('Error reading image:', error);
+      toast.error(language === 'hi' ? 'Image में समस्या हुई' : 'Image error');
       setIsUploading(false);
     }
   };
