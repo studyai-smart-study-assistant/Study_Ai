@@ -40,7 +40,7 @@ const ChatBody: React.FC<ChatBodyProps> = ({
           {(isLoading || isResponding) && (
             <div className="flex flex-col items-center justify-center py-6 px-2">
               <EnhancedLoadingAnimation 
-                message={isResponding ? "Study AI विचार कर रहा है..." : "संदेश लोड हो रहे हैं..."}
+                message={isResponding ? "AI Agent सोच रहा है..." : "संदेश लोड हो रहे हैं..."}
                 className="my-2" 
               />
             </div>
