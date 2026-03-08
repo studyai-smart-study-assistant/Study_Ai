@@ -1,0 +1,268 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Shield, Ban, CheckCircle, Search, Users, Crown, RefreshCw, Edit2 } from 'lucide-react';
+import { toast } from 'sonner';
+
+interface EnrichedUser {
+  user_id: string;
+  display_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  photo_url: string | null;
+  provider: string | null;
+  auth_provider: string | null;
+  created_at: string | null;
+  last_login: string | null;
+  last_sign_in: string | null;
+  is_blocked: boolean;
+  confirmed: boolean;
+  level: number | null;
+  points: number | null;
+  current_streak: number | null;
+  balance: number;
+  xp: number;
+  level_pts: number;
+  credits: number;
+  roles: string[];
+  user_category: string | null;
+  education_level: string | null;
+  referral_code: string | null;
+}
+
+const AdminUsersTab = () => {
+  const [users, setUsers] = useState<EnrichedUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [editingPoints, setEditingPoints] = useState<string | null>(null);
+  const [newPoints, setNewPoints] = useState('');
+
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-users', {
+        body: { action: 'list' },
+      });
+      if (error) throw error;
+      setUsers(data.users || []);
+    } catch (err: any) {
+      console.error('Failed to fetch users:', err);
+      toast.error('Users load करने में error आया');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchUsers(); }, []);
+
+  const toggleBlock = async (userId: string, currentlyBlocked: boolean) => {
+    try {
+      const { error } = await supabase.functions.invoke('admin-users', {
+        body: { action: 'block', userId, blocked: !currentlyBlocked },
+      });
+      if (error) throw error;
+      setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, is_blocked: !currentlyBlocked } : u));
+      toast.success(currentlyBlocked ? 'User unblocked' : 'User blocked');
+    } catch {
+      toast.error('Action failed');
+    }
+  };
+
+  const updatePoints = async (userId: string) => {
+    const pts = parseInt(newPoints);
+    if (isNaN(pts)) return;
+    try {
+      const { error } = await supabase.functions.invoke('admin-users', {
+        body: { action: 'update_points', userId, points: pts },
+      });
+      if (error) throw error;
+      setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, balance: pts } : u));
+      setEditingPoints(null);
+      toast.success('Points updated');
+    } catch {
+      toast.error('Update failed');
+    }
+  };
+
+  const filtered = users.filter(u => {
+    const q = search.toLowerCase();
+    return !q || (u.display_name?.toLowerCase().includes(q)) || (u.email?.toLowerCase().includes(q)) || u.user_id.toLowerCase().includes(q);
+  });
+
+  const formatDate = (d: string | null) => {
+    if (!d) return '-';
+    return new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs"><Users className="h-3 w-3" /> Total Users</div>
+            <p className="text-2xl font-bold text-foreground">{users.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs"><CheckCircle className="h-3 w-3 text-green-500" /> Active</div>
+            <p className="text-2xl font-bold text-green-500">{users.filter(u => !u.is_blocked).length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs"><Ban className="h-3 w-3 text-red-500" /> Blocked</div>
+            <p className="text-2xl font-bold text-red-500">{users.filter(u => u.is_blocked).length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs"><Crown className="h-3 w-3 text-yellow-500" /> Admins</div>
+            <p className="text-2xl font-bold text-yellow-500">{users.filter(u => u.roles.includes('admin')).length}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search + Refresh */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, email, or ID..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Button size="sm" variant="outline" onClick={fetchUsers} disabled={loading}>
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+        </Button>
+      </div>
+
+      {/* Users Table */}
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Email / Provider</TableHead>
+                  <TableHead>Joined</TableHead>
+                  <TableHead>Last Login</TableHead>
+                  <TableHead>Points / XP</TableHead>
+                  <TableHead>Level</TableHead>
+                  <TableHead>Streak</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-12">
+                      <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto" />
+                    </TableCell>
+                  </TableRow>
+                ) : filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                      No users found
+                    </TableCell>
+                  </TableRow>
+                ) : filtered.map(user => (
+                  <TableRow key={user.user_id} className={user.is_blocked ? 'opacity-60' : ''}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+                          {(user.photo_url || user.avatar_url) ? (
+                            <img src={user.photo_url || user.avatar_url!} className="h-full w-full object-cover" alt="" />
+                          ) : (
+                            <span className="text-xs font-bold text-muted-foreground">
+                              {(user.display_name || '?')[0].toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm text-foreground">{user.display_name || 'Unknown'}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{user.user_id.substring(0, 8)}...</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm text-foreground">{user.email || '-'}</p>
+                      <Badge variant="outline" className="text-xs mt-0.5">
+                        {user.auth_provider || user.provider || 'email'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{formatDate(user.created_at)}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{formatDate(user.last_sign_in || user.last_login)}</TableCell>
+                    <TableCell>
+                      {editingPoints === user.user_id ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            value={newPoints}
+                            onChange={e => setNewPoints(e.target.value)}
+                            className="w-20 h-7 text-xs"
+                          />
+                          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => updatePoints(user.user_id)}>✓</Button>
+                          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setEditingPoints(null)}>✕</Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm font-medium text-foreground">{user.balance}</span>
+                          <span className="text-xs text-muted-foreground">/ {user.xp} XP</span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0"
+                            onClick={() => { setEditingPoints(user.user_id); setNewPoints(user.balance.toString()); }}
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="text-xs">Lv.{user.level_pts}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-foreground">{user.current_streak || 0}🔥</span>
+                    </TableCell>
+                    <TableCell>
+                      {user.is_blocked ? (
+                        <Badge variant="destructive" className="text-xs">Blocked</Badge>
+                      ) : user.roles.includes('admin') ? (
+                        <Badge className="bg-yellow-500/10 text-yellow-500 text-xs"><Shield className="h-3 w-3 mr-1" />Admin</Badge>
+                      ) : (
+                        <Badge className="bg-green-500/10 text-green-500 text-xs">Active</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant={user.is_blocked ? 'outline' : 'destructive'}
+                        className="h-7 text-xs"
+                        onClick={() => toggleBlock(user.user_id, user.is_blocked)}
+                      >
+                        {user.is_blocked ? 'Unblock' : 'Block'}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default AdminUsersTab;
