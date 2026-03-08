@@ -53,9 +53,18 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     if (isImageMode && input.trim()) {
       try {
         setIsUploading(true);
-        toast.info(language === 'hi' ? 'Image बन रही है... कृपया प्रतीक्षा करें' : 'Generating image... please wait');
+        const hasUploadedImage = !!uploadedImage;
+        toast.info(language === 'hi' 
+          ? (hasUploadedImage ? 'Image edit हो रही है... कृपया प्रतीक्षा करें' : 'Image बन रही है... कृपया प्रतीक्षा करें')
+          : (hasUploadedImage ? 'Editing image... please wait' : 'Generating image... please wait')
+        );
+        
+        // Pass uploaded image for editing, or just prompt for generation
         const { data, error } = await supabase.functions.invoke('generate-image', {
-          body: { prompt: input.trim() }
+          body: { 
+            prompt: input.trim(),
+            imageBase64: uploadedImage || undefined
+          }
         });
         if (error) throw error;
         if (!data?.imageUrl) throw new Error('Image generation failed');
@@ -69,8 +78,12 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
         });
         
         onSend(input.trim(), data.imageUrl, true);
-        toast.success(language === 'hi' ? 'Image सफलतापूर्वक बन गई!' : 'Image generated successfully!');
+        toast.success(language === 'hi' 
+          ? (hasUploadedImage ? 'Image edit हो गई!' : 'Image सफलतापूर्वक बन गई!')
+          : (hasUploadedImage ? 'Image edited successfully!' : 'Image generated successfully!')
+        );
         setInput('');
+        setUploadedImage(null);
         setIsImageMode(false);
       } catch (error: any) {
         console.error('Error generating image:', error);
