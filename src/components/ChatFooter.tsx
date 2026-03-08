@@ -456,15 +456,15 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Mic button */}
+              {/* Mic button - primary position */}
               <Button
                 onClick={toggleListening}
                 variant="ghost"
                 size="icon"
                 disabled={isLoading || isDisabled || isTranscribing}
-                className={`h-9 w-9 rounded-full transition-all duration-200 ${
+                className={`h-10 w-10 rounded-full transition-all duration-200 ${
                   isListening 
-                    ? 'bg-destructive/10 text-destructive hover:bg-destructive/20 animate-pulse' 
+                    ? 'bg-destructive/10 text-destructive hover:bg-destructive/20 animate-pulse ring-2 ring-destructive/30' 
                     : isTranscribing
                     ? 'bg-accent text-accent-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -474,16 +474,11 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
                 {isTranscribing ? (
                   <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
                 ) : isListening ? (
-                  <MicOff className="h-4 w-4" />
+                  <MicOff className="h-5 w-5" />
                 ) : (
-                  <Mic className="h-4 w-4" />
+                  <Mic className="h-5 w-5" />
                 )}
               </Button>
-
-              {/* Fast badge */}
-              <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-full select-none">
-                Fast
-              </div>
 
               {/* Send button */}
               <Button
