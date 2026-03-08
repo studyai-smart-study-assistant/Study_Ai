@@ -106,7 +106,7 @@ export const QuizResultsView: React.FC<QuizResultsViewProps> = ({
             </Button>
           )}
 
-
+          {result.wrongAnswers.length > 0 && (
             <div className="space-y-4 mb-6">
               <h3 className="text-base sm:text-lg font-semibold text-red-700 dark:text-red-400 flex items-center gap-2">
                 <XCircle className="h-4 w-4 sm:h-5 sm:w-5" />
