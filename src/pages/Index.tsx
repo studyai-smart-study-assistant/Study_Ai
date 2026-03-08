@@ -369,7 +369,7 @@ const Index = () => {
                     <div className="grid grid-cols-2 gap-3 w-full mb-8">
                       <Link to="/notes-creator" className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors">
                         <FileText className="w-5 h-5 text-primary" />
-                        <span className="text-sm font-medium">Notes Creator</span>
+                        <span className="text-sm font-medium">Notes Generator</span>
                       </Link>
                       <Link to="/quiz-generator" className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors">
                         <BookOpen className="w-5 h-5 text-primary" />
@@ -377,7 +377,7 @@ const Index = () => {
                       </Link>
                       <Link to="/teacher-chats" className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors">
                         <GraduationCap className="w-5 h-5 text-primary" />
-                        <span className="text-sm font-medium">AI Teacher Mode</span>
+                        <span className="text-sm font-medium">AI Teacher</span>
                       </Link>
                       <Link to="/leaderboard" className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors">
                         <Trophy className="w-5 h-5 text-primary" />
@@ -387,19 +387,26 @@ const Index = () => {
 
                     {/* Example Prompts */}
                     <div className="w-full space-y-2 mb-6">
-                      <p className="text-xs text-muted-foreground font-medium px-1">Try asking:</p>
+                      <p className="text-xs text-muted-foreground font-medium px-1">Try these:</p>
                       {[
-                        "Explain photosynthesis in simple words",
-                        "Make notes on Indian Constitution",
-                        "What is Newton's second law of motion?",
-                        "Solve: 2x + 5 = 15"
-                      ].map((prompt) => (
+                        { text: "Create notes on any topic", path: "/notes-creator" },
+                        { text: "Generate a quiz on any subject", path: "/quiz-generator" },
+                        { text: "Get advice from AI Teacher", path: "/teacher-chats" },
+                        { text: "Ask me anything — Math, Science, History...", path: null }
+                      ].map((item) => (
                         <button
-                          key={prompt}
-                          onClick={() => { setInputMessage(prompt); inputRef.current?.focus(); }}
+                          key={item.text}
+                          onClick={() => {
+                            if (item.path) {
+                              navigate(item.path);
+                            } else {
+                              setInputMessage(item.text);
+                              inputRef.current?.focus();
+                            }
+                          }}
                           className="w-full text-left px-4 py-3 rounded-xl border border-border bg-card hover:bg-secondary/50 text-sm text-muted-foreground hover:text-foreground transition-colors"
                         >
-                          {prompt}
+                          {item.text}
                         </button>
                       ))}
                     </div>
