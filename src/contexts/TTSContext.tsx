@@ -17,10 +17,11 @@ interface TTSContextType {
 
 const TTSContext = createContext<TTSContextType | undefined>(undefined);
 
-const chunkText = (text: string, maxLength = 500): string[] => {
+const chunkText = (text: string, maxLength = 400): string[] => {
   if (text.length <= maxLength) return [text];
   const chunks: string[] = [];
   let currentChunk = "";
+  // Split on sentence endings
   const parts = text.split(/([.!?।]+(?:\s|$))/g);
   for (const part of parts) {
     if (currentChunk.length + part.length > maxLength) {
@@ -31,6 +32,7 @@ const chunkText = (text: string, maxLength = 500): string[] => {
     }
   }
   if (currentChunk.trim()) chunks.push(currentChunk.trim());
+  // Further split any chunks still over limit
   const finalChunks: string[] = [];
   for (const chunk of chunks) {
     if (chunk.length > maxLength) {
@@ -50,6 +52,36 @@ const chunkText = (text: string, maxLength = 500): string[] => {
   }
   return finalChunks.filter(Boolean);
 };
+
+// Retry a single chunk with exponential backoff
+async function fetchChunkWithRetry(
+  chunk: string, language: string, voice: string, signal: AbortSignal, retries = 2
+): Promise<Blob> {
+  let lastError: Error | null = null;
+  for (let i = 0; i <= retries; i++) {
+    if (signal.aborted) throw new Error('cancelled');
+    try {
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: chunk, language, voice },
+      });
+      if (error) throw new Error(error.message || 'TTS API error');
+      if (!data?.audioContent) throw new Error('No audio content');
+      
+      const binaryStr = atob(data.audioContent);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let j = 0; j < binaryStr.length; j++) bytes[j] = binaryStr.charCodeAt(j);
+      return new Blob([bytes.buffer], { type: 'audio/mpeg' });
+    } catch (err: any) {
+      lastError = err;
+      if (err.message.includes('cancelled')) throw err;
+      if (i < retries) {
+        console.warn(`TTS chunk retry ${i + 1}: ${err.message}`);
+        await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+      }
+    }
+  }
+  throw lastError || new Error('TTS chunk failed');
+}
 
 export const TTSProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState({
@@ -117,14 +149,8 @@ export const TTSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       for (const chunk of textChunks) {
         if (signal.aborted) throw new Error('cancelled');
-        const { data, error } = await supabase.functions.invoke('text-to-speech', {
-          body: { text: chunk, language, voice: prefs.voice },
-        });
-        if (error || !data.audioContent) throw new Error(`API failed: ${error?.message || 'No audio'}`);
-        const binaryStr = atob(data.audioContent);
-        const bytes = new Uint8Array(binaryStr.length);
-        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
-        audioBlobs.push(new Blob([bytes.buffer], { type: 'audio/mpeg' }));
+        const blob = await fetchChunkWithRetry(chunk, language, prefs.voice, signal);
+        audioBlobs.push(blob);
       }
 
       if (signal.aborted) throw new Error('cancelled');
@@ -142,7 +168,8 @@ export const TTSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setState(s => ({ ...s, isGenerating: false }));
         setCurrentText('');
       } else {
-        toast.warning("External TTS failed. Using browser voice.", { duration: 3000 });
+        console.error('Sarvam TTS failed, falling back to browser:', error.message);
+        toast.warning("AI Voice failed. Using browser voice.", { duration: 3000 });
         playWithWebSpeechAPI(text, language);
       }
     }
