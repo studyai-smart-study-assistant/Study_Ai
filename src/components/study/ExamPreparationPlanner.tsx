@@ -201,7 +201,7 @@ const ExamPreparationPlanner: React.FC<ExamPreparationPlannerProps> = ({ onSendM
       const prompt = buildExamPreparationPrompt(examDetails, preferences);
       
       // ✅ मॉडल नाम अपडेट किया गया: google/gemini-2.5-flash
-      const response = await generateResponse(prompt, [], undefined, 'google/gemini-2.5-flash');
+      const response = await generateResponse(prompt, [], undefined, 'google/gemini-3-flash-preview');
       
       clearInterval(progressInterval);
       setPlanProgress(100);

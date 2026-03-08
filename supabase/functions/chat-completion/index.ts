@@ -90,34 +90,44 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
   if (options?.modalities) payload.modalities = options.modalities;
 
   for (let attempt = 0; attempt < keys.length; attempt++) {
+    // Add delay between retries to avoid simultaneous rate limits
+    if (attempt > 0) {
+      await new Promise(r => setTimeout(r, 500 * attempt));
+    }
     const apiKey = getNextGoogleApiKey();
     const keyLabel = `GOOGLE_KEY_${(_keyIndex) % keys.length}`;
     const start = Date.now();
 
-    const response = await fetch(GOOGLE_NATIVE_URL, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    try {
+      const response = await fetch(GOOGLE_NATIVE_URL, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-    if (response.ok) {
-      console.log(`✅ Google Native API success (${keyLabel})`);
-      logApiUsage('google-gemini', keyLabel, 'success', undefined, Date.now() - start);
-      return response;
-    }
+      if (response.ok) {
+        console.log(`✅ Google Native API success (${keyLabel})`);
+        logApiUsage('google-gemini', keyLabel, 'success', undefined, Date.now() - start);
+        return response;
+      }
 
-    const status = response.status;
-    if (status === 429 || status === 403) {
-      logApiUsage('google-gemini', keyLabel, 'rate_limited', String(status), Date.now() - start);
-      console.warn(`⚠️ Google API ${status} on ${keyLabel}, rotating to next key...`);
-      try { await response.text(); } catch {}
+      const status = response.status;
+      if (status === 429 || status === 403) {
+        logApiUsage('google-gemini', keyLabel, 'rate_limited', String(status), Date.now() - start);
+        console.warn(`⚠️ Google API ${status} on ${keyLabel}, rotating to next key...`);
+        try { await response.text(); } catch {}
+        continue;
+      }
+
+      const errText = await response.text();
+      logApiUsage('google-gemini', keyLabel, 'error', String(status), Date.now() - start);
+      console.error(`❌ Google Native API error (${keyLabel}):`, status, errText);
+      throw new Error(`Google API error: ${status}`);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message.startsWith('Google API error')) throw e;
+      console.warn(`⚠️ Google API network error on ${keyLabel}:`, e);
       continue;
     }
-
-    const errText = await response.text();
-    logApiUsage('google-gemini', keyLabel, 'error', String(status), Date.now() - start);
-    console.error(`❌ Google Native API error (${keyLabel}):`, status, errText);
-    throw new Error(`Google API error: ${status}`);
   }
 
   throw new Error('All Google API keys exhausted (rate limited)');
