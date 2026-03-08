@@ -129,10 +129,8 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
         return;
       }
 
-      if (data?.model) {
-        setLiveModel(data.model);
-        console.log('Using live model from API key:', data.model);
-      }
+      const selectedLiveModel = data?.model || liveModel;
+      setLiveModel(selectedLiveModel);
 
       const ws = new WebSocket(`${GEMINI_WS_URL}?key=${data.apiKey}`);
       wsRef.current = ws;
