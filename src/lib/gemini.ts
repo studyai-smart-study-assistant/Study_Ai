@@ -68,7 +68,7 @@ export interface WebSearchSource {
   url: string;
 }
 
-export interface GenerateResponseResult {
+export interface GenerateResponseWithSearchResult {
   text: string;
   sources: WebSearchSource[];
   webSearchUsed: boolean;
@@ -103,13 +103,29 @@ async function performWebSearch(query: string, forceSearch: boolean): Promise<{
   }
 }
 
+/**
+ * Original generateResponse - returns string (backward compatible)
+ */
 export async function generateResponse(
+  prompt: string,
+  history: Message[] = [],
+  chatId?: string,
+  model: string = 'google/gemini-2.5-flash'
+): Promise<string> {
+  const result = await generateResponseWithSearch(prompt, history, chatId, model, false);
+  return result.text;
+}
+
+/**
+ * Enhanced generateResponse with web search support - returns full result object
+ */
+export async function generateResponseWithSearch(
   prompt: string,
   history: Message[] = [],
   chatId?: string,
   model: string = 'google/gemini-2.5-flash',
   enableWebSearch: boolean = false
-): Promise<GenerateResponseResult> {
+): Promise<GenerateResponseWithSearchResult> {
   try {
     console.log(`🚀 Study AI: Calling AI Gateway with model:`, model, `webSearch:`, enableWebSearch);
 
@@ -147,7 +163,6 @@ export async function generateResponse(
       }))
     ];
 
-    // Step 2: Call AI with optional web search context
     const data = await invokeChatCompletion({
       prompt: sanitizeForAI(prompt),
       history: formattedHistory,
@@ -201,6 +216,5 @@ export async function generateStudyPlan(
     prompt = `Study AI टीचर (अजीत कुमार द्वारा विकसित) के रूप में, मेरी ${examName} परीक्षा (${examDate}) के लिए एक विस्तृत स्टडी प्लान तैयार करें। विषय: ${subjects}। समय: रोजाना ${dailyHours} घंटे। ${isBiharBoard ? "ध्यान दें: यह बिहार बोर्ड के लिए है, 50% ऑब्जेक्टिव पैटर्न और नो नेगेटिव मार्किंग के हिसाब से रणनीति बनाएं।" : ""}`;
   }
 
-  const result = await generateResponse(prompt, [], undefined, 'google/gemini-3.1-pro-preview', true);
-  return result.text;
+  return await generateResponse(prompt, [], undefined, 'google/gemini-3.1-pro-preview');
 }
