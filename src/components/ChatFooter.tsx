@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal, X, Plus, Upload, Sparkles } from "lucide-react";
+import { SendHorizonal, X, Plus, Upload, Sparkles, Globe } from "lucide-react";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from "@/integrations/supabase/client";
@@ -18,9 +18,11 @@ interface ChatFooterProps {
   onSend: (message: string, imageUrl?: string, skipAIResponse?: boolean) => void;
   isLoading: boolean;
   isDisabled?: boolean;
+  webSearchEnabled?: boolean;
+  onWebSearchToggle?: (enabled: boolean) => void;
 }
 
-const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled = false }) => {
+const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled = false, webSearchEnabled = false, onWebSearchToggle }) => {
   const [input, setInput] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -313,6 +315,22 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
                         <p className="text-xs text-gray-500 dark:text-gray-400">AI से image बनाएं</p>
                       </div>
                     </button>
+                    {onWebSearchToggle && (
+                      <button
+                        onClick={() => { onWebSearchToggle(!webSearchEnabled); setIsMenuOpen(false); }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors text-left"
+                      >
+                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${webSearchEnabled ? 'bg-gradient-to-br from-emerald-500 to-teal-500' : 'bg-gray-200 dark:bg-gray-700'}`}>
+                          <Globe className={`h-4 w-4 ${webSearchEnabled ? 'text-white' : 'text-gray-500 dark:text-gray-400'}`} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                            Web Search {webSearchEnabled ? '(ON)' : '(OFF)'}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">रियल-टाइम वेब सर्च</p>
+                        </div>
+                      </button>
+                    )}
                   </div>
                 </PopoverContent>
               </Popover>

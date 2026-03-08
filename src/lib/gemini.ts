@@ -23,6 +23,8 @@ const invokeChatCompletion = async (payload: {
   prompt: string;
   history: Array<{ role: string; content: string }>;
   model: string;
+  webSearchContext?: string | null;
+  webSearchSources?: Array<{ title: string; url: string }>;
 }) => {
   const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   const { data: { session } } = await supabase.auth.getSession();
@@ -61,14 +63,85 @@ const invokeChatCompletion = async (payload: {
   throw new Error(lastError?.message || "Edge function unreachable via proxy/direct route");
 };
 
+export interface WebSearchSource {
+  title: string;
+  url: string;
+}
+
+export interface GenerateResponseWithSearchResult {
+  text: string;
+  sources: WebSearchSource[];
+  webSearchUsed: boolean;
+}
+
+/**
+ * Perform web search via Tavily
+ */
+async function performWebSearch(query: string, forceSearch: boolean): Promise<{
+  searchContext: string | null;
+  sources: WebSearchSource[];
+  shouldSearch: boolean;
+}> {
+  try {
+    const { data, error } = await supabase.functions.invoke('web-search', {
+      body: { query, forceSearch }
+    });
+
+    if (error) {
+      console.warn('⚠️ Web search failed, continuing without:', error);
+      return { searchContext: null, sources: [], shouldSearch: false };
+    }
+
+    return {
+      searchContext: data?.searchContext || null,
+      sources: data?.sources || [],
+      shouldSearch: data?.shouldSearch || false,
+    };
+  } catch (err) {
+    console.warn('⚠️ Web search error, continuing without:', err);
+    return { searchContext: null, sources: [], shouldSearch: false };
+  }
+}
+
+/**
+ * Original generateResponse - returns string (backward compatible)
+ */
 export async function generateResponse(
   prompt: string,
   history: Message[] = [],
   chatId?: string,
   model: string = 'google/gemini-2.5-flash'
 ): Promise<string> {
+  const result = await generateResponseWithSearch(prompt, history, chatId, model, false);
+  return result.text;
+}
+
+/**
+ * Enhanced generateResponse with web search support - returns full result object
+ */
+export async function generateResponseWithSearch(
+  prompt: string,
+  history: Message[] = [],
+  chatId?: string,
+  model: string = 'google/gemini-2.5-flash',
+  enableWebSearch: boolean = false
+): Promise<GenerateResponseWithSearchResult> {
   try {
-    console.log(`🚀 Study AI: Calling AI Gateway with model:`, model);
+    console.log(`🚀 Study AI: Calling AI Gateway with model:`, model, `webSearch:`, enableWebSearch);
+
+    // Step 1: Optionally perform web search
+    let searchContext: string | null = null;
+    let sources: WebSearchSource[] = [];
+
+    if (enableWebSearch) {
+      const searchResult = await performWebSearch(prompt, true);
+      searchContext = searchResult.searchContext;
+      sources = searchResult.sources;
+      
+      if (searchResult.shouldSearch) {
+        toast.info('🔍 वेब से जानकारी खोज रहा हूँ...', { duration: 2000 });
+      }
+    }
 
     const sanitizeForAI = (text: string) => {
       return (text || "")
@@ -94,6 +167,8 @@ export async function generateResponse(
       prompt: sanitizeForAI(prompt),
       history: formattedHistory,
       model,
+      webSearchContext: searchContext,
+      webSearchSources: sources,
     });
 
     if (data?.error) {
@@ -103,13 +178,20 @@ export async function generateResponse(
     const responseText = data.response;
     if (!responseText) throw new Error("AI ने कोई जवाब नहीं दिया।");
 
-    toast.success(`✨ Study AI: जवाब तैयार है`, { duration: 2000 });
+    const responseSources = data.sources || sources;
+    const webSearchUsed = data.webSearchUsed || false;
+
+    if (webSearchUsed) {
+      toast.success(`🌐 वेब सर्च के साथ जवाब तैयार है`, { duration: 2000 });
+    } else {
+      toast.success(`✨ Study AI: जवाब तैयार है`, { duration: 2000 });
+    }
 
     if (chatId) {
       await chatDB.addMessage(chatId, responseText, "bot");
     }
 
-    return responseText;
+    return { text: responseText, sources: responseSources, webSearchUsed };
   } catch (error: any) {
     console.error("❌ AI Request failed:", error);
     const errorMessage = error.message || "AI service से जवाब पाने में विफलता।";
