@@ -1,73 +1,223 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Plus, MessageCircle } from 'lucide-react';
-import { toast } from "sonner";
 import { useAuth } from '@/hooks/useAuth';
-import GroupChatModal from '@/components/chat/GroupChatModal';
-import ChatInterface from '@/components/chat/ChatInterface';
-import GroupAvatar from '@/components/chat/GroupAvatar';
-import { getUserChats, getUserGroups } from '@/lib/supabase/chat-functions';
-import { Chat } from '@/types/chat';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import ProfilePopover from '@/components/profile/ProfilePopover';
+import { toast } from 'sonner';
+import CampusTalkHeader from '@/components/campus-talk/CampusTalkHeader';
+import CampusTalkChatList from '@/components/campus-talk/CampusTalkChatList';
+import CampusTalkBottomNav from '@/components/campus-talk/CampusTalkBottomNav';
+import CampusTalkUsersList from '@/components/campus-talk/CampusTalkUsersList';
+import CampusTalkConversation from '@/components/campus-talk/CampusTalkConversation';
+
+export interface CampusChatItem {
+  chatId: string;
+  partnerUid: string;
+  partnerName: string;
+  partnerAvatar?: string | null;
+  lastMessage?: string;
+  lastMessageTime?: string | null;
+  unread?: number;
+}
 
 const ChatSystem = () => {
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
-  const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
-  const [profiles, setProfiles] = useState<Record<string, any>>({});
   const { currentUser } = useAuth();
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<'chats' | 'users' | 'groups'>('chats');
+  const [chatList, setChatList] = useState<CampusChatItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedChat, setSelectedChat] = useState<CampusChatItem | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
+  // Handle navigation state (from leaderboard chat button)
   useEffect(() => {
-    const loadChats = async () => {
-      if (!currentUser) { setChats([]); setIsLoading(false); return; }
-      try {
-        const userChats = await getUserChats(currentUser.uid);
-        const groupChats = await getUserGroups(currentUser.uid);
-        const allChats: Chat[] = [...userChats.map(c => ({...c, type: "user" as const})), ...groupChats.map(c => ({...c, type: "group" as const}))];
-        allChats.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-        setChats(allChats);
-      } catch { toast.error("Failed to load chats"); setChats([]); }
-      finally { setIsLoading(false); }
-    };
+    const state = location.state as any;
+    if (state?.selectedChatId && state?.partnerId) {
+      setSelectedChat({
+        chatId: state.selectedChatId,
+        partnerUid: state.partnerId,
+        partnerName: state.partnerName || 'User',
+      });
+    }
+  }, [location.state]);
+
+  // Load user's existing chats
+  useEffect(() => {
+    if (!currentUser) return;
     loadChats();
+
+    // Realtime subscription for new messages
+    const channel = supabase
+      .channel('campus-chat-list')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'campus_messages',
+      }, () => {
+        loadChats();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [currentUser]);
 
-  const handleCreateGroup = async (groupId: string) => {
-    const groupChats = await getUserGroups(currentUser!.uid);
-    const newGroup = groupChats.find(g => g.id === groupId);
-    if (newGroup) { setChats(prev => [{...newGroup, type: "group" as const}, ...prev]); setSelectedChat({...newGroup, type: "group"}); toast.success("Group created!"); }
+  const loadChats = async () => {
+    if (!currentUser) return;
+    try {
+      // Get all chats where current user is participant
+      const { data: chats, error } = await supabase
+        .from('campus_chats')
+        .select('*')
+        .or(`participant1_uid.eq.${currentUser.uid},participant2_uid.eq.${currentUser.uid}`)
+        .order('last_message_at', { ascending: false, nullsFirst: false });
+
+      if (error) throw error;
+
+      if (!chats || chats.length === 0) {
+        setChatList([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Get partner UIDs
+      const partnerUids = chats.map(c => 
+        c.participant1_uid === currentUser.uid ? c.participant2_uid : c.participant1_uid
+      );
+
+      // Fetch partner profiles
+      const { data: profiles } = await supabase
+        .from('campus_users')
+        .select('firebase_uid, display_name, avatar_url')
+        .in('firebase_uid', partnerUids);
+
+      // Fetch last message for each chat
+      const chatItems: CampusChatItem[] = await Promise.all(
+        chats.map(async (chat) => {
+          const partnerUid = chat.participant1_uid === currentUser.uid 
+            ? chat.participant2_uid 
+            : chat.participant1_uid;
+          
+          const profile = profiles?.find(p => p.firebase_uid === partnerUid);
+
+          const { data: lastMsg } = await supabase
+            .from('campus_messages')
+            .select('text_content, message_type, created_at')
+            .eq('chat_id', chat.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          let lastMessage = 'No messages yet';
+          if (lastMsg) {
+            if (lastMsg.message_type === 'image') lastMessage = '📷 Photo';
+            else lastMessage = lastMsg.text_content || '';
+          }
+
+          return {
+            chatId: chat.id,
+            partnerUid,
+            partnerName: profile?.display_name || partnerUid.slice(0, 8),
+            partnerAvatar: profile?.avatar_url,
+            lastMessage,
+            lastMessageTime: lastMsg?.created_at || chat.last_message_at,
+          };
+        })
+      );
+
+      setChatList(chatItems);
+    } catch (err) {
+      console.error('Error loading chats:', err);
+      toast.error('चैट लोड करने में समस्या');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleNewChat = () => {
-    setSelectedChat(null);
+  const handleStartChat = async (targetUid: string, targetName: string, targetAvatar?: string | null) => {
+    if (!currentUser) return;
+
+    try {
+      // Check for existing chat
+      const { data: existing } = await supabase
+        .from('campus_chats')
+        .select('*')
+        .or(`and(participant1_uid.eq.${currentUser.uid},participant2_uid.eq.${targetUid}),and(participant1_uid.eq.${targetUid},participant2_uid.eq.${currentUser.uid})`)
+        .maybeSingle();
+
+      if (existing) {
+        setSelectedChat({
+          chatId: existing.id,
+          partnerUid: targetUid,
+          partnerName: targetName,
+          partnerAvatar: targetAvatar,
+        });
+        return;
+      }
+
+      // Create new chat
+      const { data: newChat, error } = await supabase
+        .from('campus_chats')
+        .insert({
+          participant1_uid: currentUser.uid,
+          participant2_uid: targetUid,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setSelectedChat({
+        chatId: newChat.id,
+        partnerUid: targetUid,
+        partnerName: targetName,
+        partnerAvatar: targetAvatar,
+      });
+
+      loadChats();
+    } catch (err) {
+      console.error('Error starting chat:', err);
+      toast.error('चैट शुरू करने में समस्या');
+    }
   };
 
-  if (selectedChat) return <div className="h-[calc(100vh-56px)]"><ChatInterface recipientId={selectedChat.partnerId || selectedChat.id} chatId={selectedChat.id} isGroup={selectedChat.type === 'group'} onBack={() => setSelectedChat(null)} onNewChat={handleNewChat} /></div>;
+  // If a chat is selected, show conversation
+  if (selectedChat) {
+    return (
+      <CampusTalkConversation
+        chatId={selectedChat.chatId}
+        partnerUid={selectedChat.partnerUid}
+        partnerName={selectedChat.partnerName}
+        partnerAvatar={selectedChat.partnerAvatar}
+        onBack={() => { setSelectedChat(null); loadChats(); }}
+      />
+    );
+  }
 
   return (
-    <div className="container py-4 max-w-3xl mx-auto">
-      <Card className="border border-purple-200 shadow-lg">
-        <CardHeader className="flex flex-row items-center justify-between pb-2 bg-gradient-to-r from-purple-50 to-indigo-50"><div><CardTitle className="text-2xl bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">Messages</CardTitle><CardDescription>Your conversations</CardDescription></div><Button onClick={() => setIsCreateGroupOpen(true)} className="bg-gradient-to-r from-purple-500 to-indigo-600"><Plus className="h-4 w-4 mr-2" />New Group</Button></CardHeader>
-        <CardContent className="p-0">
-          {isLoading ? <div className="flex justify-center py-12"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full" /></div> : chats.length > 0 ? (
-            <div className="divide-y">
-              {chats.map((chat) => (
-                <div key={chat.id} className="py-4 px-6 flex items-center space-x-4 cursor-pointer hover:bg-purple-50 transition-all" onClick={() => setSelectedChat(chat)}>
-                  {chat.type === 'group' ? <GroupAvatar groupName={chat.name} size="md" /> : <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center text-white font-bold text-lg"><MessageCircle className="h-6 w-6" /></div>}
-                  <div className="flex-1"><h3 className="font-semibold">{chat.name}</h3><p className="text-sm text-gray-500 truncate">{chat.lastMessage || 'No messages yet'}</p></div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-16 px-6"><GroupAvatar groupName="Chat" size="xl" className="mx-auto mb-6" /><h3 className="text-xl font-semibold mb-2">No conversations yet</h3><Button onClick={() => setIsCreateGroupOpen(true)} className="bg-gradient-to-r from-purple-500 to-indigo-600"><Plus className="h-4 w-4 mr-2" />Create Your First Group</Button></div>
-          )}
-        </CardContent>
-      </Card>
-      <GroupChatModal isOpen={isCreateGroupOpen} onClose={() => setIsCreateGroupOpen(false)} onGroupCreated={handleCreateGroup} />
+    <div className="flex flex-col h-[100dvh] bg-background">
+      <CampusTalkHeader 
+        searchQuery={searchQuery} 
+        onSearchChange={setSearchQuery} 
+      />
+
+      <div className="flex-1 overflow-y-auto pb-16">
+        {activeTab === 'chats' && (
+          <CampusTalkChatList
+            chats={chatList}
+            isLoading={isLoading}
+            searchQuery={searchQuery}
+            onSelectChat={(chat) => setSelectedChat(chat)}
+          />
+        )}
+        {activeTab === 'users' && (
+          <CampusTalkUsersList
+            onStartChat={handleStartChat}
+            searchQuery={searchQuery}
+          />
+        )}
+      </div>
+
+      <CampusTalkBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   );
 };
