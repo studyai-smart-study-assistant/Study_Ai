@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Activity, AlertTriangle, Clock, Key, RefreshCw, ArrowLeft, Zap, XCircle, CheckCircle } from 'lucide-react';
+import { Shield, Activity, AlertTriangle, Clock, Key, RefreshCw, ArrowLeft, Zap, XCircle, CheckCircle, Users } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import AdminUsersTab from '@/components/admin/AdminUsersTab';
 
 interface ServiceStat {
   total: number;
@@ -197,8 +198,9 @@ const AdminDashboard = () => {
       </div>
 
       <Tabs defaultValue="overview">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="users" className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> Users</TabsTrigger>
           <TabsTrigger value="keys">Key Usage</TabsTrigger>
           <TabsTrigger value="logs">Recent Logs</TabsTrigger>
         </TabsList>
@@ -271,6 +273,10 @@ const AdminDashboard = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="users" className="mt-4">
+          <AdminUsersTab />
         </TabsContent>
 
         <TabsContent value="keys" className="mt-4 space-y-4">
