@@ -468,6 +468,21 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
         const quizContent = await generateQuizContent(args.topic, args.num_questions || 5, args.difficulty || 'medium', model);
         return jsonResponse({ response: quizContent, model, toolUsed: 'generate_quiz', sources: [], webSearchUsed: false, thinking });
       }
+
+      // ── Memory Extraction ──
+      if (toolName === 'extract_memory' && userId) {
+        await saveMemories(userId, args.memories || []);
+        // Continue to generate a normal response after saving
+        const step2Messages = [
+          ...messages,
+          choice.message,
+          { role: 'tool', tool_call_id: toolCall.id, content: 'Memories saved successfully.' }
+        ];
+        const step2Response = await callAI({ model, messages: step2Messages, temperature: 0.8, max_tokens: 8000 });
+        const step2Data = await step2Response.json();
+        const finalText = step2Data?.choices?.[0]?.message?.content || 'जानकारी याद रख ली! 🧠';
+        return jsonResponse({ response: finalText, model, sources: [], webSearchUsed: false, toolUsed: 'extract_memory', thinking: `🧠 यूजर की ${args.memories?.length || 0} ज़रूरी जानकारी Mind Vault में save कर रहा हूँ` });
+      }
     }
 
     // ── No tool call — direct answer (normal conversation) ──
