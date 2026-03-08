@@ -563,8 +563,8 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
       }
 
       // ── Memory Extraction ──
-      if (toolName === 'extract_memory' && userId) {
-        await saveMemories(userId, args.memories || []);
+      if (toolName === 'extract_memory' && authenticatedUserId) {
+        await saveMemories(adminClient, authenticatedUserId, args.memories || []);
         // Continue to generate a normal response after saving
         const step2Messages = [
           ...messages,
@@ -581,10 +581,10 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
     // ── No tool call — direct answer (normal conversation) ──
     const directText = choice?.message?.content;
     if (!directText) throw new Error('Response content missing');
-    
+
     // ── Background Memory Extraction for logged-in users ──
-    if (userId && prompt) {
-      backgroundExtractMemories(userId, prompt, model).catch(e => console.warn('⚠️ Background memory extraction failed:', e));
+    if (authenticatedUserId && prompt) {
+      backgroundExtractMemories(adminClient, authenticatedUserId, prompt, model).catch(e => console.warn('⚠️ Background memory extraction failed:', e));
     }
     
     // Normal conversation — no thinking badge needed
