@@ -6,15 +6,10 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: "/", // Explicitly set the base path
+  base: "/",
   server: {
-   host: "0.0.0.0",
-   port: 9000,
-   hmr: {
-     protocol: 'wss',
-     host: '9000-firebase-studyai-1772675251327.cluster-cz5nqyh5nreq6ua6gaqd7okl7o.cloudworkstations.dev',
-     clientPort: 443
-   }
+    host: "0.0.0.0",
+    port: 9000,
   },
   plugins: [
     react(),
@@ -24,7 +19,12 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "react": path.resolve(__dirname, "node_modules/react"),
+      "react-dom": path.resolve(__dirname, "node_modules/react-dom"),
     },
-    dedupe: ["react", "react-dom"],
+    dedupe: ["react", "react-dom", "react/jsx-runtime"],
+  },
+  optimizeDeps: {
+    include: ["react", "react-dom"],
   },
 }));
