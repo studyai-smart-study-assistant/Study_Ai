@@ -351,23 +351,47 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, history = [], model = 'google/gemini-3-flash-preview', forceWebSearch = false, webSearchContext, webSearchSources, imageBase64, userId } = await req.json();
-    
-    console.log('📥 Request:', { promptLength: prompt?.length, model, forceWebSearch, hasImage: !!imageBase64, userId: userId?.substring(0, 8) });
+    const { prompt, history = [], model = 'google/gemini-3-flash-preview', forceWebSearch = false, webSearchContext, webSearchSources, imageBase64 } = await req.json();
 
-    // ── Fetch user memories from Mind Vault ──
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const authHeader = req.headers.get('Authorization') ?? '';
+
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: authHeader ? { Authorization: authHeader } : {} },
+    });
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: authData } = await userClient.auth.getUser();
+    const authenticatedUserId = authData?.user?.id;
+
+    console.log('📥 Request:', {
+      promptLength: prompt?.length,
+      model,
+      forceWebSearch,
+      hasImage: !!imageBase64,
+      authenticatedUser: authenticatedUserId ? authenticatedUserId.substring(0, 8) : null,
+    });
+
+    // ── Fetch user memories from Mind Vault (RLS-enforced read) ──
     let memoriesContext = '';
-    if (userId) {
+    if (authenticatedUserId) {
       try {
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const sb = createClient(supabaseUrl, supabaseKey);
-        const { data: memories } = await sb.from('user_memories').select('memory_key, memory_value, category').eq('user_id', userId).order('importance', { ascending: false }).limit(20);
+        const { data: memories } = await userClient
+          .from('user_memories')
+          .select('memory_key, memory_value, category')
+          .eq('user_id', authenticatedUserId)
+          .order('importance', { ascending: false })
+          .limit(20);
+
         if (memories?.length) {
           memoriesContext = `\n\n🧠 **Mind Vault — इस यूजर के बारे में याद रखें:**\n${memories.map(m => `- ${m.memory_key}: ${m.memory_value}`).join('\n')}`;
           console.log(`🧠 Loaded ${memories.length} memories for user`);
         }
-      } catch (e) { console.warn('⚠️ Failed to load memories:', e); }
+      } catch (e) {
+        console.warn('⚠️ Failed to load memories:', e);
+      }
     }
 
     const recentHistory = history.slice(-30).map((msg: { role: string; content: string }) => ({
