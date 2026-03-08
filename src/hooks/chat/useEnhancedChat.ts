@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { chatDB } from '@/lib/db';
-import { generateResponse } from '@/lib/gemini';
+import { generateResponse, generateResponseWithSearch, WebSearchSource } from '@/lib/gemini';
 import { toast } from "sonner";
 import { useAuth } from '@/hooks/useAuth';
 import { Message as MessageType } from '@/lib/db';
@@ -15,11 +15,14 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
   const [isResponding, setIsResponding] = useState(false);
   const [showLimitAlert, setShowLimitAlert] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'reconnecting' | 'disconnected'>('connected');
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [lastSources, setLastSources] = useState<WebSearchSource[]>([]);
   const { currentUser, messageLimitReached, setMessageLimitReached } = useAuth();
 
   useEffect(() => {
     if (chatId) {
       loadMessages();
+      setLastSources([]); // Reset sources on chat change
     }
   }, [chatId]);
 
@@ -30,7 +33,6 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
       if (chat) {
         setMessages(chat.messages || []);
         
-        // Update chat title if it's still the default
         if (chat.title === "New Chat" && chat.messages && chat.messages.length > 0) {
           const firstUserMessage = chat.messages.find(m => m.role === 'user');
           if (firstUserMessage) {
@@ -39,7 +41,6 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
           }
         }
         
-        // Check message limit for non-logged in users
         if (!currentUser && chat.messages && chat.messages.filter(m => m.role === 'user').length >= GUEST_MESSAGE_LIMIT) {
           setMessageLimitReached(true);
           setShowLimitAlert(true);
@@ -56,7 +57,6 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
   const enhancedSendMessage = useCallback(async (input: string, imageUrl?: string, skipAIResponse: boolean = false) => {
     if ((!input.trim() && !imageUrl) || isLoading || isResponding) return;
     
-    // Check if user has reached message limit
     if (!currentUser && messages.filter(m => m.role === 'user').length >= GUEST_MESSAGE_LIMIT) {
       setMessageLimitReached(true);
       setShowLimitAlert(true);
@@ -67,20 +67,16 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
       setIsLoading(true);
       setIsResponding(true);
       setConnectionStatus('connected');
+      setLastSources([]); // Clear previous sources
       
-      // Prepare message content
       let messageContent = input.trim();
       if (imageUrl) {
         messageContent = imageUrl ? `${messageContent}\n\n[Image: ${imageUrl}]` : `[Image: ${imageUrl}]`;
       }
       
-      // Add user message to local storage
       const userMessage = await chatDB.addMessage(chatId, messageContent, 'user');
-      
-      // Update local state
       setMessages((prev) => [...prev, userMessage]);
       
-      // Update chat title if it's the first message
       const chat = await chatDB.getChat(chatId);
       if (chat && chat.title === "New Chat") {
         const newTitle = input.trim().slice(0, 30) + (input.trim().length > 30 ? '...' : '');
@@ -89,26 +85,31 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
       
       if (onChatUpdated) onChatUpdated();
 
-      // Skip AI response if this is just an image message
       if (skipAIResponse) {
-        // Just add a simple bot acknowledgment for image
         await chatDB.addMessage(chatId, '✨ Image generated!', 'bot');
         await loadMessages();
       } else {
-        // Get current conversation history
         const currentChat = await chatDB.getChat(chatId);
         const chatHistory = currentChat?.messages || [];
         
-        // Use enhanced chat handler for better response management
         const userId = currentUser?.uid || 'guest';
         
         const result = await chatHandler.processQuery(
           messageContent,
           async (query: string) => {
             setConnectionStatus('reconnecting');
-            const response = await generateResponse(query, chatHistory, chatId);
-            setConnectionStatus('connected');
-            return response;
+            
+            if (webSearchEnabled) {
+              // Use web search enhanced response
+              const searchResult = await generateResponseWithSearch(query, chatHistory, chatId, 'google/gemini-2.5-flash', true);
+              setLastSources(searchResult.sources);
+              setConnectionStatus('connected');
+              return searchResult.text;
+            } else {
+              const response = await generateResponse(query, chatHistory, chatId);
+              setConnectionStatus('connected');
+              return response;
+            }
           },
           chatHistory.map(msg => ({
             sender: msg.role === 'user' ? 'user' : 'ai' as const,
@@ -118,28 +119,24 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
           userId
         );
         
-        // If this was a custom response, we need to store it manually
         if (result.source === 'custom') {
           await chatDB.addMessage(chatId, result.response, 'bot');
         }
         
-        // Refresh messages from storage to ensure we have the latest data
         await loadMessages();
       }
       
       if (onChatUpdated) onChatUpdated();
       
-      // Check if this message hits the limit
       if (!currentUser && messages.filter(m => m.role === 'user').length >= GUEST_MESSAGE_LIMIT - 1) {
         setMessageLimitReached(true);
         setShowLimitAlert(true);
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error);
       setConnectionStatus('disconnected');
       
-      // Enhanced error handling with specific messages
       let errorMessage = 'Failed to send message';
       
       if (error.message?.includes('Failed to fetch')) {
@@ -163,7 +160,7 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
       setIsLoading(false);
       setIsResponding(false);
     }
-  }, [chatId, currentUser, messages, isLoading, isResponding, onChatUpdated]);
+  }, [chatId, currentUser, messages, isLoading, isResponding, onChatUpdated, webSearchEnabled]);
 
   const sendMessage = enhancedSendMessage;
 
@@ -171,7 +168,6 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
     return chatHandler.getStats();
   }, []);
 
-  // Monitor connection status
   useEffect(() => {
     const handleOnline = () => setConnectionStatus('connected');
     const handleOffline = () => setConnectionStatus('disconnected');
@@ -196,6 +192,9 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
     enhancedSendMessage,
     messageLimitReached,
     connectionStatus,
-    getChatStats
+    getChatStats,
+    webSearchEnabled,
+    setWebSearchEnabled,
+    lastSources
   };
 };
