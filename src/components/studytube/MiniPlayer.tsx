@@ -1,14 +1,41 @@
-import React from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useMiniPlayer } from '@/contexts/MiniPlayerContext';
-import { X, Maximize2, Pause, Play } from 'lucide-react';
+import { X, Maximize2 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const MiniPlayer: React.FC = () => {
-  const { state, closePlayer, maximizePlayer, togglePlayPause } = useMiniPlayer();
+  const { state, closePlayer, maximizePlayer } = useMiniPlayer();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Don't show mini player if no video or if on StudyTube page and not minimized
+  // Drag state
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef<HTMLDivElement>(null);
+  const startPos = useRef({ x: 0, y: 0, elemX: 0, elemY: 0 });
+  const hasMoved = useRef(false);
+
+  // Reset position when video changes
+  useEffect(() => { setPos({ x: 0, y: 0 }); }, [state.video?.id?.videoId]);
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    setIsDragging(true);
+    hasMoved.current = false;
+    startPos.current = { x: e.clientX, y: e.clientY, elemX: pos.x, elemY: pos.y };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, [pos]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDragging) return;
+    const dx = e.clientX - startPos.current.x;
+    const dy = e.clientY - startPos.current.y;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved.current = true;
+    setPos({ x: startPos.current.elemX + dx, y: startPos.current.elemY + dy });
+  }, [isDragging]);
+
+  const onPointerUp = useCallback(() => { setIsDragging(false); }, []);
+
   if (!state.video) return null;
   if (location.pathname === '/study-tube' && !state.isMinimized) return null;
 
@@ -16,53 +43,46 @@ const MiniPlayer: React.FC = () => {
   const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1`;
 
   const handleMaximize = () => {
+    if (hasMoved.current) return;
     maximizePlayer();
-    if (location.pathname !== '/study-tube') {
-      navigate('/study-tube');
-    }
+    if (location.pathname !== '/study-tube') navigate('/study-tube');
   };
 
   return (
-    <div className="fixed bottom-16 right-2 left-2 sm:left-auto sm:right-4 sm:bottom-20 z-[60] animate-in slide-in-from-bottom-4 duration-300">
-      <div className="bg-black rounded-xl overflow-hidden shadow-2xl border border-gray-700/50 w-full sm:w-[360px]">
-        {/* Video */}
-        <div className="relative aspect-video w-full bg-black">
+    <div
+      ref={dragRef}
+      className="fixed z-[60] touch-none select-none"
+      style={{
+        bottom: `calc(4.5rem + ${-pos.y}px)`,
+        right: `calc(0.5rem + ${-pos.x}px)`,
+        cursor: isDragging ? 'grabbing' : 'grab',
+      }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+    >
+      <div className="bg-black rounded-lg overflow-hidden shadow-2xl border border-border/30 w-[200px] sm:w-[240px]">
+        {/* Tiny video */}
+        <div className="relative w-full h-[112px] sm:h-[135px] bg-black pointer-events-none">
           <iframe
             src={embedUrl}
             title={state.video.snippet.title}
             className="w-full h-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
           />
         </div>
 
-        {/* Controls bar */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-gray-900">
-          <div className="flex-1 min-w-0">
-            <p className="text-white text-xs font-medium truncate">
-              {state.video.snippet.title}
-            </p>
-            <p className="text-gray-400 text-[10px] truncate">
-              {state.video.snippet.channelTitle}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <button
-              onClick={handleMaximize}
-              className="p-1.5 rounded-full hover:bg-gray-700 transition-colors"
-              title="Maximize"
-            >
-              <Maximize2 className="h-4 w-4 text-white" />
-            </button>
-            <button
-              onClick={closePlayer}
-              className="p-1.5 rounded-full hover:bg-gray-700 transition-colors"
-              title="Close"
-            >
-              <X className="h-4 w-4 text-white" />
-            </button>
-          </div>
+        {/* Compact controls */}
+        <div className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-900">
+          <p className="flex-1 min-w-0 text-white text-[10px] font-medium truncate leading-tight">
+            {state.video.snippet.title}
+          </p>
+          <button onClick={handleMaximize} className="p-1 rounded-full hover:bg-gray-700 transition-colors flex-shrink-0">
+            <Maximize2 className="h-3 w-3 text-white" />
+          </button>
+          <button onClick={closePlayer} className="p-1 rounded-full hover:bg-gray-700 transition-colors flex-shrink-0">
+            <X className="h-3 w-3 text-white" />
+          </button>
         </div>
       </div>
     </div>
