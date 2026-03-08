@@ -3,8 +3,8 @@
  * Caches app shell and assets for instant loading
  */
 
-const CACHE_NAME = 'study-ai-v1';
-const RUNTIME_CACHE = 'study-ai-runtime';
+const CACHE_NAME = 'study-ai-v2';
+const RUNTIME_CACHE = 'study-ai-runtime-v2';
 
 // App shell files to cache immediately
 const PRECACHE_ASSETS = [
