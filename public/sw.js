@@ -44,6 +44,12 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (request.method !== 'GET') return;
 
+  // Never cache Vite optimized deps/chunks (prevents React runtime mismatch after updates)
+  if (url.pathname.includes('/node_modules/.vite/deps/') || url.searchParams.has('v')) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   // Skip API calls (network-first for data)
   if (url.pathname.startsWith('/api') || 
       url.hostname.includes('supabase') ||
@@ -51,7 +57,6 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          // Clone and cache successful responses
           if (response.ok) {
             const clone = response.clone();
             caches.open(RUNTIME_CACHE).then((cache) => {
@@ -65,11 +70,25 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets - cache-first
-  if (request.destination === 'script' ||
-      request.destination === 'style' ||
-      request.destination === 'image' ||
-      request.destination === 'font') {
+  // Static assets - network-first for scripts/styles to avoid stale JS, cache-first for images/fonts
+  if (request.destination === 'script' || request.destination === 'style') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(RUNTIME_CACHE).then((cache) => {
+              cache.put(request, clone);
+            });
+          }
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  if (request.destination === 'image' || request.destination === 'font') {
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) return cached;
