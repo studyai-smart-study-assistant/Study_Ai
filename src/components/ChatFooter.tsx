@@ -39,11 +39,60 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const silenceStartRef = useRef<number>(0);
+  const rafRef = useRef<number | null>(null);
+  const autoSendRef = useRef(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const isMobile = useIsMobile();
   const { language } = useLanguage();
   const { currentUser } = useAuth();
 
-  const stopRecording = async () => {
+  // Request mic permission on mount
+  useEffect(() => {
+    navigator.mediaDevices?.getUserMedia({ audio: true })
+      .then(stream => { stream.getTracks().forEach(t => t.stop()); })
+      .catch(() => {});
+  }, []);
+
+  const detectSilence = (stream: MediaStream) => {
+    const audioContext = new AudioContext();
+    audioCtxRef.current = audioContext;
+    const source = audioContext.createMediaStreamSource(stream);
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.3;
+    source.connect(analyser);
+    analyserRef.current = analyser;
+    silenceStartRef.current = 0;
+
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    const SILENCE_THRESHOLD = 15;
+    const SILENCE_DURATION = 2500; // 2.5s silence = auto stop
+
+    const check = () => {
+      if (!analyserRef.current) return;
+      analyser.getByteFrequencyData(dataArray);
+      const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+
+      if (avg < SILENCE_THRESHOLD) {
+        if (silenceStartRef.current === 0) silenceStartRef.current = Date.now();
+        else if (Date.now() - silenceStartRef.current > SILENCE_DURATION) {
+          autoSendRef.current = true;
+          stopRecording();
+          return;
+        }
+      } else {
+        silenceStartRef.current = 0;
+      }
+      rafRef.current = requestAnimationFrame(check);
+    };
+    rafRef.current = requestAnimationFrame(check);
+  };
+
+  const stopRecording = () => {
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    analyserRef.current = null;
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
@@ -53,12 +102,15 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: { echoCancellation: true, noiseSuppression: true } 
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
       });
       
       const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
+      autoSendRef.current = false;
+
+      detectSilence(stream);
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
@@ -66,6 +118,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
 
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
+        audioCtxRef.current?.close().catch(() => {});
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         
         if (audioBlob.size < 1000) {
@@ -75,12 +128,11 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
 
         setIsTranscribing(true);
         try {
-          // Convert to base64
           const reader = new FileReader();
           const base64 = await new Promise<string>((resolve, reject) => {
             reader.onloadend = () => {
               const result = reader.result as string;
-              resolve(result.split(',')[1]); // Remove data:audio/webm;base64, prefix
+              resolve(result.split(',')[1]);
             };
             reader.onerror = reject;
             reader.readAsDataURL(audioBlob);
@@ -92,8 +144,14 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
 
           if (error) throw error;
           if (data?.transcript) {
-            setInput(prev => prev ? `${prev} ${data.transcript}` : data.transcript);
-            toast.success(language === 'hi' ? '✅ टेक्स्ट मिल गया!' : '✅ Transcribed!');
+            const transcript = data.transcript;
+            if (autoSendRef.current) {
+              onSend(transcript);
+              toast.success(language === 'hi' ? '🎙️ भेज दिया!' : '🎙️ Sent!');
+            } else {
+              setInput(prev => prev ? `${prev} ${transcript}` : transcript);
+              toast.success(language === 'hi' ? '✅ टेक्स्ट मिल गया!' : '✅ Transcribed!');
+            }
           } else {
             toast.error(language === 'hi' ? 'कुछ समझ नहीं आया, फिर बोलें' : 'Could not understand, try again');
           }
@@ -102,12 +160,13 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
           toast.error(language === 'hi' ? 'ट्रांसक्रिप्शन विफल' : 'Transcription failed');
         } finally {
           setIsTranscribing(false);
+          autoSendRef.current = false;
         }
       };
 
-      mediaRecorder.start(250); // collect chunks every 250ms
+      mediaRecorder.start(250);
       setIsListening(true);
-      toast.success(language === 'hi' ? '🎙️ बोलिए...' : '🎙️ Listening...');
+      toast.success(language === 'hi' ? '🎙️ बोलिए... चुप होने पर auto-send होगा' : '🎙️ Speak... auto-sends on silence');
     } catch (err) {
       console.error('Mic access error:', err);
       toast.error(language === 'hi' ? 'माइक्रोफ़ोन की अनुमति दें' : 'Please allow microphone access');
@@ -115,11 +174,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   };
 
   const toggleListening = () => {
-    if (isListening) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
+    if (isListening) stopRecording();
+    else startRecording();
   };
 
   useEffect(() => {
@@ -400,15 +456,15 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Mic button */}
+              {/* Mic button - primary position */}
               <Button
                 onClick={toggleListening}
                 variant="ghost"
                 size="icon"
                 disabled={isLoading || isDisabled || isTranscribing}
-                className={`h-9 w-9 rounded-full transition-all duration-200 ${
+                className={`h-10 w-10 rounded-full transition-all duration-200 ${
                   isListening 
-                    ? 'bg-destructive/10 text-destructive hover:bg-destructive/20 animate-pulse' 
+                    ? 'bg-destructive/10 text-destructive hover:bg-destructive/20 animate-pulse ring-2 ring-destructive/30' 
                     : isTranscribing
                     ? 'bg-accent text-accent-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -418,16 +474,11 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
                 {isTranscribing ? (
                   <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
                 ) : isListening ? (
-                  <MicOff className="h-4 w-4" />
+                  <MicOff className="h-5 w-5" />
                 ) : (
-                  <Mic className="h-4 w-4" />
+                  <Mic className="h-5 w-5" />
                 )}
               </Button>
-
-              {/* Fast badge */}
-              <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-full select-none">
-                Fast
-              </div>
 
               {/* Send button */}
               <Button
