@@ -10,6 +10,7 @@ import CampusTalkBottomNav from '@/components/campus-talk/CampusTalkBottomNav';
 import CampusTalkUsersList from '@/components/campus-talk/CampusTalkUsersList';
 import CampusTalkConversation from '@/components/campus-talk/CampusTalkConversation';
 import CampusTalkAccount from '@/components/campus-talk/CampusTalkAccount';
+import CampusTalkGroupList from '@/components/campus-talk/CampusTalkGroupList';
 
 export interface CampusChatItem {
   chatId: string;
@@ -24,7 +25,7 @@ export interface CampusChatItem {
 const ChatSystem = () => {
   const { currentUser } = useAuth();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState<'chats' | 'users' | 'groups'>('chats');
+  const [activeTab, setActiveTab] = useState<'chats' | 'users' | 'groups' | 'account'>('chats');
   const [chatList, setChatList] = useState<CampusChatItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedChat, setSelectedChat] = useState<CampusChatItem | null>(null);
@@ -253,6 +254,9 @@ const ChatSystem = () => {
           />
         )}
         {activeTab === 'groups' && (
+          <CampusTalkGroupList searchQuery={searchQuery} />
+        )}
+        {activeTab === 'account' && (
           <CampusTalkAccount />
         )}
       </div>
