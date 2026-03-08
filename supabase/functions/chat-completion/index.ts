@@ -125,64 +125,81 @@ const agentTools = [
     type: "function",
     function: {
       name: "web_search",
-      description: "Search the web for real-time, current, or latest information. Use when user asks about recent events, news, exam dates, results, current affairs, trending topics, or anything needing up-to-date info.",
-      parameters: {
-        type: "object",
-        properties: { search_query: { type: "string", description: "Search query for real-time information" } },
-        required: ["search_query"],
-        additionalProperties: false
-      }
+      description: "Search the web for real-time, current, or latest information.",
+      parameters: { type: "object", properties: { search_query: { type: "string", description: "Search query" } }, required: ["search_query"], additionalProperties: false }
     }
   },
   {
     type: "function",
     function: {
       name: "generate_image",
-      description: "Generate an image, diagram, illustration, chart, or visual. Use when user asks to create, draw, or generate any visual content. Also use when explaining concepts that benefit from diagrams (like biology diagrams, physics diagrams, flowcharts, mind maps). Do NOT use for normal text conversations.",
-      parameters: {
-        type: "object",
-        properties: { 
-          image_prompt: { type: "string", description: "Detailed prompt describing the image/diagram to generate. Be very specific about colors, layout, labels, and style." }
-        },
-        required: ["image_prompt"],
-        additionalProperties: false
-      }
+      description: "Generate an image, diagram, or visual. Use when user asks to create/draw visuals.",
+      parameters: { type: "object", properties: { image_prompt: { type: "string", description: "Detailed image prompt" } }, required: ["image_prompt"], additionalProperties: false }
     }
   },
   {
     type: "function",
     function: {
       name: "generate_notes",
-      description: "Generate comprehensive, well-formatted study notes on a topic. Use when user asks to create notes, summarize a chapter, make study material, or when conversation naturally leads to note-taking. Also use when user says 'notes bana do', 'is topic ke notes chahiye', 'summarize karo'.",
-      parameters: {
-        type: "object",
-        properties: {
-          topic: { type: "string", description: "The topic or subject for the notes" },
-          detail_level: { type: "string", enum: ["brief", "detailed", "comprehensive"], description: "How detailed the notes should be" }
-        },
-        required: ["topic"],
-        additionalProperties: false
-      }
+      description: "Generate study notes. Use ONLY when user EXPLICITLY says 'notes बनाओ'.",
+      parameters: { type: "object", properties: { topic: { type: "string" }, detail_level: { type: "string", enum: ["brief", "detailed", "comprehensive"] } }, required: ["topic"], additionalProperties: false }
     }
   },
   {
     type: "function",
     function: {
       name: "generate_quiz",
-      description: "Generate an interactive quiz with questions and answers. Use when user wants to test knowledge, practice questions, or when conversation suggests quiz time. Triggers: 'quiz bana do', 'test lo', 'questions solve karo', 'practice questions chahiye', 'mera test lo'.",
+      description: "Generate quiz. Use ONLY when user EXPLICITLY says 'quiz बनाओ' or 'test लो'.",
+      parameters: { type: "object", properties: { topic: { type: "string" }, num_questions: { type: "number" }, difficulty: { type: "string", enum: ["easy", "medium", "hard"] } }, required: ["topic"], additionalProperties: false }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "extract_memory",
+      description: "Extract and save important personal info user shared — name, preferences, goals, struggles, exam details, favorite subjects. DO NOT use for general questions or study content. Only use when user reveals something personal/important about themselves.",
       parameters: {
         type: "object",
         properties: {
-          topic: { type: "string", description: "Topic for the quiz" },
-          num_questions: { type: "number", description: "Number of questions (default 5)" },
-          difficulty: { type: "string", enum: ["easy", "medium", "hard"], description: "Difficulty level" }
+          memories: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                key: { type: "string", description: "Short label like 'नाम', 'पसंदीदा विषय', 'लक्ष्य'" },
+                value: { type: "string", description: "The info to remember" },
+                category: { type: "string", enum: ["personal", "academic", "preference", "goal", "struggle", "general"] }
+              },
+              required: ["key", "value", "category"]
+            }
+          }
         },
-        required: ["topic"],
+        required: ["memories"],
         additionalProperties: false
       }
     }
   }
 ];
+
+// ─── Save Memories to DB ────────────────────────────────────
+async function saveMemories(userId: string, memories: Array<{key: string; value: string; category: string}>): Promise<void> {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const sb = createClient(supabaseUrl, supabaseKey);
+    for (const mem of memories) {
+      await sb.from('user_memories').upsert({
+        user_id: userId,
+        memory_key: mem.key,
+        memory_value: mem.value,
+        category: mem.category,
+        source: 'ai_detected',
+        importance: 8,
+      }, { onConflict: 'user_id,memory_key' });
+    }
+    console.log(`🧠 Saved ${memories.length} memories for user`);
+  } catch (e) { console.warn('⚠️ Failed to save memories:', e); }
+}
 
 // ─── Generate Notes Content ─────────────────────────────────
 async function generateNotesContent(topic: string, detailLevel: string, model: string): Promise<string> {
