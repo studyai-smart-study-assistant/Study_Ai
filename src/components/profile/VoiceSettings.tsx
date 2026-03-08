@@ -44,6 +44,7 @@ const SARVAM_VOICES = [
   { id: 'mohit', label: 'Mohit', gender: 'Male' },
   { id: 'rehan', label: 'Rehan', gender: 'Male' },
   { id: 'soham', label: 'Soham', gender: 'Male' },
+  { id: 'subh', label: 'Subh', gender: 'Male' },
 ];
 
 const DEMO_TEXT_HI = 'नमस्ते! यह एक टेस्ट ऑडियो है। इस आवाज़ को सुनकर अपनी पसंदीदा आवाज़ चुनें।';
@@ -61,7 +62,7 @@ export const getVoicePreferences = (): VoicePreferences => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) return JSON.parse(stored);
   } catch {}
-  return { voice: 'priya', speed: 1.0 };
+  return { voice: 'subh', speed: 1.0 };
 };
 
 export const saveVoicePreferences = (prefs: VoicePreferences) => {
@@ -70,7 +71,7 @@ export const saveVoicePreferences = (prefs: VoicePreferences) => {
 
 const VoiceSettings: React.FC = () => {
   const { language } = useLanguage();
-  const [selectedVoice, setSelectedVoice] = useState('priya');
+  const [selectedVoice, setSelectedVoice] = useState('subh');
   const [demoLang, setDemoLang] = useState<'hi' | 'en'>(language === 'hi' ? 'hi' : 'en');
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
