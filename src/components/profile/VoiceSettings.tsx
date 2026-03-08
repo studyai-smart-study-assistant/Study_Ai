@@ -106,8 +106,8 @@ const VoiceSettings: React.FC = () => {
     setPlayingVoiceId(voiceId);
 
     try {
-      const demoText = language === 'hi' ? DEMO_TEXT_HI : DEMO_TEXT_EN;
-      const langCode = language === 'hi' ? 'hi-IN' : 'en-IN';
+      const demoText = demoLang === 'hi' ? DEMO_TEXT_HI : DEMO_TEXT_EN;
+      const langCode = demoLang === 'hi' ? 'hi-IN' : 'en-IN';
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: { text: demoText, language: langCode, voice: voiceId },
       });
@@ -187,6 +187,29 @@ const VoiceSettings: React.FC = () => {
             </Select>
           </div>
 
+          {/* Demo Language Toggle */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-muted-foreground">
+              {language === 'hi' ? 'डेमो भाषा' : 'Demo Language'}
+            </label>
+            <div className="flex gap-2">
+              <Button
+                variant={demoLang === 'hi' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDemoLang('hi')}
+              >
+                हिन्दी
+              </Button>
+              <Button
+                variant={demoLang === 'en' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDemoLang('en')}
+              >
+                English
+              </Button>
+            </div>
+          </div>
+
           {/* Demo button */}
           <div className="flex items-center gap-3">
             <Button
@@ -204,7 +227,7 @@ const VoiceSettings: React.FC = () => {
               )}
             </Button>
             <span className="text-xs text-muted-foreground">
-              {language === 'hi' ? 'चुनी हुई आवाज़ का टेस्ट करें' : 'Test the selected voice'}
+              {demoLang === 'hi' ? 'हिन्दी में टेस्ट करें' : 'Test in English'}
             </span>
           </div>
 
