@@ -8,13 +8,15 @@ import { RelatedVideos } from '@/components/studytube/RelatedVideos';
 import { YouTubeService, YouTubeVideo } from '@/services/youtubeService';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMiniPlayer } from '@/contexts/MiniPlayerContext';
-import { ArrowLeft, Youtube } from 'lucide-react';
+import { ArrowLeft, Youtube, Home } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 const StudyTube: React.FC = () => {
   const { language } = useLanguage();
   const isHindi = language === 'hi';
   const { playVideo, minimizePlayer, state: miniState } = useMiniPlayer();
+  const navigate = useNavigate();
 
   const isMounted = useRef(true);
   const [videos, setVideos] = useState<YouTubeVideo[]>([]);
@@ -101,9 +103,14 @@ const StudyTube: React.FC = () => {
                 <ArrowLeft className="h-5 w-5 text-foreground" />
               </button>
             ) : (
-              <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center flex-shrink-0">
-                <Youtube className="h-4.5 w-4.5 text-white" />
-              </div>
+              <>
+                <button onClick={() => navigate('/')} className="p-1.5 -ml-1 rounded-full hover:bg-muted transition-colors" title="Home">
+                  <Home className="h-5 w-5 text-foreground" />
+                </button>
+                <div className="w-7 h-7 rounded-md bg-red-600 flex items-center justify-center flex-shrink-0">
+                  <Youtube className="h-4 w-4 text-white" />
+                </div>
+              </>
             )}
 
             <div className="flex-1 min-w-0">
