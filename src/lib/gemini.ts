@@ -65,7 +65,7 @@ export async function generateResponse(
   prompt: string,
   history: Message[] = [],
   chatId?: string,
-  model: string = 'google/gemini-2.0-flash'
+  model: string = 'google/gemini-2.5-flash'
 ): Promise<string> {
   try {
     console.log(`🚀 Study AI: Calling AI Gateway with model:`, model);

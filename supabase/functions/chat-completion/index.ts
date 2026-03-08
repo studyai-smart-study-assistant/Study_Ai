@@ -12,8 +12,8 @@ serve(async (req) => {
   }
 
   try {
-    // मॉडल को 'google/gemini-2.5-flash' पर डिफ़ॉल्ट किया गया है
-    const { prompt, history = [], model = 'google/gemini-2.5-flash' } = await req.json();
+    // मॉडल को 'google/gemini-3-flash-preview' पर डिफ़ॉल्ट किया गया है
+    const { prompt, history = [], model = 'google/gemini-3-flash-preview' } = await req.json();
     
     console.log('📥 Request Received for Study AI:', { promptLength: prompt?.length, model });
 

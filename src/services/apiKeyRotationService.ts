@@ -39,8 +39,8 @@ class ApiKeyRotationService {
   // Provider configurations
   private readonly PROVIDERS: { [key: string]: ProviderConfig } = {
     gemini: {
-      endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
-      model: "gemini-2.0-flash",
+      endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent",
+      model: "gemini-3-flash-preview",
       authHeader: (key: string) => ({ "X-goog-api-key": key }),
       requestFormat: (prompt: string, history: any[]) => ({
         contents: [
@@ -199,7 +199,7 @@ class ApiKeyRotationService {
         success: true,
         response: data.response,
         provider: 'gemini',
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3-flash-preview',
         keyUsed: data.keyUsed || 'hidden'
       };
     } catch (err: any) {
@@ -208,7 +208,7 @@ class ApiKeyRotationService {
         success: false,
         error: err?.message || 'Edge function error',
         provider: 'gemini',
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3-flash-preview',
         keyUsed: 'hidden'
       };
     }

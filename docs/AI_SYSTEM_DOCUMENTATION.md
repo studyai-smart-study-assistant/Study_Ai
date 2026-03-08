@@ -6,7 +6,7 @@
 ---
 
 ### Provider: Gemini Direct (Legacy)
-- **Endpoint**: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`
+- **Endpoint**: `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent`
 - **Auth**: API key rotation via `GEMINI_API_KEYS` secret (comma-separated)
 - **Status**: Used for specific interactive features
 
@@ -16,7 +16,7 @@
 
 | Model ID | Use Case | Speed | Quality |
 |----------|----------|-------|---------|
-| `google/gemini-2.5-flash` | Default chat, notes, quiz | Fast | Good |
+| `google/gemini-3-flash-preview` | Default chat, notes, quiz | Fast | Good |
 | `google/gemini-2.5-pro` | Complex reasoning | Medium | Excellent |
 | `openai/gpt-5` | Premium features (future) | Medium | Excellent |
 | `openai/gpt-5-mini` | Quick responses | Fast | Good |
@@ -26,7 +26,7 @@
 ## 3. Feature-to-AI Mapping
 
 ### 3.1 Main Chat (`src/hooks/chat/useEnhancedChat.ts`)
-- **Model**: `google/gemini-2.5-flash`
+- **Model**: `google/gemini-3-flash-preview`
 - **Edge Function**: `supabase/functions/chat-completion/index.ts`
 - **Prompt Location**: System prompt in edge function (lines 36-46)
 
@@ -44,7 +44,7 @@
 ---
 
 ### 3.2 Notes Generator (`src/components/study/EnhancedNotesGenerator.tsx`)
-- **Model**: `google/gemini-2.5-flash`
+- **Model**: `google/gemini-3-flash-preview`
 - **Edge Function**: `chat-completion`
 - **Prompt Generator**: `generateSmartPrompt()` (lines 67-112)
 
@@ -64,7 +64,7 @@ Notes में ये sections शामिल करें:
 ---
 
 ### 3.3 Quiz Generator (`src/components/study/QuizGenerator.tsx`)
-- **Model**: `google/gemini-2.5-flash`
+- **Model**: `google/gemini-3-flash-preview`
 - **Edge Function**: `chat-completion`
 - **Prompt Location**: `handleGenerateQuiz()` (lines 117-181)
 
@@ -92,7 +92,7 @@ FORMATTING:
 ---
 
 ### 3.4 Homework Helper (`src/components/study/HomeworkAssistant.tsx`)
-- **Model**: `google/gemini-2.5-flash`
+- **Model**: `google/gemini-3-flash-preview`
 - **Edge Function**: `chat-completion`
 - **Prompt Location**: `handleGetHelp()` (lines 82-124)
 
@@ -116,7 +116,7 @@ Please explain the solution step by step, showing all work.
 ---
 
 ### 3.5 Study Planner (`src/lib/gemini.ts` + `src/lib/ai-teacher-prompt-generator.ts`)
-- **Model**: `google/gemini-2.5-flash`
+- **Model**: `google/gemini-3-flash-preview`
 - **Edge Function**: `chat-completion`
 - **Prompt Generator**: `generateComprehensiveAITeacherPrompt()`
 
@@ -135,7 +135,7 @@ Please explain the solution step by step, showing all work.
 ---
 
 ### 3.6 Interactive Teacher (`supabase/functions/gemini-chat/index.ts`)
-- **Model**: `gemini-2.0-flash` (Direct Gemini API)
+- **Model**: `gemini-3-flash-preview` (Direct Gemini API)
 - **API Key Pool**: Rotating keys via `GEMINI_API_KEYS`
 - **Features**: API key rotation, rate limit handling, retry logic
 

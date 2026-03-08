@@ -91,8 +91,8 @@ serve(async (req) => {
 
     let GEMINI_API_KEY = rotationService.getApiKey(apiKeyType);
     
-    // ✅ मॉडल अपडेट: google/gemini-3-flash-preview (The Most Advanced Model)
-    const API_URL = \`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=\${GEMINI_API_KEY}\`;
+    // ✅ मॉडल अपडेट: google/gemini-3.1-pro-preview (The Most Advanced Model)
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${GEMINI_API_KEY}`;
 
     const systemInstruction = {
       role: "user",

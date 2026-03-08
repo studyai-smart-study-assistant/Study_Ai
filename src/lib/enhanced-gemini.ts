@@ -41,14 +41,14 @@ export async function generateEnhancedStudyPlan(
         personalizedMotivation: true
       }, options.userProgressData);
 
-      // ✅ बैकएंड को निर्देश: google/gemini-3-flash-preview का उपयोग करें
+      // ✅ बैकएंड को निर्देश: google/gemini-3.1-pro-preview का उपयोग करें
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
         body: {
           prompt: aiTeacherPrompt,
           history: [],
           chatId: undefined,
           apiKeyType: 'default',
-          model: 'google/gemini-3-flash-preview' 
+          model: 'google/gemini-3.1-pro-preview' 
         }
       });
 
@@ -247,7 +247,7 @@ export async function generateAdaptiveStudyPlanUpdate(
       history: [], 
       chatId: undefined, 
       apiKeyType: 'default',
-      model: 'google/gemini-3-flash-preview' // ✅ यहाँ भी लेटेस्ट मॉडल
+      model: 'google/gemini-3.1-pro-preview' // ✅ यहाँ भी लेटेस्ट मॉडल
     }
   });
 
