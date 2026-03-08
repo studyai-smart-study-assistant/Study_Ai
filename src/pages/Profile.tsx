@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from "@/components/ui/button";
-import { LogOut, Activity, Star, Target, Volume2 } from 'lucide-react';
+import { LogOut, Activity, Star, Target, Volume2, Brain } from 'lucide-react';
 import { Separator } from "@/components/ui/separator";
 import { Progress } from '@/components/ui/progress';
 import ProfileHeader from '@/components/profile/ProfileHeader';
@@ -68,7 +68,7 @@ const Profile = () => {
           </div>
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4"><TabsTrigger value="info">{language === 'hi' ? 'प्रोफाइल' : 'Profile'}</TabsTrigger><TabsTrigger value="voice" className="flex items-center gap-1"><Volume2 className="h-3 w-3" />{language === 'hi' ? 'आवाज़' : 'Voice'}</TabsTrigger><TabsTrigger value="plans">{language === 'hi' ? 'स्टडी प्लान' : 'Study Plans'}</TabsTrigger><TabsTrigger value="nav">{language === 'hi' ? 'नेविगेशन' : 'Navigation'}</TabsTrigger></TabsList>
+            <TabsList className="grid w-full grid-cols-5"><TabsTrigger value="info">{language === 'hi' ? 'प्रोफाइल' : 'Profile'}</TabsTrigger><TabsTrigger value="mindvault" className="flex items-center gap-1"><Brain className="h-3 w-3" />Mind Vault</TabsTrigger><TabsTrigger value="voice" className="flex items-center gap-1"><Volume2 className="h-3 w-3" />{language === 'hi' ? 'आवाज़' : 'Voice'}</TabsTrigger><TabsTrigger value="plans">{language === 'hi' ? 'स्टडी प्लान' : 'Study Plans'}</TabsTrigger><TabsTrigger value="nav">{language === 'hi' ? 'नेविगेशन' : 'Navigation'}</TabsTrigger></TabsList>
             <ScrollArea className="h-[calc(100vh-12rem)]">
               <TabsContent value="info" className="m-0 p-4 sm:p-6 space-y-6">
                 <ProfileHeader currentUser={currentUser} />
@@ -81,6 +81,7 @@ const Profile = () => {
                 <div className="mt-8"><DangerZone currentUser={currentUser} onLogout={handleLogout} /></div>
               </TabsContent>
               <TabsContent value="voice" className="m-0 p-4 sm:p-6"><VoiceSettings /></TabsContent>
+              <TabsContent value="mindvault" className="m-0 p-4 sm:p-6"><MindVault /></TabsContent>
               <TabsContent value="plans" className="m-0 p-4 sm:p-6"><h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Target className="h-5 w-5 text-purple-600" />{language === 'hi' ? 'आपके स्टडी प्लान' : 'Your Study Plans'}</h3><ActivePlansWidget /></TabsContent>
               <TabsContent value="nav" className="m-0 p-4 sm:p-6 space-y-6"><ProfileNavigation isAuthenticated={!!currentUser} /><BackupCard /><Separator className="my-6" /></TabsContent>
             </ScrollArea>
