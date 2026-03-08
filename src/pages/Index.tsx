@@ -299,16 +299,17 @@ const Index = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* New Chat Button - like ChatGPT/Gemini */}
+              {/* New Chat Button - Premium style */}
               {currentChatId && (
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-full"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 px-3 rounded-full gap-1.5 border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 hover:border-primary/50 shadow-sm hover:shadow-md transition-all duration-200 font-semibold text-xs"
                   onClick={handleNewChat}
                   title="New Chat"
                 >
-                  <Plus className="h-5 w-5" />
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden sm:inline">New</span>
                 </Button>
               )}
 
