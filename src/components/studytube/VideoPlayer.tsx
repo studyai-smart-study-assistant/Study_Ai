@@ -1,16 +1,8 @@
 import React, { useState } from 'react';
 import { YouTubeVideo, YouTubeService } from '@/services/youtubeService';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { 
-  ExternalLink, 
-  Share2, 
-  Bookmark, 
-  BookmarkCheck,
-  Eye,
-  Calendar,
-  User
+  ExternalLink, Share2, Bookmark, BookmarkCheck, Eye, Calendar, User, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
@@ -23,164 +15,97 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
   const { language } = useLanguage();
   const isHindi = language === 'hi';
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const [showFullDescription, setShowFullDescription] = useState(false);
+  const [showDesc, setShowDesc] = useState(false);
 
   const videoId = video.id.videoId;
-  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`;
+  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1`;
   const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
   const handleShare = async () => {
     try {
       if (navigator.share) {
-        await navigator.share({
-          title: video.snippet.title,
-          text: `Check out this video: ${video.snippet.title}`,
-          url: youtubeUrl,
-        });
+        await navigator.share({ title: video.snippet.title, url: youtubeUrl });
       } else {
         await navigator.clipboard.writeText(youtubeUrl);
-        toast.success(isHindi ? 'लिंक कॉपी हो गया' : 'Link copied to clipboard');
+        toast.success(isHindi ? 'लिंक कॉपी हो गया' : 'Link copied');
       }
-    } catch (error) {
-      console.error('Error sharing:', error);
-      toast.error(isHindi ? 'शेयर करने में त्रुटि' : 'Failed to share');
-    }
+    } catch {}
   };
 
   const handleBookmark = () => {
     setIsBookmarked(!isBookmarked);
-    toast.success(
-      isBookmarked 
-        ? (isHindi ? 'बुकमार्क से हटाया गया' : 'Removed from bookmarks')
-        : (isHindi ? 'बुकमार्क में जोड़ा गया' : 'Added to bookmarks')
-    );
-  };
-
-  const truncateDescription = (text: string, maxLength: number) => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
+    toast.success(isBookmarked ? (isHindi ? 'हटाया गया' : 'Removed') : (isHindi ? 'सेव किया' : 'Saved'));
   };
 
   return (
-    <div className="space-y-6">
-      {/* Video Player */}
-      <Card className="overflow-hidden border-gray-200 dark:border-gray-700">
-        <CardContent className="p-0">
-          <div className="relative aspect-video bg-black">
-            <iframe
-              src={embedUrl}
-              title={video.snippet.title}
-              className="w-full h-full"
-              allowFullScreen
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            />
-          </div>
-        </CardContent>
-      </Card>
+    <div className="space-y-3">
+      {/* Video embed */}
+      <div className="relative aspect-video bg-black rounded-xl overflow-hidden">
+        <iframe
+          src={embedUrl}
+          title={video.snippet.title}
+          className="w-full h-full"
+          allowFullScreen
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        />
+      </div>
 
-      {/* Video Info */}
-      <Card className="border-gray-200 dark:border-gray-700">
-        <CardHeader className="pb-4">
-          <div className="space-y-4">
-            {/* Title */}
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white leading-tight">
-              {video.snippet.title}
-            </h1>
+      {/* Title */}
+      <h1 className="text-base md:text-lg font-semibold text-foreground leading-snug px-1">
+        {video.snippet.title}
+      </h1>
 
-            {/* Meta Info */}
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-              {video.statistics?.viewCount && (
-                <div className="flex items-center gap-1">
-                  <Eye className="h-4 w-4" />
-                  <span>{YouTubeService.formatViews(video.statistics.viewCount)}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                <span>{YouTubeService.formatPublishedDate(video.snippet.publishedAt)}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <User className="h-4 w-4" />
-                <span>{video.snippet.channelTitle}</span>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleBookmark}
-                className="bg-white dark:bg-gray-800"
-              >
-                {isBookmarked ? (
-                  <BookmarkCheck className="h-4 w-4 mr-2 text-green-600" />
-                ) : (
-                  <Bookmark className="h-4 w-4 mr-2" />
-                )}
-                {isBookmarked 
-                  ? (isHindi ? 'सेव किया गया' : 'Saved')
-                  : (isHindi ? 'सेव करें' : 'Save')
-                }
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleShare}
-                className="bg-white dark:bg-gray-800"
-              >
-                <Share2 className="h-4 w-4 mr-2" />
-                {isHindi ? 'शेयर करें' : 'Share'}
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                asChild
-                className="bg-white dark:bg-gray-800"
-              >
-                <a href={youtubeUrl} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  YouTube
-                </a>
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-
-        {/* Description */}
-        {video.snippet.description && (
-          <CardContent className="pt-0">
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
-                {isHindi ? 'विवरण' : 'Description'}
-              </h3>
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">
-                  {showFullDescription 
-                    ? video.snippet.description
-                    : truncateDescription(video.snippet.description, 300)
-                  }
-                </p>
-                {video.snippet.description.length > 300 && (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => setShowFullDescription(!showFullDescription)}
-                    className="text-red-600 hover:text-red-700 p-0 h-auto font-medium"
-                  >
-                    {showFullDescription 
-                      ? (isHindi ? 'कम दिखाएं' : 'Show less')
-                      : (isHindi ? 'और दिखाएं' : 'Show more')
-                    }
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardContent>
+      {/* Meta */}
+      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground px-1">
+        {video.statistics?.viewCount && (
+          <span className="flex items-center gap-1">
+            <Eye className="h-3.5 w-3.5" />
+            {YouTubeService.formatViews(video.statistics.viewCount)}
+          </span>
         )}
-      </Card>
+        <span className="flex items-center gap-1">
+          <Calendar className="h-3.5 w-3.5" />
+          {YouTubeService.formatPublishedDate(video.snippet.publishedAt)}
+        </span>
+        <span className="flex items-center gap-1">
+          <User className="h-3.5 w-3.5" />
+          {video.snippet.channelTitle}
+        </span>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 px-1 overflow-x-auto pb-1">
+        <Button variant="outline" size="sm" onClick={handleBookmark} className="rounded-full text-xs h-8 gap-1.5 flex-shrink-0">
+          {isBookmarked ? <BookmarkCheck className="h-3.5 w-3.5 text-green-600" /> : <Bookmark className="h-3.5 w-3.5" />}
+          {isBookmarked ? (isHindi ? 'सेव्ड' : 'Saved') : (isHindi ? 'सेव' : 'Save')}
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleShare} className="rounded-full text-xs h-8 gap-1.5 flex-shrink-0">
+          <Share2 className="h-3.5 w-3.5" />
+          {isHindi ? 'शेयर' : 'Share'}
+        </Button>
+        <Button variant="outline" size="sm" asChild className="rounded-full text-xs h-8 gap-1.5 flex-shrink-0">
+          <a href={youtubeUrl} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="h-3.5 w-3.5" />
+            YouTube
+          </a>
+        </Button>
+      </div>
+
+      {/* Description */}
+      {video.snippet.description && (
+        <div
+          className="bg-muted/50 rounded-xl p-3 mx-1 cursor-pointer"
+          onClick={() => setShowDesc(!showDesc)}
+        >
+          <p className={`text-xs text-muted-foreground leading-relaxed whitespace-pre-line ${showDesc ? '' : 'line-clamp-2'}`}>
+            {video.snippet.description}
+          </p>
+          <div className="flex items-center gap-1 mt-1 text-xs font-medium text-foreground">
+            {showDesc ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            {showDesc ? (isHindi ? 'कम दिखाएं' : 'Less') : (isHindi ? 'और दिखाएं' : 'More')}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

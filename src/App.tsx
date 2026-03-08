@@ -6,7 +6,9 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { TTSProvider } from '@/contexts/TTSContext';
+import { MiniPlayerProvider } from '@/contexts/MiniPlayerContext';
 import FloatingAudioPlayer from '@/components/audio/FloatingAudioPlayer';
+import MiniPlayer from '@/components/studytube/MiniPlayer';
 import UsageTracker from '@/components/UsageTracker';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import AppShell from '@/components/layout/AppShell';
@@ -59,6 +61,7 @@ function App() {
         <UsageTracker />
         <LanguageProvider>
           <TTSProvider>
+          <MiniPlayerProvider>
           <NotificationProvider>
             <TooltipProvider>
               <div className="min-h-screen bg-background">
@@ -97,11 +100,13 @@ function App() {
                   </Route>
                 </Routes>
               </div>
+              <MiniPlayer />
               <FloatingAudioPlayer />
               <Toaster />
               <ToastToaster />
             </TooltipProvider>
           </NotificationProvider>
+          </MiniPlayerProvider>
           </TTSProvider>
         </LanguageProvider>
       </ErrorBoundary>
