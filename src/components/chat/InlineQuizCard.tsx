@@ -83,31 +83,6 @@ const InlineQuizCard: React.FC<InlineQuizCardProps> = ({ quizData, onQuizComplet
     setAnswers([]);
   };
 
-  const handleDownloadResult = () => {
-    const pct = Math.round((score / total) * 100);
-    let text = `📋 ${quizData.title || `Quiz: ${quizData.topic}`}\n`;
-    text += `Score: ${score}/${total} (${pct}%)\n`;
-    text += `Difficulty: ${quizData.difficulty}\n\n`;
-    
-    quizData.questions.forEach((q, i) => {
-      const userAns = answers[i];
-      const correct = userAns === q.correctAnswer;
-      text += `${i + 1}. ${q.question}\n`;
-      text += `   आपका उत्तर: ${userAns !== undefined && userAns !== null ? q.options[userAns] : 'छोड़ा'} ${correct ? '✅' : '❌'}\n`;
-      if (!correct) text += `   सही उत्तर: ${q.options[q.correctAnswer]}\n`;
-      if (q.explanation) text += `   ${q.explanation}\n`;
-      text += '\n';
-    });
-
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `quiz_${quizData.topic.replace(/\s+/g, '_')}_${Date.now()}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const getDifficultyBadge = () => {
     const d = quizData.difficulty;
     if (d === 'easy') return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">🟢 Easy</span>;
