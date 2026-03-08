@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowLeft, Download, Copy, Share2 } from 'lucide-react';
+import { ArrowLeft, Download, Copy, Share2, FileDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { generateNotesPdf } from '@/utils/generateNotesPdf';
 
 
 interface GeneratedNote {
@@ -21,6 +23,7 @@ interface GeneratedNote {
 const NotesView = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [pdfLoading, setPdfLoading] = useState(false);
   const note = location.state?.note as GeneratedNote | undefined;
 
   if (!note) {
@@ -42,7 +45,43 @@ const NotesView = () => {
     toast.success('📋 Notes clipboard में copy हो गए!');
   };
 
-  const downloadNotes = () => {
+  const downloadAsPdf = async () => {
+    setPdfLoading(true);
+    try {
+      const doc = generateNotesPdf(note);
+      doc.save(`${note.title}.pdf`);
+      toast.success('📥 PDF download हो गया!');
+    } catch {
+      toast.error('PDF बनाने में दिक्कत आई');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const shareAsPdf = async () => {
+    setPdfLoading(true);
+    try {
+      const doc = generateNotesPdf(note);
+      const blob = doc.output('blob');
+      const file = new File([blob], `${note.title}.pdf`, { type: 'application/pdf' });
+
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ title: note.title, files: [file] });
+        toast.success('✅ PDF share किया गया!');
+      } else if (navigator.share) {
+        await navigator.share({ title: note.title, text: note.content });
+        toast.success('✅ Notes share किए गए!');
+      } else {
+        copyToClipboard();
+      }
+    } catch {
+      copyToClipboard();
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const downloadAsTxt = () => {
     const element = document.createElement('a');
     const file = new Blob([note.content], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
@@ -50,22 +89,7 @@ const NotesView = () => {
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
-    toast.success('📥 Notes download हो गए!');
-  };
-
-  const shareNotes = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: note.title,
-        text: note.content,
-      }).then(() => {
-        toast.success('✅ Notes share किए गए!');
-      }).catch(() => {
-        copyToClipboard();
-      });
-    } else {
-      copyToClipboard();
-    }
+    toast.success('📥 Text file download हो गई!');
   };
 
   return (
@@ -97,20 +121,31 @@ const NotesView = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={shareNotes}
+                onClick={shareAsPdf}
+                disabled={pdfLoading}
                 className="gap-1.5 hover:bg-muted"
               >
-                <Share2 className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline text-sm">Share</span>
+                {pdfLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />}
+                <span className="hidden sm:inline text-sm">Share PDF</span>
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={downloadNotes}
+                onClick={downloadAsPdf}
+                disabled={pdfLoading}
+                className="gap-1.5 hover:bg-muted"
+              >
+                {pdfLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
+                <span className="hidden sm:inline text-sm">PDF</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={downloadAsTxt}
                 className="gap-1.5 hover:bg-muted"
               >
                 <Download className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline text-sm">Download</span>
+                <span className="hidden sm:inline text-sm">TXT</span>
               </Button>
             </div>
           </div>
