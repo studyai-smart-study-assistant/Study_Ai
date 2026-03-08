@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal, X, Plus, Upload, Sparkles, Globe } from "lucide-react";
+import { SendHorizonal, X, Plus, Upload, Sparkles, Globe, SlidersHorizontal, Camera } from "lucide-react";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from "@/integrations/supabase/client";
@@ -24,22 +24,22 @@ interface ChatFooterProps {
 
 const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled = false, webSearchEnabled = false, onWebSearchToggle }) => {
   const [input, setInput] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isImageMode, setIsImageMode] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isAttachOpen, setIsAttachOpen] = useState(false);
+  const [isToolsOpen, setIsToolsOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const isMobile = useIsMobile();
   const { language } = useLanguage();
   const { currentUser } = useAuth();
 
-  // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 240)}px`;
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
     }
   }, [input]);
 
@@ -47,26 +47,15 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     if (!input.trim() && !uploadedImage) return;
     if (isLoading || isDisabled) return;
 
-    // If image mode is enabled, generate image
     if (isImageMode && input.trim()) {
       try {
         setIsUploading(true);
         toast.info('Image बन रही है... कृपया प्रतीक्षा करें');
-
         const { data, error } = await supabase.functions.invoke('generate-image', {
           body: { prompt: input.trim() }
         });
-
-        if (error) {
-          console.error('Generate image error:', error);
-          throw error;
-        }
-
-        if (!data?.imageUrl) {
-          throw new Error('Image generation failed');
-        }
-
-        // Send the generated image to chat (skip AI text response)
+        if (error) throw error;
+        if (!data?.imageUrl) throw new Error('Image generation failed');
         onSend(input.trim(), data.imageUrl, true);
         toast.success('Image सफलतापूर्वक बन गई!');
         setInput('');
@@ -80,14 +69,10 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
       return;
     }
 
-    // Normal message send
     onSend(input.trim(), uploadedImage || undefined);
     setInput('');
     setUploadedImage(null);
-    
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
   };
 
   const handleImageSelect = async (file: File) => {
@@ -95,29 +80,15 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
       toast.error('कृपया पहले लॉगिन करें');
       return;
     }
-
     try {
       setIsUploading(true);
-      setIsMenuOpen(false);
-      
-      // Upload to chat_media bucket
+      setIsAttachOpen(false);
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `${currentUser.uid}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('chat_media')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('chat_media')
-        .getPublicUrl(filePath);
-
+      const { error: uploadError } = await supabase.storage.from('chat_media').upload(filePath, file);
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('chat_media').getPublicUrl(filePath);
       setUploadedImage(publicUrl);
       toast.success('Image upload हो गई!');
     } catch (error) {
@@ -130,28 +101,14 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      handleImageSelect(file);
-    }
-    // Reset the input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (file) handleImageSelect(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const triggerFileUpload = () => {
-    fileInputRef.current?.click();
-    setIsMenuOpen(false);
-  };
-
-  const enableImageMode = () => {
-    setIsImageMode(true);
-    setIsMenuOpen(false);
-    textareaRef.current?.focus();
-  };
-
-  const removeImage = () => {
-    setUploadedImage(null);
+  const handleCameraInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImageSelect(file);
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -161,270 +118,188 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     }
   };
 
-  const handleFocus = () => setIsFocused(true);
-  const handleBlur = () => setIsFocused(false);
-
   const getPlaceholder = () => {
-    if (isDisabled) {
-      return language === 'hi' ? "AI प्रतिक्रिया का इंतज़ार कर रहा है..." : "Waiting for AI to respond...";
-    }
-    if (isImageMode) {
-      return language === 'hi' ? "Image का description लिखें..." : "Describe the image you want...";
-    }
+    if (isDisabled) return language === 'hi' ? "AI जवाब दे रहा है..." : "Waiting for AI...";
+    if (isImageMode) return language === 'hi' ? "Image का description लिखें..." : "Describe the image...";
     return language === 'hi' ? "कुछ भी पूछें..." : "Ask anything...";
   };
 
+  const hasContent = input.trim() || uploadedImage;
+
   return (
-    <div className="fixed bottom-2 left-0 right-0 px-4 pb-6 z-10">
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleFileInputChange}
-      />
-      
-      {/* Background blur overlay with gradient */}
-      <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/80 to-transparent dark:from-gray-900/95 dark:via-gray-900/80 dark:to-transparent backdrop-blur-xl" />
-      
-      <div className="relative max-w-4xl mx-auto">
-        {/* Image mode indicator */}
+    <div className="fixed bottom-0 left-0 right-0 z-10">
+      {/* Hidden file inputs */}
+      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileInputChange} />
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCameraInputChange} />
+
+      {/* Fade overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/90 to-transparent pointer-events-none" />
+
+      <div className="relative max-w-3xl mx-auto px-3 pb-3 pt-2">
+        {/* Image mode badge */}
         {isImageMode && (
-          <div className="mb-2 flex items-center justify-center gap-2">
-            <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg">
+          <div className="mb-2 flex justify-center">
+            <div className="bg-primary/10 text-primary text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-primary/20">
               <Sparkles className="h-3 w-3" />
-              <span>Image Generation Mode</span>
-              <button 
-                onClick={() => setIsImageMode(false)}
-                className="ml-1 hover:bg-white/20 rounded-full p-0.5"
-              >
+              <span>Image Generation</span>
+              <button onClick={() => setIsImageMode(false)} className="ml-1 hover:bg-primary/10 rounded-full p-0.5">
                 <X className="h-3 w-3" />
               </button>
             </div>
           </div>
         )}
 
-        {/* Main input container with enhanced animations */}
-        <div className={`
-          relative transform transition-all duration-500 ease-out
-          ${isFocused ? 'scale-[1.02] translate-y-[-4px]' : 'scale-100 translate-y-0'}
-          ${isDisabled ? 'opacity-60' : 'opacity-100'}
-        `}>
-          {/* Animated glow effect */}
-          <div className={`
-            absolute inset-0 rounded-2xl transition-all duration-700
-            ${isImageMode 
-              ? 'shadow-[0_0_40px_rgba(236,72,153,0.4)] dark:shadow-[0_0_40px_rgba(236,72,153,0.6)]'
-              : isFocused 
-                ? 'shadow-[0_0_40px_rgba(147,51,234,0.3)] dark:shadow-[0_0_40px_rgba(147,51,234,0.5)]' 
-                : 'shadow-[0_0_20px_rgba(147,51,234,0.1)] dark:shadow-[0_0_20px_rgba(147,51,234,0.2)]'
-            }
-          `} />
-          
-          {/* Glass morphism container */}
-          <div className={`
-            relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl 
-            border transition-all duration-500
-            ${isImageMode
-              ? 'border-pink-300/60 dark:border-pink-600/60 shadow-2xl'
-              : isFocused 
-                ? 'border-purple-300/60 dark:border-purple-600/60 shadow-2xl' 
-                : 'border-purple-200/40 dark:border-gray-700/40 shadow-lg'
-            }
-            p-3
-          `}>
-            {/* Floating particles animation background */}
-            <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
-              <div className={`
-                absolute top-2 left-4 w-1 h-1 bg-purple-400 rounded-full
-                transition-all duration-1000 ${isFocused ? 'animate-pulse opacity-100' : 'opacity-0'}
-              `} />
-              <div className={`
-                absolute top-6 right-8 w-1 h-1 bg-indigo-400 rounded-full
-                transition-all duration-1000 delay-200 ${isFocused ? 'animate-pulse opacity-100' : 'opacity-0'}
-              `} />
-              <div className={`
-                absolute bottom-4 left-12 w-1 h-1 bg-violet-400 rounded-full
-                transition-all duration-1000 delay-400 ${isFocused ? 'animate-pulse opacity-100' : 'opacity-0'}
-              `} />
+        {/* Web search active badge */}
+        {webSearchEnabled && (
+          <div className="mb-2 flex justify-center">
+            <div className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-emerald-500/20">
+              <Globe className="h-3 w-3" />
+              <span>Web Search ON</span>
+              <button onClick={() => onWebSearchToggle?.(false)} className="ml-1 hover:bg-emerald-500/10 rounded-full p-0.5">
+                <X className="h-3 w-3" />
+              </button>
             </div>
+          </div>
+        )}
 
-            {uploadedImage && (
-              <div className="mb-3 relative inline-block">
-                <img 
-                  src={uploadedImage} 
-                  alt="Uploaded" 
-                  className="h-20 w-20 object-cover rounded-lg border-2 border-purple-200 dark:border-purple-700"
-                />
-                <button
-                  onClick={removeImage}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                >
+        {/* Main container - Gemini style */}
+        <div className={`
+          bg-card border border-border rounded-2xl shadow-lg
+          transition-all duration-200
+          ${isDisabled ? 'opacity-60' : ''}
+        `}>
+          {/* Uploaded image preview */}
+          {uploadedImage && (
+            <div className="px-4 pt-3">
+              <div className="relative inline-block">
+                <img src={uploadedImage} alt="Uploaded" className="h-16 w-auto object-cover rounded-lg border border-border" />
+                <button onClick={() => setUploadedImage(null)} className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1">
                   <X className="h-3 w-3" />
                 </button>
               </div>
-            )}
+            </div>
+          )}
 
-            <div className="flex items-end gap-2">
-              {/* Plus button with popover menu */}
-              <Popover open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+          {/* Textarea */}
+          <div className="px-4 pt-3 pb-1">
+            <Textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={getPlaceholder()}
+              className="resize-none min-h-[44px] max-h-[200px] border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-[15px] text-foreground placeholder:text-muted-foreground/60 p-0"
+              disabled={isLoading || isDisabled}
+              rows={1}
+            />
+          </div>
+
+          {/* Bottom toolbar - Gemini style */}
+          <div className="flex items-center justify-between px-3 pb-3 pt-1">
+            <div className="flex items-center gap-1">
+              {/* + Attach button */}
+              <Popover open={isAttachOpen} onOpenChange={setIsAttachOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`
-                      h-10 w-10 rounded-xl flex-shrink-0 transition-all duration-300
-                      ${isMenuOpen 
-                        ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 rotate-45' 
-                        : 'hover:bg-purple-50 dark:hover:bg-purple-900/30 text-gray-500 dark:text-gray-400'
-                      }
-                    `}
+                    className={`h-9 w-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-all ${isAttachOpen ? 'rotate-45 text-foreground' : ''}`}
                     disabled={isLoading || isDisabled}
                   >
-                    <Plus className="h-5 w-5 transition-transform duration-300" />
+                    <Plus className="h-5 w-5" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent 
-                  side="top" 
-                  align="start" 
-                  className="w-48 p-2 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border-purple-200/50 dark:border-gray-700/50"
-                >
-                  <div className="space-y-1">
-                    <button
-                      onClick={triggerFileUpload}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors text-left"
-                    >
-                      <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
-                        <Upload className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Upload Image</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">फोटो अपलोड करें</p>
-                      </div>
-                    </button>
-                    <button
-                      onClick={enableImageMode}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors text-left"
-                    >
-                      <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                        <Sparkles className="h-4 w-4 text-white" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Create Image</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">AI से image बनाएं</p>
-                      </div>
-                    </button>
-                    {onWebSearchToggle && (
-                      <button
-                        onClick={() => { onWebSearchToggle(!webSearchEnabled); setIsMenuOpen(false); }}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors text-left"
-                      >
-                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${webSearchEnabled ? 'bg-gradient-to-br from-emerald-500 to-teal-500' : 'bg-gray-200 dark:bg-gray-700'}`}>
-                          <Globe className={`h-4 w-4 ${webSearchEnabled ? 'text-white' : 'text-gray-500 dark:text-gray-400'}`} />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                            Web Search {webSearchEnabled ? '(ON)' : '(OFF)'}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">रियल-टाइम वेब सर्च</p>
-                        </div>
-                      </button>
-                    )}
-                  </div>
+                <PopoverContent side="top" align="start" className="w-44 p-1.5">
+                  <button
+                    onClick={() => { fileInputRef.current?.click(); setIsAttachOpen(false); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+                  >
+                    <Upload className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-foreground">Upload Image</span>
+                  </button>
+                  <button
+                    onClick={() => { cameraInputRef.current?.click(); setIsAttachOpen(false); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+                  >
+                    <Camera className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-foreground">Camera</span>
+                  </button>
                 </PopoverContent>
               </Popover>
 
-              {/* Textarea */}
-              <Textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onFocus={handleFocus}
-                onBlur={handleBlur}
-                placeholder={getPlaceholder()}
-                className={`
-                  resize-none min-h-[50px] max-h-[240px] py-3 px-4 rounded-xl flex-1
-                  border-0 bg-transparent text-base font-medium
-                  focus:ring-0 focus:outline-none transition-all duration-300
-                  placeholder:text-gray-400 dark:placeholder:text-gray-500
-                  placeholder:transition-all placeholder:duration-300
-                  ${isFocused ? 'placeholder:text-purple-400 dark:placeholder:text-purple-400' : ''}
-                  ${isDisabled ? 'cursor-not-allowed' : ''}
-                `}
-                disabled={isLoading || isDisabled}
-                rows={1}
-              />
-              
+              {/* Tools button (web search, image create) */}
+              <Popover open={isToolsOpen} onOpenChange={setIsToolsOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`h-9 w-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-all ${isToolsOpen ? 'text-foreground bg-muted' : ''}`}
+                    disabled={isLoading || isDisabled}
+                  >
+                    <SlidersHorizontal className="h-[18px] w-[18px]" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent side="top" align="start" className="w-52 p-1.5">
+                  {onWebSearchToggle && (
+                    <button
+                      onClick={() => { onWebSearchToggle(!webSearchEnabled); setIsToolsOpen(false); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+                    >
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${webSearchEnabled ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-muted'}`}>
+                        <Globe className={`h-4 w-4 ${webSearchEnabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`} />
+                      </div>
+                      <div>
+                        <p className="text-sm text-foreground">Web Search</p>
+                        <p className="text-[11px] text-muted-foreground">{webSearchEnabled ? 'ON — टैप करें बंद करने को' : 'रियल-टाइम वेब सर्च'}</p>
+                      </div>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setIsImageMode(!isImageMode); setIsToolsOpen(false); textareaRef.current?.focus(); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+                  >
+                    <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${isImageMode ? 'bg-primary/10' : 'bg-muted'}`}>
+                      <Sparkles className={`h-4 w-4 ${isImageMode ? 'text-primary' : 'text-muted-foreground'}`} />
+                    </div>
+                    <div>
+                      <p className="text-sm text-foreground">Image Create</p>
+                      <p className="text-[11px] text-muted-foreground">{isImageMode ? 'ON — AI image mode' : 'AI से image बनाएं'}</p>
+                    </div>
+                  </button>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Fast badge */}
+              <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-full select-none">
+                Fast
+              </div>
+
               {/* Send button */}
               <Button
                 onClick={handleSend}
-                disabled={(!input.trim() && !uploadedImage) || isLoading || isDisabled}
+                disabled={!hasContent || isLoading || isDisabled}
                 size="icon"
                 className={`
-                  h-10 w-10 rounded-xl flex-shrink-0 transition-all duration-500
-                  ${(!input.trim() && !uploadedImage) || isLoading || isDisabled
-                    ? 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-500 cursor-not-allowed scale-90'
-                    : isImageMode
-                      ? `bg-gradient-to-r from-purple-500 to-pink-500 text-white 
-                         hover:from-purple-600 hover:to-pink-600
-                         hover:scale-110 shadow-lg
-                         hover:shadow-pink-300 dark:hover:shadow-pink-800
-                         active:scale-95 transform`
-                      : `bg-gradient-to-r from-purple-600 to-violet-600 text-white 
-                         hover:from-purple-700 hover:to-violet-700 
-                         dark:from-purple-700 dark:to-violet-700 
-                         dark:hover:from-purple-600 dark:hover:to-violet-600
-                         hover:scale-110 hover:rotate-12 shadow-lg
-                         hover:shadow-purple-300 dark:hover:shadow-purple-800
-                         active:scale-95 transform`
+                  h-9 w-9 rounded-full transition-all duration-200
+                  ${hasContent && !isLoading && !isDisabled
+                    ? 'bg-foreground text-background hover:bg-foreground/90 shadow-sm'
+                    : 'bg-muted text-muted-foreground cursor-not-allowed'
                   }
                 `}
               >
                 {isLoading || isUploading ? (
-                  <div className="h-5 w-5 rounded-full border-2 border-t-transparent border-white animate-spin" />
+                  <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
                 ) : isImageMode ? (
-                  <Sparkles 
-                    size={18} 
-                    className="transition-transform duration-300"
-                  />
+                  <Sparkles className="h-4 w-4" />
                 ) : (
-                  <SendHorizonal 
-                    size={18} 
-                    className={`transition-transform duration-300 ${
-                      (input.trim() || uploadedImage) && !isDisabled ? 'group-hover:translate-x-1' : ''
-                    }`} 
-                  />
+                  <SendHorizonal className="h-4 w-4" />
                 )}
               </Button>
             </div>
           </div>
         </div>
-        
-        {/* Enhanced footer text with animations */}
-        {!isMobile && (
-          <div className={`
-            max-w-4xl mx-auto mt-4 text-xs text-center transition-all duration-700
-            ${isFocused 
-              ? 'text-purple-600/90 dark:text-purple-400/90 transform translate-y-[-2px]' 
-              : 'text-purple-500/70 dark:text-purple-400/70'
-            }
-            flex items-center justify-center gap-3
-          `}>
-            <span className={`
-              text-yellow-500 transition-all duration-500
-              ${isFocused ? 'animate-pulse scale-110' : 'animate-pulse'}
-            `}>✨</span>
-            <span className="font-medium">
-              {language === 'hi' ? "स्टडी AI - स्मार्ट लर्निंग सहायक" : "Study AI - Smart learning assistant"}
-            </span>
-            <span className={`
-              text-yellow-500 transition-all duration-500 delay-100
-              ${isFocused ? 'animate-pulse scale-110' : 'animate-pulse'}
-            `}>✨</span>
-          </div>
-        )}
       </div>
     </div>
   );
