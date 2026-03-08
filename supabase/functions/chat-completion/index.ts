@@ -33,6 +33,16 @@ function getNextGoogleApiKey(): string {
   return key;
 }
 
+class AiProviderError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'AiProviderError';
+    this.status = status;
+  }
+}
+
 // ─── Usage Logger ───────────────────────────────────────────
 async function logApiUsage(service: string, keyId: string, status: string, errorCode?: string, responseTimeMs?: number) {
   try {
@@ -56,6 +66,7 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
     try {
       const payload = { ...body };
       if (options?.modalities) payload.modalities = options.modalities;
+
       const start = Date.now();
       const response = await fetch(LOVABLE_GATEWAY_URL, {
         method: 'POST',
@@ -70,11 +81,36 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
       }
 
       const status = response.status;
-      logApiUsage('lovable-gateway', 'LOVABLE_KEY', 'rate_limited', String(status), Date.now() - start);
-      if (status !== 402 && status !== 429) {
-        console.warn(`⚠️ Lovable Gateway error: ${status}`);
-      } else {
+      const gatewayErrorText = await response.text();
+      logApiUsage('lovable-gateway', 'LOVABLE_KEY', 'error', String(status), Date.now() - start);
+
+      // If tool schema/payload is invalid for gateway, retry once with a sanitized payload
+      if (status === 400 && payload.tools) {
+        console.warn('⚠️ Lovable Gateway 400 with tools. Retrying with sanitized payload...');
+        const sanitizedPayload = {
+          ...payload,
+          max_tokens: Math.min(payload.max_tokens || 2000, 4000),
+        } as Record<string, unknown>;
+        delete sanitizedPayload.tools;
+        delete sanitizedPayload.tool_choice;
+
+        const retry = await fetch(LOVABLE_GATEWAY_URL, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(sanitizedPayload),
+        });
+
+        if (retry.ok) {
+          console.log('✅ Lovable Gateway success (sanitized retry)');
+          return retry;
+        }
+
+        const retryText = await retry.text();
+        console.warn(`⚠️ Sanitized retry failed: ${retry.status} ${retryText.substring(0, 200)}`);
+      } else if (status === 429 || status === 402) {
         console.warn(`⚠️ Lovable Gateway quota/rate limited (${status}), falling back to Google API`);
+      } else {
+        console.warn(`⚠️ Lovable Gateway error ${status}: ${gatewayErrorText.substring(0, 250)}`);
       }
     } catch (err) {
       logApiUsage('lovable-gateway', 'LOVABLE_KEY', 'error', 'network');
@@ -83,17 +119,20 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
   }
 
   const keys = getGoogleApiKeys();
-  if (keys.length === 0) throw new Error('Both Lovable AI and Google API keys are unavailable');
+  if (keys.length === 0) {
+    throw new AiProviderError(503, 'AI service configuration missing. Please try again shortly.');
+  }
+
   console.log(`🔄 Using Google Native API with model: ${nativeModel} (${keys.length} keys in pool)`);
 
   const payload: any = { ...body, model: nativeModel };
   if (options?.modalities) payload.modalities = options.modalities;
 
   for (let attempt = 0; attempt < keys.length; attempt++) {
-    // Add delay between retries to avoid simultaneous rate limits
     if (attempt > 0) {
-      await new Promise(r => setTimeout(r, 500 * attempt));
+      await new Promise((r) => setTimeout(r, 500 * attempt));
     }
+
     const apiKey = getNextGoogleApiKey();
     const keyLabel = `GOOGLE_KEY_${(_keyIndex) % keys.length}`;
     const start = Date.now();
@@ -112,25 +151,25 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
       }
 
       const status = response.status;
+      const errText = await response.text();
+
       if (status === 429 || status === 403) {
         logApiUsage('google-gemini', keyLabel, 'rate_limited', String(status), Date.now() - start);
         console.warn(`⚠️ Google API ${status} on ${keyLabel}, rotating to next key...`);
-        try { await response.text(); } catch {}
         continue;
       }
 
-      const errText = await response.text();
       logApiUsage('google-gemini', keyLabel, 'error', String(status), Date.now() - start);
       console.error(`❌ Google Native API error (${keyLabel}):`, status, errText);
-      throw new Error(`Google API error: ${status}`);
+      throw new AiProviderError(status, `Google API error: ${status}`);
     } catch (e: unknown) {
-      if (e instanceof Error && e.message.startsWith('Google API error')) throw e;
+      if (e instanceof AiProviderError) throw e;
       console.warn(`⚠️ Google API network error on ${keyLabel}:`, e);
       continue;
     }
   }
 
-  throw new Error('All Google API keys exhausted (rate limited)');
+  throw new AiProviderError(429, 'AI अभी थोड़ी देर के लिए busy है (rate limited). 1-2 मिनट बाद फिर try करें।');
 }
 
 // ─── Tavily Key Pool (Round-Robin) ──────────────────────────
@@ -746,8 +785,16 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
 
   } catch (error: unknown) {
     console.error('❌ Error:', error);
-    return new Response(JSON.stringify({ 
-      error: 'माफ़ करना दोस्त, कुछ तकनीकी दिक्कत आ गई है। एक बार फिर कोशिश करो!' 
+
+    if (error instanceof AiProviderError) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: error.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({
+      error: 'माफ़ करना दोस्त, कुछ तकनीकी दिक्कत आ गई है। एक बार फिर कोशिश करो!'
     }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
