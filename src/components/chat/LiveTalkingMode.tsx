@@ -129,11 +129,11 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
       }
 
       const modelCandidates = Array.from(new Set([
+        'models/gemini-2.0-flash-live-001',
+        'models/gemini-2.0-flash-exp',
         ...(Array.isArray(data?.models) ? data.models : []),
         data?.model,
         liveModel,
-        'models/gemini-2.0-flash-live-001',
-        'models/gemini-2.0-flash-exp',
       ].filter(Boolean)));
 
       const tryModelAt = (index: number) => {
