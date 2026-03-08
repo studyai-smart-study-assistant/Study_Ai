@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import MessageEditor from './MessageEditor';
 import MessageMarkdownContent from './MessageMarkdownContent';
 import ImageModal from '@/components/ui/image-modal';
-import { ZoomIn, Download, Brain, ChevronDown, ChevronUp } from 'lucide-react';
+import { ZoomIn, Download, Brain, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 
 interface MessageBodyProps {
   isUserMessage: boolean;
@@ -14,6 +14,7 @@ interface MessageBodyProps {
   handleCancelEdit: () => void;
   isTyping: boolean;
   displayedContent: string;
+  onEditImage?: (imageUrl: string, originalPrompt: string) => void;
 }
 
 // Parse thinking block from content
@@ -25,17 +26,24 @@ function parseThinking(content: string): { thinking: string | null; rest: string
   return { thinking: null, rest: content };
 }
 
-// Parse image from content
+// Parse image from content - handles both base64 and URL formats
 function parseImage(content: string): { imageUrl: string; rest: string } {
-  const base64Match = content.match(/^\[IMG_DATA:(data:image\/[^\]]+)\]/);
-  if (base64Match) {
-    return { imageUrl: base64Match[1], rest: content.replace(base64Match[0], '').trim() };
+  // Match [IMG_DATA:...] anywhere - use greedy match up to the last ] before text
+  const imgDataMatch = content.match(/\[IMG_DATA:(data:image\/[^[\]]*(?:\][^[\]]*)*)\]/);
+  if (!imgDataMatch) {
+    // Try non-base64 URL format: [IMG_DATA:https://...]
+    const urlMatch = content.match(/\[IMG_DATA:(https?:\/\/[^\]]+)\]/);
+    if (urlMatch) {
+      return { imageUrl: urlMatch[1], rest: content.replace(urlMatch[0], '').trim() };
+    }
+    // Legacy format: [Image: url]
+    const linkMatch = content.match(/\[Image:\s*([^\]]+)\]/);
+    if (linkMatch) {
+      return { imageUrl: linkMatch[1].trim(), rest: content.replace(/\[Image:\s*[^\]]+\]/, '').trim() };
+    }
+    return { imageUrl: '', rest: content };
   }
-  const linkMatch = content.match(/\[Image:\s*([^\]]+)\]/);
-  if (linkMatch) {
-    return { imageUrl: linkMatch[1].trim(), rest: content.replace(/\[Image:\s*[^\]]+\]/, '').trim() };
-  }
-  return { imageUrl: '', rest: content };
+  return { imageUrl: imgDataMatch[1], rest: content.replace(imgDataMatch[0], '').trim() };
 }
 
 // Thinking indicator component
