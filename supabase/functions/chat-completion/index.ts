@@ -302,7 +302,12 @@ async function generateQuizContent(topic: string, numQuestions: number, difficul
 }
 
 // ─── Background Memory Extraction (runs after direct answers) ──
-async function backgroundExtractMemories(userId: string, userMessage: string, model: string): Promise<void> {
+async function backgroundExtractMemories(
+  adminClient: ReturnType<typeof createClient>,
+  userId: string,
+  userMessage: string,
+  model: string
+): Promise<void> {
   try {
     const extractPrompt = `Analyze this user message and extract ONLY important personal information worth remembering. If the message contains NO personal info (just a question, greeting, or study topic), respond with exactly: {"memories":[]}
 
@@ -320,19 +325,18 @@ Respond ONLY with valid JSON in this format:
       temperature: 0.2,
       max_tokens: 500,
     });
-    
+
     const data = await resp.json();
     const content = data?.choices?.[0]?.message?.content || '';
-    
-    // Parse JSON from response
+
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return;
-    
+
     const parsed = JSON.parse(jsonMatch[0]);
     const memories = parsed?.memories;
-    
+
     if (memories && Array.isArray(memories) && memories.length > 0) {
-      await saveMemories(userId, memories);
+      await saveMemories(adminClient, userId, memories);
       console.log(`🧠 Background extracted ${memories.length} memories`);
     }
   } catch (e) {
