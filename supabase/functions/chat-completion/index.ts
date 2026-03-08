@@ -270,11 +270,26 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, history = [], model = 'google/gemini-3-flash-preview', forceWebSearch = false, webSearchContext, webSearchSources, imageBase64 } = await req.json();
+    const { prompt, history = [], model = 'google/gemini-3-flash-preview', forceWebSearch = false, webSearchContext, webSearchSources, imageBase64, userId } = await req.json();
     
-    console.log('📥 Request:', { promptLength: prompt?.length, model, forceWebSearch, hasPreSearchContext: !!webSearchContext, hasImage: !!imageBase64 });
+    console.log('📥 Request:', { promptLength: prompt?.length, model, forceWebSearch, hasImage: !!imageBase64, userId: userId?.substring(0, 8) });
 
-    const recentHistory = history.slice(-6).map((msg: { role: string; content: string }) => ({
+    // ── Fetch user memories from Mind Vault ──
+    let memoriesContext = '';
+    if (userId) {
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const sb = createClient(supabaseUrl, supabaseKey);
+        const { data: memories } = await sb.from('user_memories').select('memory_key, memory_value, category').eq('user_id', userId).order('importance', { ascending: false }).limit(20);
+        if (memories?.length) {
+          memoriesContext = `\n\n🧠 **Mind Vault — इस यूजर के बारे में याद रखें:**\n${memories.map(m => `- ${m.memory_key}: ${m.memory_value}`).join('\n')}`;
+          console.log(`🧠 Loaded ${memories.length} memories for user`);
+        }
+      } catch (e) { console.warn('⚠️ Failed to load memories:', e); }
+    }
+
+    const recentHistory = history.slice(-8).map((msg: { role: string; content: string }) => ({
       role: msg.role === 'bot' ? 'assistant' : msg.role,
       content: msg.content,
     }));
@@ -286,23 +301,23 @@ serve(async (req) => {
 2. **सहज भाषा:** सरल और स्वाभाविक Hindi-English mix भाषा।
 3. **प्रोत्साहन:** छात्र की मेहनत की तारीफ करें और मोटिवेट करें।
 4. **टू-द-पॉइंट:** सीधे मुद्दे पर बात करें।
-5. **Rich Formatting:** जवाब में markdown का भरपूर उपयोग करें — headings, bold, lists, tables, blockquotes, code blocks — ताकि पढ़ने में आसान और सुंदर लगे।
+5. **Rich Formatting:** जवाब में markdown का भरपूर उपयोग करें।
+6. **Personalization:** अगर Mind Vault में यूजर की जानकारी दी गई है, तो उसका उपयोग करें — नाम से बुलाएं, उनकी पसंद/चुनौतियों को ध्यान में रखें।
 
 **CRITICAL - Tool Usage Intelligence (STRICTLY FOLLOW):**
 - आप एक smart AI agent हैं जिसके पास कई tools हैं, लेकिन ज़्यादातर सवालों का जवाब DIRECTLY दो
 - **कोई tool USE मत करो** इन cases में:
   • Normal बातचीत (hi, hello, kaise ho, casual chat)
-  • General knowledge questions (भारतीय संविधान क्या है, photosynthesis explain करो, etc.)
+  • General knowledge questions
   • Simple Q&A, explanations, definitions
-  • जब यूजर सिर्फ जानकारी पूछ रहा हो (बारे में बताओ, जानकारी चाहिए, explain करो, समझाओ)
-- **generate_notes** ONLY when: यूजर EXPLICITLY कहे "notes बनाओ", "notes बना दो", "study material बनाओ", "summarize करके notes दो"
-- **generate_image** ONLY when: यूजर EXPLICITLY कहे "diagram बनाओ", "image बनाओ", "draw करो", "visual बनाओ"
-- **generate_quiz** ONLY when: यूजर EXPLICITLY कहे "quiz बनाओ", "test लो", "practice questions दो", "MCQ बनाओ"
-- **web_search** ONLY when: Latest/current information ज़रूरी हो (news, exam dates, results, current affairs)
-- "बारे में बताओ" या "जानकारी चाहिए" = Normal answer, NOT notes generation
+- **generate_notes** ONLY when: यूजर EXPLICITLY कहे "notes बनाओ"
+- **generate_image** ONLY when: यूजर EXPLICITLY कहे "diagram बनाओ", "image बनाओ"
+- **generate_quiz** ONLY when: यूजर EXPLICITLY कहे "quiz बनाओ", "test लो"
+- **web_search** ONLY when: Latest/current information ज़रूरी हो
+- **extract_memory** ONLY when: यूजर ने कोई important personal info share की हो (नाम, पसंद, लक्ष्य, चुनौती)
 - DEFAULT behavior: Direct answer without any tool call
 
-महत्वपूर्ण: 'मैं एक AI हूँ' जैसी बातें न कहें। एक मददगार इंसान की तरह समस्या सुलझाएं।`;
+महत्वपूर्ण: 'मैं एक AI हूँ' जैसी बातें न कहें। एक मददगार इंसान की तरह समस्या सुलझाएं।${memoriesContext}`;
 
     // If force web search already provided context
     if (webSearchContext) {
