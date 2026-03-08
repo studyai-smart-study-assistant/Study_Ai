@@ -52,7 +52,7 @@ serve(async (req) => {
       body: JSON.stringify({
         text: cleanText,
         target_language_code: language || 'hi-IN',
-        speaker: voice || 'anushka',
+        speaker: voice || 'priya',
         model: 'bulbul:v3',
         enable_preprocessing: true,
       }),
