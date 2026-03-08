@@ -31,7 +31,8 @@ serve(async (req) => {
       { role: "user", content: prompt }
     ];
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Try Lovable Gateway first
+    let response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -44,6 +45,35 @@ serve(async (req) => {
         max_tokens: 4096,
       }),
     });
+
+    // Fallback to OpenRouter if Lovable fails
+    if (!response.ok) {
+      const status = response.status;
+      console.warn(`⚠️ Lovable Gateway failed (${status}), trying OpenRouter...`);
+      
+      const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
+      if (OPENROUTER_API_KEY) {
+        response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://study-ai-001-41.lovable.app",
+            "X-Title": "Study AI",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages,
+            temperature: 0.75,
+            max_tokens: 4096,
+          }),
+        });
+
+        if (response.ok) {
+          console.log('✅ OpenRouter fallback success');
+        }
+      }
+    }
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -59,8 +89,8 @@ serve(async (req) => {
         );
       }
       const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
+      console.error("AI error:", response.status, errorText);
+      throw new Error(`AI error: ${response.status}`);
     }
 
     const data = await response.json();
