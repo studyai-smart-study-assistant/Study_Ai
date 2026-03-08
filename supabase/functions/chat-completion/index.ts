@@ -9,6 +9,7 @@ const corsHeaders = {
 
 const LOVABLE_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 const GOOGLE_NATIVE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 // ─── Google API Key Pool (Round-Robin) ──────────────────────
 function getGoogleApiKeys(): string[] {
