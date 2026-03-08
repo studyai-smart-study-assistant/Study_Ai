@@ -164,6 +164,7 @@ export async function generateResponseWithSearch(
       forceWebSearch,
       webSearchContext,
       webSearchSources,
+      imageBase64,
     });
 
     if (data?.error) throw new Error(data.error);
