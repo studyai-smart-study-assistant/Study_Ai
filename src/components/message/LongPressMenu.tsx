@@ -11,9 +11,11 @@ interface LongPressMenuProps {
   onDelete: (id: string) => void;
   onFeedback?: (id: string, rating: 'like' | 'dislike') => void;
   isLiked?: boolean;
+  hasInteractiveContent?: boolean;
 }
 
 const LONG_PRESS_DURATION = 500;
+const INTERACTIVE_LONG_PRESS_DURATION = 1200;
 
 const LongPressMenu: React.FC<LongPressMenuProps> = ({
   children,
@@ -22,14 +24,17 @@ const LongPressMenu: React.FC<LongPressMenuProps> = ({
   onDelete,
   onFeedback,
   isLiked,
+  hasInteractiveContent,
 }) => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const { isGenerating, isPlaying, togglePlayPause } = useTTS();
 
+  const duration = hasInteractiveContent ? INTERACTIVE_LONG_PRESS_DURATION : LONG_PRESS_DURATION;
+
   const startPress = useCallback(() => {
-    timerRef.current = setTimeout(() => setIsSheetOpen(true), LONG_PRESS_DURATION);
-  }, []);
+    timerRef.current = setTimeout(() => setIsSheetOpen(true), duration);
+  }, [duration]);
 
   const cancelPress = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
