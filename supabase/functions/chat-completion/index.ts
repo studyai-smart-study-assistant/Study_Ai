@@ -301,16 +301,18 @@ serve(async (req) => {
     // ── Step 1: THINKING — Agent analyzes the query first ──
     console.log('🧠 Thinking Phase: Analyzing user query...');
     
-    const thinkingSystemContent = systemContent + `\n\n**THINKING MODE INSTRUCTIONS:**
-Before responding, you must THINK about the user's query carefully. Consider:
-1. Is this a normal conversation/greeting? → Reply directly, no tools needed
-2. Does the user want an image, diagram, or visual? → Use generate_image tool
-3. Does the user want study notes or summary? → Use generate_notes tool
-4. Does the user want a quiz, test, or practice? → Use generate_quiz tool
-5. Does the user need latest/current information? → Use web_search tool
-6. Is the topic complex enough to need a diagram even if not asked? → Consider generate_image
+    const thinkingSystemContent = systemContent + `\n\n**THINKING MODE — STRICT RULES:**
+Before responding, carefully analyze the user's intent:
+1. Is this a greeting, casual chat, or general question? → Reply directly, NO tools. Most queries fall here.
+2. Does user EXPLICITLY ask to create/draw/generate an image or diagram? (e.g., "diagram बनाओ", "image बनाओ") → generate_image
+3. Does user EXPLICITLY ask to create study notes? (e.g., "notes बना दो", "summarize करके notes दो") → generate_notes
+4. Does user EXPLICITLY ask for quiz/test/practice? (e.g., "quiz बनाओ", "test लो") → generate_quiz
+5. Does user ask about current events, latest news, exam dates? → web_search
+6. "X के बारे में बताओ" or "X की जानकारी चाहिए" = NORMAL ANSWER, NOT notes!
+7. When in doubt, DEFAULT to direct answer without tools.
 
-Think step-by-step and make the best decision. Most queries are normal conversations — don't overuse tools.`;
+CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functionality.`;
+
 
     const step1Response = await fetch(GATEWAY_URL, {
       method: 'POST',
