@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import MessageEditor from './MessageEditor';
 import MessageMarkdownContent from './MessageMarkdownContent';
 import ImageModal from '@/components/ui/image-modal';
+import { ZoomIn } from 'lucide-react';
 
 interface MessageBodyProps {
   isUserMessage: boolean;
@@ -50,36 +51,46 @@ const MessageBody: React.FC<MessageBodyProps> = ({
   if (isUserMessage) {
     return (
       <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8 flex justify-end">
-        <div className={cn(
-          "max-w-[80%]",
-          "bg-violet-600 text-white",
-          "px-4 py-3 rounded-2xl"
-        )}>
-          {isEditing ? (
-            <MessageEditor
-              editedContent={editedContent}
-              setEditedContent={setEditedContent}
-              handleSaveEdit={handleSaveEdit}
-              handleCancelEdit={handleCancelEdit}
-            />
-          ) : (
-            <>
-              {imageUrl && (
-                <div className="mb-2">
-                  <img 
-                    src={imageUrl} 
-                    alt="Uploaded" 
-                    className="max-w-full max-h-48 rounded-lg cursor-pointer object-cover"
-                    onClick={() => setImageModalOpen(true)}
-                  />
+        <div className="flex flex-col items-end gap-2 max-w-[85%]">
+          {/* Image preview card - separate from text bubble */}
+          {imageUrl && !isEditing && (
+            <div 
+              className="relative group rounded-2xl overflow-hidden border border-border/40 shadow-sm cursor-pointer bg-muted/30"
+              onClick={() => setImageModalOpen(true)}
+            >
+              <img 
+                src={imageUrl} 
+                alt="Uploaded" 
+                className="max-w-[280px] sm:max-w-[320px] max-h-[300px] rounded-2xl object-contain"
+              />
+              {/* Hover overlay */}
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center">
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2">
+                  <ZoomIn className="h-5 w-5 text-white" />
                 </div>
-              )}
-              {textContent && (
+              </div>
+            </div>
+          )}
+          
+          {/* Text bubble */}
+          {(textContent || isEditing) && (
+            <div className={cn(
+              "bg-primary text-primary-foreground",
+              "px-4 py-3 rounded-2xl"
+            )}>
+              {isEditing ? (
+                <MessageEditor
+                  editedContent={editedContent}
+                  setEditedContent={setEditedContent}
+                  handleSaveEdit={handleSaveEdit}
+                  handleCancelEdit={handleCancelEdit}
+                />
+              ) : (
                 <p className="text-[15px] leading-relaxed font-normal whitespace-pre-wrap break-words">
                   {textContent}
                 </p>
               )}
-            </>
+            </div>
           )}
         </div>
         {imageUrl && (
@@ -94,7 +105,7 @@ const MessageBody: React.FC<MessageBodyProps> = ({
     <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8 flex justify-start">
       <div className={cn(
         "max-w-[80%]",
-        "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50",
+        "bg-muted text-foreground",
         "px-4 py-3 rounded-2xl"
       )}>
         {isEditing ? (
