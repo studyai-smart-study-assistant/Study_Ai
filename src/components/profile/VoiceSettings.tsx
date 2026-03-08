@@ -26,6 +26,10 @@ const SARVAM_VOICES = [
   { id: 'roopa', label: 'Roopa', gender: 'Female' },
   { id: 'amelia', label: 'Amelia', gender: 'Female' },
   { id: 'sophia', label: 'Sophia', gender: 'Female' },
+  { id: 'anushka', label: 'Anushka', gender: 'Female' },
+  { id: 'manisha', label: 'Manisha', gender: 'Female' },
+  { id: 'vidya', label: 'Vidya', gender: 'Female' },
+  { id: 'arya', label: 'Arya', gender: 'Female' },
   { id: 'aditya', label: 'Aditya', gender: 'Male' },
   { id: 'ashutosh', label: 'Ashutosh', gender: 'Male' },
   { id: 'rahul', label: 'Rahul', gender: 'Male' },
@@ -45,6 +49,13 @@ const SARVAM_VOICES = [
   { id: 'rehan', label: 'Rehan', gender: 'Male' },
   { id: 'soham', label: 'Soham', gender: 'Male' },
   { id: 'shubh', label: 'Shubh', gender: 'Male' },
+  { id: 'abhilash', label: 'Abhilash', gender: 'Male' },
+  { id: 'karun', label: 'Karun', gender: 'Male' },
+  { id: 'hitesh', label: 'Hitesh', gender: 'Male' },
+  { id: 'aayan', label: 'Aayan', gender: 'Male' },
+  { id: 'advait', label: 'Advait', gender: 'Male' },
+  { id: 'mani', label: 'Mani', gender: 'Male' },
+  { id: 'gokul', label: 'Gokul', gender: 'Male' },
 ];
 
 const DEMO_TEXT_HI = 'नमस्ते! यह एक टेस्ट ऑडियो है। इस आवाज़ को सुनकर अपनी पसंदीदा आवाज़ चुनें।';
