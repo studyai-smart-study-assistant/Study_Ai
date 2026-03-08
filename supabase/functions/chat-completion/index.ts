@@ -280,6 +280,45 @@ async function generateQuizContent(topic: string, numQuestions: number, difficul
   return data?.choices?.[0]?.message?.content || 'Quiz generation failed';
 }
 
+// ─── Background Memory Extraction (runs after direct answers) ──
+async function backgroundExtractMemories(userId: string, userMessage: string, model: string): Promise<void> {
+  try {
+    const extractPrompt = `Analyze this user message and extract ONLY important personal information worth remembering. If the message contains NO personal info (just a question, greeting, or study topic), respond with exactly: {"memories":[]}
+
+User message: "${userMessage}"
+
+Extract info like: name, age, class/grade, exam target, favorite/weak subjects, goals, location, hobbies, preferences.
+DO NOT extract study questions or general knowledge queries.
+
+Respond ONLY with valid JSON in this format:
+{"memories":[{"key":"short label","value":"the info","category":"personal|academic|preference|goal|struggle|general"}]}`;
+
+    const resp = await callAI({
+      model: model,
+      messages: [{ role: 'user', content: extractPrompt }],
+      temperature: 0.2,
+      max_tokens: 500,
+    });
+    
+    const data = await resp.json();
+    const content = data?.choices?.[0]?.message?.content || '';
+    
+    // Parse JSON from response
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return;
+    
+    const parsed = JSON.parse(jsonMatch[0]);
+    const memories = parsed?.memories;
+    
+    if (memories && Array.isArray(memories) && memories.length > 0) {
+      await saveMemories(userId, memories);
+      console.log(`🧠 Background extracted ${memories.length} memories`);
+    }
+  } catch (e) {
+    console.warn('⚠️ Background memory extraction error:', e);
+  }
+}
+
 // ─── Main Handler ───────────────────────────────────────────
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
