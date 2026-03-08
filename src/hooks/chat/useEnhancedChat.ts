@@ -95,7 +95,11 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
       if (onChatUpdated) onChatUpdated();
 
       if (skipAIResponse) {
-        await chatDB.addMessage(chatId, '✨ Image generated!', 'bot');
+        // Show the generated image in the bot message
+        const botContent = imageUrl 
+          ? `[IMG_DATA:${imageUrl}]✨ Image बन गई! ऊपर देखें।`
+          : '✨ Image generated!';
+        await chatDB.addMessage(chatId, botContent, 'bot');
         await loadMessages();
       } else {
         const currentChat = await chatDB.getChat(chatId);
