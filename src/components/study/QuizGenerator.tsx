@@ -266,44 +266,9 @@ ${focusArea !== 'balanced' ? `फोकस: मुख्यतः ${focusArea} �
       </CardHeader>
 
       <CardContent className="p-0">
-        {/* Quiz Mode Selection */}
-        <div className="p-6 border-b bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
-          <h3 className="text-lg font-semibold mb-4 text-center">
-            {language === 'en' ? 'Choose Quiz Mode' : 'क्विज़ मोड चुनें'}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Button
-              variant={quizMode === 'traditional' ? 'default' : 'outline'}
-              onClick={() => setQuizMode('traditional')}
-              className="h-auto p-4 flex flex-col items-center gap-2"
-            >
-              <BookOpenCheck className="h-8 w-8" />
-              <div className="text-center">
-                <div className="font-semibold">
-                  {language === 'en' ? 'Traditional Mode' : 'पारंपरिक मोड'}
-                </div>
-                <div className="text-xs opacity-70">
-                  {language === 'en' ? 'Q&A format in chat' : 'चैट में प्रश्न-उत्तर प्रारूप'}
-                </div>
-              </div>
-            </Button>
-            
-            <Button
-              variant={quizMode === 'interactive' ? 'default' : 'outline'}
-              onClick={() => setQuizMode('interactive')}
-              className="h-auto p-4 flex flex-col items-center gap-2"
-            >
-              <PlayCircle className="h-8 w-8" />
-              <div className="text-center">
-                <div className="font-semibold">
-                  {language === 'en' ? 'Interactive Test' : 'इंटरैक्टिव टेस्ट'}
-                </div>
-                <div className="text-xs opacity-70">
-                  {language === 'en' ? 'Live test with timer' : 'टाइमर के साथ लाइव टेस्ट'}
-                </div>
-              </div>
-            </Button>
-          </div>
+        {/* Quiz content - directly show interactive quiz */}
+        <div className="p-6">
+          <InteractiveQuiz />
         </div>
 
         {quizMode === 'interactive' ? (
