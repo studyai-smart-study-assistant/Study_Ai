@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.74.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,6 +27,13 @@ function getNextSarvamKey(): string {
   return key;
 }
 
+async function logUsage(keyId: string, status: string, errorCode?: string, ms?: number) {
+  try {
+    const c = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    await c.from('api_key_usage').insert({ service: 'sarvam-stt', key_identifier: keyId, status, error_code: errorCode || null, response_time_ms: ms || null });
+  } catch {}
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -50,6 +58,8 @@ serve(async (req) => {
 
     for (let attempt = 0; attempt < keys.length; attempt++) {
       const apiKey = getNextSarvamKey();
+      const keyLabel = `SARVAM_KEY_${(_sarvamKeyIndex) % keys.length}`;
+      const start = Date.now();
       try {
         const formData = new FormData();
         const audioBlob = new Blob([bytes.buffer], { type: 'audio/webm' });
@@ -64,19 +74,21 @@ serve(async (req) => {
         });
 
         if (response.status === 429 || response.status === 403) {
-          console.warn(`⚠️ Sarvam STT key#${_sarvamKeyIndex} rate limited, trying next...`);
+          logUsage(keyLabel, 'rate_limited', String(response.status), Date.now() - start);
+          console.warn(`⚠️ Sarvam STT ${keyLabel} rate limited, trying next...`);
           try { await response.text(); } catch {}
           continue;
         }
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('Sarvam STT error:', response.status, errorText);
+          logUsage(keyLabel, 'error', String(response.status), Date.now() - start);
           throw new Error(`Sarvam API error: ${response.status}`);
         }
 
         const result = await response.json();
-        console.log(`✅ STT success (key#${_sarvamKeyIndex})`);
+        logUsage(keyLabel, 'success', undefined, Date.now() - start);
+        console.log(`✅ STT success (${keyLabel})`);
         return new Response(JSON.stringify({
           transcript: result.transcript || '',
           language_code: result.language_code || langCode,

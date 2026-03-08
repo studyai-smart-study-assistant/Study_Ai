@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.74.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,6 +25,13 @@ function getNextSarvamKey(): string {
   const key = keys[_sarvamKeyIndex % keys.length];
   _sarvamKeyIndex = (_sarvamKeyIndex + 1) % keys.length;
   return key;
+}
+
+async function logUsage(keyId: string, status: string, errorCode?: string, ms?: number) {
+  try {
+    const c = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    await c.from('api_key_usage').insert({ service: 'sarvam-tts', key_identifier: keyId, status, error_code: errorCode || null, response_time_ms: ms || null });
+  } catch {}
 }
 
 // Strip markdown formatting for cleaner TTS
@@ -63,6 +71,8 @@ serve(async (req) => {
 
     for (let attempt = 0; attempt < keys.length; attempt++) {
       const apiKey = getNextSarvamKey();
+      const keyLabel = `SARVAM_KEY_${(_sarvamKeyIndex) % keys.length}`;
+      const start = Date.now();
       try {
         const response = await fetch('https://api.sarvam.ai/text-to-speech', {
           method: 'POST',
@@ -80,20 +90,22 @@ serve(async (req) => {
         });
 
         if (response.status === 429 || response.status === 403) {
-          console.warn(`⚠️ Sarvam TTS key#${_sarvamKeyIndex} rate limited, trying next...`);
+          logUsage(keyLabel, 'rate_limited', String(response.status), Date.now() - start);
+          console.warn(`⚠️ Sarvam TTS ${keyLabel} rate limited, trying next...`);
           try { await response.text(); } catch {}
           continue;
         }
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('Sarvam API error:', response.status, errorText);
+          logUsage(keyLabel, 'error', String(response.status), Date.now() - start);
           throw new Error(`Sarvam API error: ${response.status} - ${errorText}`);
         }
 
         const data = await response.json();
         if (data.audios && data.audios[0]) {
-          console.log(`✅ TTS success (key#${_sarvamKeyIndex})`);
+          logUsage(keyLabel, 'success', undefined, Date.now() - start);
+          console.log(`✅ TTS success (${keyLabel})`);
           return new Response(JSON.stringify({ audioContent: data.audios[0] }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
