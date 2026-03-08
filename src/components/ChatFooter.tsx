@@ -284,6 +284,18 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
                       <p className="text-sm text-foreground">Image Create</p>
                       <p className="text-[11px] text-muted-foreground">{isImageMode ? 'ON — AI image mode' : 'AI से image बनाएं'}</p>
                     </div>
+                   </button>
+                  <button
+                    onClick={() => { setIsGalleryOpen(true); setIsToolsOpen(false); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+                  >
+                    <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-muted">
+                      <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-foreground">Image Gallery</p>
+                      <p className="text-[11px] text-muted-foreground">{language === 'hi' ? 'बनाई गई images देखें' : 'View generated images'}</p>
+                    </div>
                   </button>
                 </PopoverContent>
               </Popover>
