@@ -42,7 +42,7 @@ serve(async (req) => {
         });
       }
     }
-    userContent.push({ type: 'text', text: prompt });
+    userContent.push({ type: 'text', text: imageBase64 ? prompt : `[NO_CAMERA_FRAME] ${prompt}` });
 
     messages.push({ role: 'user', content: userContent });
 
