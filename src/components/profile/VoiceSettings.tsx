@@ -71,6 +71,7 @@ export const saveVoicePreferences = (prefs: VoicePreferences) => {
 const VoiceSettings: React.FC = () => {
   const { language } = useLanguage();
   const [selectedVoice, setSelectedVoice] = useState('priya');
+  const [demoLang, setDemoLang] = useState<'hi' | 'en'>(language === 'hi' ? 'hi' : 'en');
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
