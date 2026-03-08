@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Send, Image as ImageIcon, Bot, Phone, Video, Mic, Paperclip } from 'lucide-react';
-import CallScreen from './CallScreen';
+import { ArrowLeft, Send, Image as ImageIcon, Bot, Mic, Paperclip } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
