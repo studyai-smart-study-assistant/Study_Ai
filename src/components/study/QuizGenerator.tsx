@@ -249,7 +249,7 @@ ${focusArea !== 'balanced' ? `फोकस: मुख्यतः ${focusArea} �
             <BrainCircuit className="h-6 w-6" />
           </div>
           <div className="flex-1">
-            <h2 className="text-xl font-bold">{t('quizGenerator')}</h2>
+            <h2 className="text-xl font-bold">{language === 'en' ? 'Quiz' : 'क्विज़'}</h2>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-2 py-1 rounded-full font-medium">
                 {language === 'en' ? 'Enhanced & Optimized' : 'उन्नत और अनुकूलित'}
