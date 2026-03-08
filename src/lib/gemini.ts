@@ -6,8 +6,6 @@ import { supabase } from "@/integrations/supabase/client";
 // Study AI - Core Chat & AI Gateway Service
 // Developed by Ajit Kumar
 
-const geminiModel = 'google/gemini-2.5-flash'; 
-
 const CHAT_FUNCTION_NAME = "chat-completion";
 
 const getFunctionBaseUrls = () => {
@@ -15,7 +13,6 @@ const getFunctionBaseUrls = () => {
   const directUrl = import.meta.env.VITE_SUPABASE_PROJECT_ID
     ? `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`
     : "";
-
   return Array.from(new Set([configuredUrl, directUrl])).filter(Boolean);
 };
 
@@ -23,6 +20,7 @@ const invokeChatCompletion = async (payload: {
   prompt: string;
   history: Array<{ role: string; content: string }>;
   model: string;
+  forceWebSearch?: boolean;
   webSearchContext?: string | null;
   webSearchSources?: Array<{ title: string; url: string }>;
 }) => {
@@ -60,7 +58,7 @@ const invokeChatCompletion = async (payload: {
     }
   }
 
-  throw new Error(lastError?.message || "Edge function unreachable via proxy/direct route");
+  throw new Error(lastError?.message || "Edge function unreachable");
 };
 
 export interface WebSearchSource {
@@ -75,36 +73,34 @@ export interface GenerateResponseWithSearchResult {
 }
 
 /**
- * Perform web search via Tavily
+ * Perform web search via Tavily (only used when force/toggle is ON)
  */
-async function performWebSearch(query: string, forceSearch: boolean): Promise<{
+async function performWebSearch(query: string): Promise<{
   searchContext: string | null;
   sources: WebSearchSource[];
-  shouldSearch: boolean;
 }> {
   try {
     const { data, error } = await supabase.functions.invoke('web-search', {
-      body: { query, forceSearch }
+      body: { query, forceSearch: true }
     });
 
     if (error) {
-      console.warn('⚠️ Web search failed, continuing without:', error);
-      return { searchContext: null, sources: [], shouldSearch: false };
+      console.warn('⚠️ Web search failed:', error);
+      return { searchContext: null, sources: [] };
     }
 
     return {
       searchContext: data?.searchContext || null,
       sources: data?.sources || [],
-      shouldSearch: data?.shouldSearch || false,
     };
   } catch (err) {
-    console.warn('⚠️ Web search error, continuing without:', err);
-    return { searchContext: null, sources: [], shouldSearch: false };
+    console.warn('⚠️ Web search error:', err);
+    return { searchContext: null, sources: [] };
   }
 }
 
 /**
- * Original generateResponse - returns string (backward compatible)
+ * Original generateResponse - backward compatible
  */
 export async function generateResponse(
   prompt: string,
@@ -112,72 +108,68 @@ export async function generateResponse(
   chatId?: string,
   model: string = 'google/gemini-2.5-flash'
 ): Promise<string> {
-  // Even without explicit web search, auto-detect if needed
   const result = await generateResponseWithSearch(prompt, history, chatId, model, false);
   return result.text;
 }
 
 /**
- * Enhanced generateResponse with web search support - returns full result object
+ * Enhanced generateResponse - Gemini auto-decides web search via tool calling
+ * When forceWebSearch=true (toggle ON), pre-fetches search and passes context
+ * When forceWebSearch=false (toggle OFF), Gemini decides via tool calling
  */
 export async function generateResponseWithSearch(
   prompt: string,
   history: Message[] = [],
   chatId?: string,
   model: string = 'google/gemini-2.5-flash',
-  enableWebSearch: boolean = false
+  forceWebSearch: boolean = false
 ): Promise<GenerateResponseWithSearchResult> {
   try {
-    console.log(`🚀 Study AI: Calling AI Gateway with model:`, model, `webSearch:`, enableWebSearch);
+    console.log(`🚀 Study AI: model=${model}, forceWebSearch=${forceWebSearch}`);
 
-    // Always check web search - auto-detect keywords, force when toggle ON
-    let searchContext: string | null = null;
-    let sources: WebSearchSource[] = [];
-
-    const searchResult = await performWebSearch(prompt, enableWebSearch);
-    searchContext = searchResult.searchContext;
-    sources = searchResult.sources;
-    
-    if (searchResult.shouldSearch) {
-      toast.info('🔍 वेब से जानकारी खोज रहा हूँ...', { duration: 2000 });
-    }
-
-    const sanitizeForAI = (text: string) => {
-      return (text || "")
+    const sanitizeForAI = (text: string) =>
+      (text || "")
         .replace(/\[Image:\s*data:image\/[^\]]+\]/g, "[Image attached]")
         .replace(/\[image:[^\]]+\]/gi, "[Image attached]")
         .trim();
-    };
-
-    const systemContext = {
-      role: "system",
-      content: "You are Study AI, created by Ajit Kumar. You are a smart, friendly AI teacher for Bihar Board and competitive exam students. Respond in natural Hinglish/Hindi/English based on user preference."
-    };
 
     const formattedHistory = [
-      systemContext,
+      {
+        role: "system",
+        content: "You are Study AI, created by Ajit Kumar. Smart, friendly AI teacher for Bihar Board and competitive exam students."
+      },
       ...history.map((msg) => ({
         role: msg.role,
         content: sanitizeForAI(msg.content),
       }))
     ];
 
+    let webSearchContext: string | null = null;
+    let webSearchSources: WebSearchSource[] = [];
+
+    // Only pre-fetch when user explicitly toggled web search ON
+    if (forceWebSearch) {
+      toast.info('🔍 वेब से जानकारी खोज रहा हूँ...', { duration: 2000 });
+      const searchResult = await performWebSearch(prompt);
+      webSearchContext = searchResult.searchContext;
+      webSearchSources = searchResult.sources;
+    }
+
     const data = await invokeChatCompletion({
       prompt: sanitizeForAI(prompt),
       history: formattedHistory,
       model,
-      webSearchContext: searchContext,
-      webSearchSources: sources,
+      forceWebSearch,
+      webSearchContext,
+      webSearchSources,
     });
 
-    if (data?.error) {
-      throw new Error(data.error);
-    }
+    if (data?.error) throw new Error(data.error);
 
     const responseText = data.response;
     if (!responseText) throw new Error("AI ने कोई जवाब नहीं दिया।");
 
-    const responseSources = data.sources || sources;
+    const sources = data.sources || webSearchSources;
     const webSearchUsed = data.webSearchUsed || false;
 
     if (webSearchUsed) {
@@ -190,11 +182,10 @@ export async function generateResponseWithSearch(
       await chatDB.addMessage(chatId, responseText, "bot");
     }
 
-    return { text: responseText, sources: responseSources, webSearchUsed };
+    return { text: responseText, sources, webSearchUsed };
   } catch (error: any) {
     console.error("❌ AI Request failed:", error);
-    const errorMessage = error.message || "AI service से जवाब पाने में विफलता।";
-    toast.error(errorMessage, { duration: 5000 });
+    toast.error(error.message || "AI service से जवाब पाने में विफलता।", { duration: 5000 });
     throw error;
   }
 }
