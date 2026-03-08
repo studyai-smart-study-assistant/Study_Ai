@@ -2,12 +2,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal, X, Plus, Upload, Sparkles, Globe, SlidersHorizontal, Camera } from "lucide-react";
+import { SendHorizonal, X, Plus, Upload, Sparkles, Globe, SlidersHorizontal, Camera, ImageIcon, Download } from "lucide-react";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from '@/hooks/useAuth';
+import { saveImageToGallery, downloadImage } from '@/lib/imageGalleryDB';
+import ImageGallery from '@/components/ImageGallery';
 import {
   Popover,
   PopoverContent,
