@@ -47,6 +47,20 @@ function parseImage(content: string): { imageUrl: string; rest: string } {
   return { imageUrl: imgDataMatch[1], rest: content.replace(imgDataMatch[0], '').trim() };
 }
 
+// Parse quiz data from content
+function parseQuizData(content: string): { quizData: any | null; rest: string } {
+  const match = content.match(/\[QUIZ_DATA:([\s\S]+)\]/);
+  if (match) {
+    try {
+      const parsed = JSON.parse(match[1]);
+      if (parsed.questions && Array.isArray(parsed.questions)) {
+        return { quizData: parsed, rest: content.replace(match[0], '').trim() };
+      }
+    } catch {}
+  }
+  return { quizData: null, rest: content };
+}
+
 // Thinking indicator component
 const ThinkingBadge: React.FC<{ thinking: string }> = ({ thinking }) => {
   const [expanded, setExpanded] = useState(false);
