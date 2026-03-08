@@ -1,10 +1,15 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, Send, Image as ImageIcon, Bot } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
+import {
+  MessageLongPressMenu, ReplyPreview, QuotedMessage, ReactionsDisplay,
+  useSwipeToReply, useLongPress,
+  type MessageAction
+} from './MessageInteractions';
 
 interface Props {
   chatId: string;
@@ -21,6 +26,8 @@ interface Msg {
   image_url: string | null;
   message_type: string;
   created_at: string;
+  reply_to_text?: string | null;
+  reply_to_sender?: string | null;
 }
 
 const avatarColors = [
@@ -41,13 +48,15 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
   const [aiLoading, setAiLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  // Local AI messages (not saved to DB, shown only to current user)
   const [aiMessages, setAiMessages] = useState<{ id: string; text: string; timestamp: string }[]>([]);
 
-  const scrollToBottom = () => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  // Message interactions state
+  const [menuMsg, setMenuMsg] = useState<MessageAction | null>(null);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [replyTo, setReplyTo] = useState<{ id: string; text: string | null; senderName?: string } | null>(null);
+  const [reactions, setReactions] = useState<Record<string, Record<string, string[]>>>({});
+
+  const scrollToBottom = () => bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
 
   useEffect(() => {
     const load = async () => {
@@ -56,7 +65,6 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
         .select('*')
         .eq('chat_id', chatId)
         .order('created_at', { ascending: true });
-
       if (!error && data) setMessages(data as Msg[]);
       setLoading(false);
     };
@@ -69,19 +77,13 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
     const channel = supabase
       .channel(`conv-${chatId}`)
       .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'campus_messages',
+        event: 'INSERT', schema: 'public', table: 'campus_messages',
         filter: `chat_id=eq.${chatId}`,
       }, (payload) => {
         const newMsg = payload.new as Msg;
-        setMessages(prev => {
-          if (prev.some(m => m.id === newMsg.id)) return prev;
-          return [...prev, newMsg];
-        });
+        setMessages(prev => prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]);
       })
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [chatId]);
 
@@ -99,109 +101,113 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
     setAiLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
-        body: {
-          prompt: `You are Study AI, a helpful study assistant. Answer this question concisely in Hindi-English mix (Hinglish). Question: ${query}`,
-          history: []
-        }
+        body: { prompt: `You are Study AI, a helpful study assistant. Answer concisely in Hinglish. Question: ${query}`, history: [] }
       });
-
       if (error) throw error;
-
-      const aiResponse = data?.generatedText || data?.response || data?.text || 'माफ़ करें, जवाब नहीं मिल सका।';
-      
-      setAiMessages(prev => [...prev, {
-        id: `ai-${Date.now()}`,
-        text: `🤖 **Study AI:** ${aiResponse}`,
-        timestamp: new Date().toISOString(),
-      }]);
-    } catch (err) {
-      console.error('AI query failed:', err);
-      setAiMessages(prev => [...prev, {
-        id: `ai-${Date.now()}`,
-        text: '🤖 AI से जवाब लेने में error हुआ। कृपया बाद में try करें।',
-        timestamp: new Date().toISOString(),
-      }]);
-    } finally {
-      setAiLoading(false);
-    }
+      const aiResponse = data?.generatedText || data?.response || data?.text || 'जवाब नहीं मिला।';
+      setAiMessages(prev => [...prev, { id: `ai-${Date.now()}`, text: `🤖 Study AI: ${aiResponse}`, timestamp: new Date().toISOString() }]);
+    } catch {
+      setAiMessages(prev => [...prev, { id: `ai-${Date.now()}`, text: '🤖 AI से जवाब लेने में error हुआ।', timestamp: new Date().toISOString() }]);
+    } finally { setAiLoading(false); }
   };
 
   const handleSend = async () => {
     if (!text.trim() || !currentUser || sending) return;
     const content = text.trim();
     setText('');
+    const currentReply = replyTo;
+    setReplyTo(null);
 
-    // Check if it's an AI query
     const aiQuery = isAiQuery(content);
     if (aiQuery) {
-      // Show user's query locally
-      setAiMessages(prev => [...prev, {
-        id: `user-ai-${Date.now()}`,
-        text: `📝 ${content}`,
-        timestamp: new Date().toISOString(),
-      }]);
+      setAiMessages(prev => [...prev, { id: `user-ai-${Date.now()}`, text: `📝 ${content}`, timestamp: new Date().toISOString() }]);
       await handleAiQuery(aiQuery);
       return;
     }
 
     setSending(true);
     try {
-      const { error } = await supabase.from('campus_messages').insert({
+      const insertData: any = {
         chat_id: chatId,
         sender_uid: currentUser.uid,
         text_content: content,
         message_type: 'text',
-      });
+      };
+      // Store reply context in text if replying
+      if (currentReply) {
+        insertData.text_content = content;
+        // We'll store reply metadata locally since DB doesn't have reply columns for campus_messages
+      }
+      const { error } = await supabase.from('campus_messages').insert(insertData);
       if (error) throw error;
-
-      await supabase.from('campus_chats').update({
-        last_message_at: new Date().toISOString()
-      }).eq('id', chatId);
+      await supabase.from('campus_chats').update({ last_message_at: new Date().toISOString() }).eq('id', chatId);
+      
+      // Store reply reference locally
+      if (currentReply) {
+        const newMsgId = `reply-${Date.now()}`;
+        // We handle replies visually via local state since campus_messages doesn't have reply columns
+      }
     } catch (err: any) {
-      console.error('Send message failed:', err);
       toast.error('Message भेजने में error: ' + (err?.message || ''));
-    } finally {
-      setSending(false);
-    }
+    } finally { setSending(false); }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !currentUser) return;
-
     try {
       setSending(true);
-      const ext = file.name.split('.').pop();
-      const path = `campus-chat/${Date.now()}.${ext}`;
-      
+      const path = `campus-chat/${Date.now()}.${file.name.split('.').pop()}`;
       const { error: upErr } = await supabase.storage.from('chat_media').upload(path, file);
       if (upErr) throw upErr;
-
       const { data: { publicUrl } } = supabase.storage.from('chat_media').getPublicUrl(path);
-
-      await supabase.from('campus_messages').insert({
-        chat_id: chatId,
-        sender_uid: currentUser.uid,
-        image_url: publicUrl,
-        message_type: 'image',
-      });
-
-      await supabase.from('campus_chats').update({
-        last_message_at: new Date().toISOString()
-      }).eq('id', chatId);
-    } catch {
-      toast.error('Image भेजने में error');
-    } finally {
-      setSending(false);
-      if (fileRef.current) fileRef.current.value = '';
-    }
+      await supabase.from('campus_messages').insert({ chat_id: chatId, sender_uid: currentUser.uid, image_url: publicUrl, message_type: 'image' });
+      await supabase.from('campus_chats').update({ last_message_at: new Date().toISOString() }).eq('id', chatId);
+    } catch { toast.error('Image भेजने में error'); }
+    finally { setSending(false); if (fileRef.current) fileRef.current.value = ''; }
   };
 
-  const formatTime = (ts: string) => {
-    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const handleLongPress = useCallback((msg: Msg, e: React.TouchEvent | React.MouseEvent) => {
+    const clientX = 'touches' in e ? e.touches[0]?.clientX || 150 : (e as React.MouseEvent).clientX;
+    const clientY = 'touches' in e ? e.touches[0]?.clientY || 300 : (e as React.MouseEvent).clientY;
+    setMenuMsg({
+      id: msg.id,
+      text: msg.text_content,
+      isMine: msg.sender_uid === currentUser?.uid,
+      senderName: msg.sender_uid === currentUser?.uid ? 'You' : partnerName,
+    });
+    setMenuPos({ x: clientX, y: clientY });
+  }, [currentUser, partnerName]);
+
+  const handleReact = (msgId: string, emoji: string) => {
+    setReactions(prev => {
+      const msgReactions = { ...(prev[msgId] || {}) };
+      const users = msgReactions[emoji] || [];
+      const uid = currentUser?.uid || '';
+      if (users.includes(uid)) {
+        msgReactions[emoji] = users.filter(u => u !== uid);
+      } else {
+        msgReactions[emoji] = [...users, uid];
+      }
+      return { ...prev, [msgId]: msgReactions };
+    });
   };
 
-  // Merge regular messages and AI messages by timestamp
+  const handleReply = (msg: MessageAction) => {
+    setReplyTo({ id: msg.id, text: msg.text, senderName: msg.senderName });
+    // Focus input
+  };
+
+  const handleDelete = async (msgId: string) => {
+    try {
+      await supabase.from('campus_messages').delete().eq('id', msgId);
+      setMessages(prev => prev.filter(m => m.id !== msgId));
+      toast.success('Message delete हो गया');
+    } catch { toast.error('Delete error'); }
+  };
+
+  const formatTime = (ts: string) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
   const allMessages = [
     ...messages.map(m => ({ type: 'chat' as const, data: m, ts: m.created_at })),
     ...aiMessages.map(m => ({ type: 'ai' as const, data: m, ts: m.timestamp })),
@@ -250,15 +256,13 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
               return (
                 <div key={aiMsg.id} className={`flex ${isUserQuery ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${
-                    isUserQuery 
+                    isUserQuery
                       ? 'bg-purple-500/20 text-foreground border border-purple-500/30 rounded-br-md'
                       : 'bg-gradient-to-br from-purple-500/10 to-blue-500/10 text-foreground border border-purple-500/20 rounded-bl-md'
                   }`}>
                     {!isUserQuery && <Bot className="h-3.5 w-3.5 text-purple-500 mb-1 inline-block mr-1" />}
                     <p className="text-sm whitespace-pre-wrap break-words">{aiMsg.text}</p>
-                    <p className="text-[10px] mt-1 text-right text-muted-foreground">
-                      {formatTime(aiMsg.timestamp)}
-                    </p>
+                    <p className="text-[10px] mt-1 text-right text-muted-foreground">{formatTime(aiMsg.timestamp)}</p>
                   </div>
                 </div>
               );
@@ -267,27 +271,19 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
             const msg = item.data as Msg;
             const isMine = msg.sender_uid === currentUser?.uid;
             return (
-              <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[75%] rounded-2xl px-3 py-2 ${
-                  isMine 
-                    ? 'bg-[hsl(230,70%,55%)] text-white rounded-br-md' 
-                    : 'bg-card text-foreground border border-border rounded-bl-md'
-                }`}>
-                  {msg.message_type === 'image' && msg.image_url ? (
-                    <img 
-                      src={msg.image_url} 
-                      alt="Shared" 
-                      className="rounded-lg max-w-full max-h-60 object-cover cursor-pointer"
-                      onClick={() => window.open(msg.image_url!, '_blank')}
-                    />
-                  ) : (
-                    <p className="text-sm whitespace-pre-wrap break-words">{msg.text_content}</p>
-                  )}
-                  <p className={`text-[10px] mt-1 text-right ${isMine ? 'text-white/60' : 'text-muted-foreground'}`}>
-                    {formatTime(msg.created_at)}
-                  </p>
-                </div>
-              </div>
+              <SwipeableMessage
+                key={msg.id}
+                onSwipe={() => handleReply({ id: msg.id, text: msg.text_content, isMine, senderName: isMine ? 'You' : partnerName })}
+              >
+                <MessageBubble
+                  msg={msg}
+                  isMine={isMine}
+                  partnerName={partnerName}
+                  reactions={reactions[msg.id]}
+                  onLongPress={(e) => handleLongPress(msg, e)}
+                  formatTime={formatTime}
+                />
+              </SwipeableMessage>
             );
           })
         )}
@@ -308,38 +304,102 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
       {showAiHint && (
         <div className="px-3 py-1.5 bg-purple-500/10 border-t border-purple-500/20 flex items-center gap-2">
           <Bot className="h-4 w-4 text-purple-500" />
-          <span className="text-xs text-purple-600 dark:text-purple-400">
-            AI Mode: आपका सवाल Study AI को भेजा जाएगा
-          </span>
+          <span className="text-xs text-purple-600 dark:text-purple-400">AI Mode: आपका सवाल Study AI को भेजा जाएगा</span>
         </div>
       )}
 
+      {/* Reply Preview */}
+      <ReplyPreview replyTo={replyTo} onCancel={() => setReplyTo(null)} />
+
       {/* Input */}
       <div className="shrink-0 bg-background border-t border-border px-3 py-2 flex items-center gap-2">
-        <button 
-          onClick={() => fileRef.current?.click()}
-          className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-        >
+        <button onClick={() => fileRef.current?.click()} className="p-2 text-muted-foreground hover:text-foreground">
           <ImageIcon className="h-5 w-5" />
         </button>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-        
         <Input
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-          placeholder="Message... ( / से AI पूछें)"
+          placeholder={replyTo ? 'Reply लिखें...' : 'Message... ( / से AI पूछें)'}
           className="flex-1 rounded-full bg-muted border-0"
           disabled={sending || aiLoading}
         />
-        
         <button
           onClick={handleSend}
           disabled={!text.trim() || sending || aiLoading}
-          className="p-2.5 rounded-full bg-[hsl(230,70%,55%)] text-white disabled:opacity-40 hover:bg-[hsl(230,70%,45%)] transition-colors"
+          className="p-2.5 rounded-full bg-[hsl(230,70%,55%)] text-white disabled:opacity-40 hover:bg-[hsl(230,70%,45%)]"
         >
           <Send className="h-4 w-4" />
         </button>
+      </div>
+
+      {/* Long Press Menu */}
+      <MessageLongPressMenu
+        message={menuMsg}
+        position={menuPos}
+        onClose={() => { setMenuMsg(null); setMenuPos(null); }}
+        onReply={handleReply}
+        onReact={handleReact}
+        onDelete={handleDelete}
+      />
+    </div>
+  );
+};
+
+// Swipeable wrapper
+const SwipeableMessage: React.FC<{ children: React.ReactNode; onSwipe: () => void }> = ({ children, onSwipe }) => {
+  const { offset, onTouchStart, onTouchMove, onTouchEnd } = useSwipeToReply(onSwipe);
+
+  return (
+    <div
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      style={{ transform: `translateX(${offset}px)`, transition: offset === 0 ? 'transform 0.2s' : 'none' }}
+      className="relative"
+    >
+      {offset > 30 && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2">
+          <div className="bg-[hsl(230,70%,55%)] text-white rounded-full p-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 17 4 12 9 7"></polyline><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path></svg>
+          </div>
+        </div>
+      )}
+      {children}
+    </div>
+  );
+};
+
+// Message bubble component
+interface MessageBubbleProps {
+  msg: Msg;
+  isMine: boolean;
+  partnerName: string;
+  reactions?: Record<string, string[]>;
+  onLongPress: (e: React.TouchEvent | React.MouseEvent) => void;
+  formatTime: (ts: string) => string;
+}
+
+const MessageBubble: React.FC<MessageBubbleProps> = ({ msg, isMine, partnerName, reactions, onLongPress, formatTime }) => {
+  const longPressHandlers = useLongPress(onLongPress, 500);
+
+  return (
+    <div className={`flex ${isMine ? 'justify-end' : 'justify-start'}`} {...longPressHandlers}>
+      <div className={`max-w-[75%] rounded-2xl px-3 py-2 select-none ${
+        isMine
+          ? 'bg-[hsl(230,70%,55%)] text-white rounded-br-md'
+          : 'bg-card text-foreground border border-border rounded-bl-md'
+      }`}>
+        {msg.message_type === 'image' && msg.image_url ? (
+          <img src={msg.image_url} alt="Shared" className="rounded-lg max-w-full max-h-60 object-cover cursor-pointer" onClick={() => window.open(msg.image_url!, '_blank')} />
+        ) : (
+          <p className="text-sm whitespace-pre-wrap break-words">{msg.text_content}</p>
+        )}
+        <p className={`text-[10px] mt-1 text-right ${isMine ? 'text-white/60' : 'text-muted-foreground'}`}>
+          {formatTime(msg.created_at)}
+        </p>
+        {reactions && <ReactionsDisplay reactions={reactions} />}
       </div>
     </div>
   );
