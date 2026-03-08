@@ -2,12 +2,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal, X, Plus, Upload, Sparkles, Globe, SlidersHorizontal, Camera } from "lucide-react";
+import { SendHorizonal, X, Plus, Upload, Sparkles, Globe, SlidersHorizontal, Camera, ImageIcon, Download } from "lucide-react";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from '@/hooks/useAuth';
+import { saveImageToGallery, downloadImage } from '@/lib/imageGalleryDB';
+import ImageGallery from '@/components/ImageGallery';
 import {
   Popover,
   PopoverContent,
@@ -29,6 +31,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   const [isImageMode, setIsImageMode] = useState(false);
   const [isAttachOpen, setIsAttachOpen] = useState(false);
   const [isToolsOpen, setIsToolsOpen] = useState(false);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -50,19 +53,35 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     if (isImageMode && input.trim()) {
       try {
         setIsUploading(true);
-        toast.info('Image बन रही है... कृपया प्रतीक्षा करें');
+        toast.info(language === 'hi' ? 'Image बन रही है... कृपया प्रतीक्षा करें' : 'Generating image... please wait');
         const { data, error } = await supabase.functions.invoke('generate-image', {
           body: { prompt: input.trim() }
         });
         if (error) throw error;
         if (!data?.imageUrl) throw new Error('Image generation failed');
+        
+        // Save to IndexedDB gallery
+        await saveImageToGallery({
+          id: crypto.randomUUID(),
+          prompt: input.trim(),
+          imageData: data.imageUrl,
+          createdAt: Date.now(),
+        });
+        
         onSend(input.trim(), data.imageUrl, true);
-        toast.success('Image सफलतापूर्वक बन गई!');
+        toast.success(language === 'hi' ? 'Image सफलतापूर्वक बन गई!' : 'Image generated successfully!');
         setInput('');
         setIsImageMode(false);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error generating image:', error);
-        toast.error('Image बनाने में समस्या हुई');
+        const msg = error?.message || '';
+        if (msg.includes('Rate limit')) {
+          toast.error(language === 'hi' ? 'बहुत ज़्यादा requests — थोड़ी देर बाद try करें' : 'Rate limited — try again later');
+        } else if (msg.includes('Payment')) {
+          toast.error(language === 'hi' ? 'Credits खत्म हो गए' : 'Credits exhausted');
+        } else {
+          toast.error(language === 'hi' ? 'Image बनाने में समस्या हुई' : 'Image generation failed');
+        }
       } finally {
         setIsUploading(false);
       }
@@ -265,6 +284,18 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
                       <p className="text-sm text-foreground">Image Create</p>
                       <p className="text-[11px] text-muted-foreground">{isImageMode ? 'ON — AI image mode' : 'AI से image बनाएं'}</p>
                     </div>
+                   </button>
+                  <button
+                    onClick={() => { setIsGalleryOpen(true); setIsToolsOpen(false); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+                  >
+                    <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-muted">
+                      <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-foreground">Image Gallery</p>
+                      <p className="text-[11px] text-muted-foreground">{language === 'hi' ? 'बनाई गई images देखें' : 'View generated images'}</p>
+                    </div>
                   </button>
                 </PopoverContent>
               </Popover>
@@ -301,6 +332,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
           </div>
         </div>
       </div>
+      <ImageGallery open={isGalleryOpen} onClose={() => setIsGalleryOpen(false)} />
     </div>
   );
 };
