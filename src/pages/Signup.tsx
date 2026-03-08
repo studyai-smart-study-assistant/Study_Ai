@@ -172,9 +172,8 @@ const Signup = () => {
           transition={{ delay: 0.2, duration: 0.6, type: "spring", stiffness: 200 }}
         >
           <motion.div
-            className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-5 relative"
-            style={{ background: 'var(--gradient-primary)', boxShadow: 'var(--shadow-glow)' }}
-            whileHover={{ scale: 1.15, rotate: -10 }}
+            className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-5 relative overflow-hidden"
+            whileHover={{ scale: 1.15, rotate: -5 }}
             whileTap={{ scale: 0.9 }}
             animate={{
               boxShadow: [
@@ -185,7 +184,7 @@ const Signup = () => {
             }}
             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
           >
-            <Sparkles className="w-9 h-9 text-primary-foreground relative z-10" />
+            <img src="/images/study-ai-logo.png" alt="Study AI" className="w-full h-full object-cover rounded-3xl relative z-10" />
             <motion.div
               className="absolute inset-[-6px] rounded-[22px] border-2 border-primary/30"
               animate={{ rotate: 360 }}
