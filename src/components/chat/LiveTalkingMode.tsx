@@ -140,7 +140,7 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
         // Send setup message
         const setupMsg = {
           setup: {
-            model: liveModel,
+            model: selectedLiveModel,
             generationConfig: {
               responseModalities: ['AUDIO'],
               speechConfig: {
