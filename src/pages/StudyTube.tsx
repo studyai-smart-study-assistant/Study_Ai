@@ -163,6 +163,8 @@ const StudyTube: React.FC = () => {
               isLoading={isLoading}
               onLoadMore={loadMoreVideos}
               hasMore={!!nextPageToken}
+              searchError={searchError}
+              onRetry={() => searchQuery && handleSearch(searchQuery)}
             />
           )}
         </div>
