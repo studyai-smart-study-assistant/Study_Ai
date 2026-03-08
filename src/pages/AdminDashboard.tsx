@@ -281,7 +281,11 @@ const AdminDashboard = () => {
           <AdminUsersTab />
         </TabsContent>
 
-        <TabsContent value="keys" className="mt-4 space-y-4">
+        <TabsContent value="ads" className="mt-4">
+          <AdminAdsTab />
+        </TabsContent>
+
+
           {Object.entries(stats).map(([service, s]) => (
             <Card key={service}>
               <CardHeader>
