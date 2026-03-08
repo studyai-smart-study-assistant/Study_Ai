@@ -128,6 +128,10 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
         return;
       }
 
+      const apiKeys: string[] = Array.isArray(data?.allKeys) && data.allKeys.length > 0
+        ? data.allKeys
+        : [data.apiKey];
+
       const modelCandidates = Array.from(new Set([
         'models/gemini-2.5-flash-native-audio-latest',
         'models/gemini-live-2.5-flash-preview',
@@ -138,26 +142,32 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
         'models/gemini-2.0-flash-exp',
       ].filter(Boolean)));
 
-      const tryModelAt = (index: number) => {
-        if (!open) return;
+      // Try each model × each key combination
+      let totalAttempts = 0;
+      const maxAttempts = modelCandidates.length * apiKeys.length;
 
-        if (index >= modelCandidates.length) {
+      const tryNext = (modelIdx: number, keyIdx: number) => {
+        if (!open) return;
+        totalAttempts++;
+
+        if (totalAttempts > maxAttempts || modelIdx >= modelCandidates.length) {
           setStatus('idle');
-          toast.error('इस API key पर compatible Live model नहीं मिला (2.5 preferred)');
+          toast.error('कोई भी API key + model combination काम नहीं कर रहा');
           return;
         }
 
-        const modelToUse = modelCandidates[index];
+        const modelToUse = modelCandidates[modelIdx];
+        const apiKey = apiKeys[keyIdx % apiKeys.length];
         setLiveModel(modelToUse);
-        console.log('Trying live model:', modelToUse);
+        console.log(`Trying model: ${modelToUse}, key#${keyIdx % apiKeys.length}`);
 
-        const ws = new WebSocket(`${GEMINI_WS_URL}?key=${data.apiKey}`);
+        const ws = new WebSocket(`${GEMINI_WS_URL}?key=${apiKey}`);
         wsRef.current = ws;
 
         let setupComplete = false;
         const setupTimer = setTimeout(() => {
           if (!setupComplete) {
-            console.warn(`Setup timeout on model ${modelToUse}, trying next model...`);
+            console.warn(`Setup timeout on ${modelToUse} key#${keyIdx}, trying next...`);
             try { ws.close(4000, 'setup timeout'); } catch {}
           }
         }, 6000);
@@ -238,7 +248,13 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
           if (!setupComplete) {
             isConnectedRef.current = false;
             setStatus('idle');
-            tryModelAt(index + 1);
+            // Try next key for same model, or next model
+            const nextKeyIdx = keyIdx + 1;
+            if (nextKeyIdx < apiKeys.length) {
+              tryNext(modelIdx, nextKeyIdx);
+            } else {
+              tryNext(modelIdx + 1, 0);
+            }
             return;
           }
 
@@ -250,7 +266,7 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
         };
       };
 
-      tryModelAt(0);
+      tryNext(0, 0);
     } catch (e) {
       console.error('WebSocket connect error:', e);
       toast.error('Failed to connect');

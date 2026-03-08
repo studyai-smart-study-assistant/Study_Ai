@@ -8,10 +8,30 @@ const corsHeaders = {
 const LOVABLE_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 const GOOGLE_NATIVE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 
-// ─── Fallback AI Call: Lovable Gateway → Google Native API ──
+// ─── Google API Key Pool (Round-Robin) ──────────────────────
+function getGoogleApiKeys(): string[] {
+  const keys: string[] = [];
+  for (let i = 1; i <= 10; i++) {
+    const k = Deno.env.get(`GOOGLE_API_KEY_${i}`);
+    if (k) keys.push(k);
+  }
+  const base = Deno.env.get('GOOGLE_API_KEY');
+  if (base) keys.push(base);
+  return [...new Set(keys)];
+}
+
+let _keyIndex = 0;
+function getNextGoogleApiKey(): string {
+  const keys = getGoogleApiKeys();
+  if (keys.length === 0) throw new Error('No Google API keys configured');
+  const key = keys[_keyIndex % keys.length];
+  _keyIndex = (_keyIndex + 1) % keys.length;
+  return key;
+}
+
+// ─── Fallback AI Call: Lovable Gateway → Google Native API (with key rotation) ──
 async function callAI(body: any): Promise<any> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
   const nativeModel = body.model?.replace('google/', '') || 'gemini-2.5-flash';
 
   // Try Lovable Gateway first
@@ -37,22 +57,33 @@ async function callAI(body: any): Promise<any> {
     }
   }
 
-  // Fallback: Google Native API
-  if (!GOOGLE_API_KEY) throw new Error('Both Lovable AI and Google API keys unavailable');
+  // Fallback: Google Native API with key rotation
+  const keys = getGoogleApiKeys();
+  if (keys.length === 0) throw new Error('Both Lovable AI and Google API keys unavailable');
   
-  console.log(`🔄 Using Google Native API: ${nativeModel}`);
-  const response = await fetch(GOOGLE_NATIVE_URL, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${GOOGLE_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...body, model: nativeModel }),
-  });
-  if (!response.ok) {
+  console.log(`🔄 Using Google Native API: ${nativeModel} (${keys.length} keys in pool)`);
+
+  for (let attempt = 0; attempt < keys.length; attempt++) {
+    const apiKey = getNextGoogleApiKey();
+    const response = await fetch(GOOGLE_NATIVE_URL, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...body, model: nativeModel }),
+    });
+    if (response.ok) {
+      console.log(`✅ Google Native API success (key#${_keyIndex % keys.length})`);
+      return await response.json();
+    }
+    if (response.status === 429 || response.status === 403) {
+      console.warn(`⚠️ Key#${_keyIndex % keys.length} rate limited, trying next...`);
+      try { await response.text(); } catch {}
+      continue;
+    }
     const errText = await response.text();
     console.error('❌ Google API error:', response.status, errText);
     throw new Error(`Google API error: ${response.status}`);
   }
-  console.log('✅ Google Native API success');
-  return await response.json();
+  throw new Error('All Google API keys exhausted (rate limited)');
 }
 
 serve(async (req) => {
