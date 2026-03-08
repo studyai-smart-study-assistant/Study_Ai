@@ -21,6 +21,7 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
   const [transcript, setTranscript] = useState('');
   const [aiResponse, setAiResponse] = useState('');
   const [activeAnalyser, setActiveAnalyser] = useState<AnalyserNode | null>(null);
+  const [liveModel, setLiveModel] = useState('models/gemini-2.0-flash-live-001');
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -128,6 +129,9 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
         return;
       }
 
+      const selectedLiveModel = data?.model || liveModel;
+      setLiveModel(selectedLiveModel);
+
       const ws = new WebSocket(`${GEMINI_WS_URL}?key=${data.apiKey}`);
       wsRef.current = ws;
 
@@ -136,7 +140,7 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
         // Send setup message
         const setupMsg = {
           setup: {
-            model: 'models/gemini-2.0-flash-exp',
+            model: selectedLiveModel,
             generationConfig: {
               responseModalities: ['AUDIO'],
               speechConfig: {
@@ -215,7 +219,7 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
       console.error('WebSocket connect error:', e);
       toast.error('Failed to connect');
     }
-  }, [open, playAudioChunk]);
+  }, [open, playAudioChunk, liveModel]);
 
   // ── Stream mic audio as PCM 16kHz via WebSocket ──
   const startMicStream = useCallback(async () => {
