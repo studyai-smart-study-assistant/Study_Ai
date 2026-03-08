@@ -12,7 +12,7 @@ import FixedSubjectPlanCard from './components/FixedSubjectPlanCard';
 import DailyScheduleView from './components/DailyScheduleView';
 import ExamTipsView from './components/ExamTipsView';
 import TodaysDashboard from './components/TodaysDashboard';
-import ErrorBoundary from '../../ErrorBoundary';
+import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { BarChart3, BookOpen, Calendar, Lightbulb, X, Target } from 'lucide-react';
 
 interface StudyPlanDisplayProps {
