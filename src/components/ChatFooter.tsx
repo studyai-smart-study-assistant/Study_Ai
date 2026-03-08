@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal, X, Plus, Upload, Sparkles, Globe, SlidersHorizontal, Camera, ImageIcon, Download } from "lucide-react";
+import { SendHorizonal, X, Plus, Upload, Sparkles, Globe, SlidersHorizontal, Camera, ImageIcon, Download, Mic, MicOff } from "lucide-react";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from "@/integrations/supabase/client";
@@ -32,12 +32,56 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   const [isAttachOpen, setIsAttachOpen] = useState(false);
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const isMobile = useIsMobile();
   const { language } = useLanguage();
   const { currentUser } = useAuth();
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognitionAPI();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = language === 'hi' ? 'hi-IN' : 'en-US';
+      
+      recognition.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((result: any) => result[0].transcript)
+          .join('');
+        setInput(transcript);
+      };
+      
+      recognition.onend = () => setIsListening(false);
+      recognition.onerror = () => {
+        setIsListening(false);
+        toast.error(language === 'hi' ? 'वॉइस पहचान विफल' : 'Voice recognition failed');
+      };
+      
+      recognitionRef.current = recognition;
+    }
+    return () => { recognitionRef.current?.stop(); };
+  }, [language]);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      toast.error(language === 'hi' ? 'आपका ब्राउज़र वॉइस सपोर्ट नहीं करता' : 'Voice not supported in your browser');
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+      toast.success(language === 'hi' ? '🎙️ बोलिए...' : '🎙️ Listening...');
+    }
+  };
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -104,6 +148,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     onSend(input.trim(), uploadedImage || undefined);
     setInput('');
     setUploadedImage(null);
+    if (isListening) { recognitionRef.current?.stop(); setIsListening(false); }
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
   };
 
@@ -316,6 +361,22 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Mic button */}
+              <Button
+                onClick={toggleListening}
+                variant="ghost"
+                size="icon"
+                disabled={isLoading || isDisabled}
+                className={`h-9 w-9 rounded-full transition-all duration-200 ${
+                  isListening 
+                    ? 'bg-destructive/10 text-destructive hover:bg-destructive/20 animate-pulse' 
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
+                title={language === 'hi' ? (isListening ? 'बंद करें' : 'बोलकर टाइप करें') : (isListening ? 'Stop' : 'Voice input')}
+              >
+                {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </Button>
+
               {/* Fast badge */}
               <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-full select-none">
                 Fast
