@@ -50,12 +50,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   const { language } = useLanguage();
   const { currentUser } = useAuth();
 
-  // Request mic permission on mount
-  useEffect(() => {
-    navigator.mediaDevices?.getUserMedia({ audio: true })
-      .then(stream => { stream.getTracks().forEach(t => t.stop()); })
-      .catch(() => {});
-  }, []);
+  // Mic permission is now requested only when user clicks the mic button
+  // This avoids side effects on other apps that use microphone
 
   const detectSilence = (stream: MediaStream) => {
     const audioContext = new AudioContext();
