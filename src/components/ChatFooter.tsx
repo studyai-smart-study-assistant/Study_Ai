@@ -33,53 +33,92 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const isMobile = useIsMobile();
   const { language } = useLanguage();
   const { currentUser } = useAuth();
 
-  // Initialize Speech Recognition
-  useEffect(() => {
-    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognition = new SpeechRecognitionAPI();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = language === 'hi' ? 'hi-IN' : 'en-US';
-      
-      recognition.onresult = (event: any) => {
-        const transcript = Array.from(event.results)
-          .map((result: any) => result[0].transcript)
-          .join('');
-        setInput(transcript);
-      };
-      
-      recognition.onend = () => setIsListening(false);
-      recognition.onerror = () => {
-        setIsListening(false);
-        toast.error(language === 'hi' ? 'वॉइस पहचान विफल' : 'Voice recognition failed');
-      };
-      
-      recognitionRef.current = recognition;
+  const stopRecording = async () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
     }
-    return () => { recognitionRef.current?.stop(); };
-  }, [language]);
+    setIsListening(false);
+  };
 
-  const toggleListening = () => {
-    if (!recognitionRef.current) {
-      toast.error(language === 'hi' ? 'आपका ब्राउज़र वॉइस सपोर्ट नहीं करता' : 'Voice not supported in your browser');
-      return;
-    }
-    if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    } else {
-      recognitionRef.current.start();
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: { echoCancellation: true, noiseSuppression: true } 
+      });
+      
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        
+        if (audioBlob.size < 1000) {
+          toast.error(language === 'hi' ? 'कोई आवाज़ नहीं मिली' : 'No audio detected');
+          return;
+        }
+
+        setIsTranscribing(true);
+        try {
+          // Convert to base64
+          const reader = new FileReader();
+          const base64 = await new Promise<string>((resolve, reject) => {
+            reader.onloadend = () => {
+              const result = reader.result as string;
+              resolve(result.split(',')[1]); // Remove data:audio/webm;base64, prefix
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(audioBlob);
+          });
+
+          const { data, error } = await supabase.functions.invoke('speech-to-text', {
+            body: { audio: base64, language: language === 'hi' ? 'hi' : 'en' },
+          });
+
+          if (error) throw error;
+          if (data?.transcript) {
+            setInput(prev => prev ? `${prev} ${data.transcript}` : data.transcript);
+            toast.success(language === 'hi' ? '✅ टेक्स्ट मिल गया!' : '✅ Transcribed!');
+          } else {
+            toast.error(language === 'hi' ? 'कुछ समझ नहीं आया, फिर बोलें' : 'Could not understand, try again');
+          }
+        } catch (err: any) {
+          console.error('Transcription error:', err);
+          toast.error(language === 'hi' ? 'ट्रांसक्रिप्शन विफल' : 'Transcription failed');
+        } finally {
+          setIsTranscribing(false);
+        }
+      };
+
+      mediaRecorder.start(250); // collect chunks every 250ms
       setIsListening(true);
       toast.success(language === 'hi' ? '🎙️ बोलिए...' : '🎙️ Listening...');
+    } catch (err) {
+      console.error('Mic access error:', err);
+      toast.error(language === 'hi' ? 'माइक्रोफ़ोन की अनुमति दें' : 'Please allow microphone access');
+    }
+  };
+
+  const toggleListening = () => {
+    if (isListening) {
+      stopRecording();
+    } else {
+      startRecording();
     }
   };
 
@@ -148,7 +187,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     onSend(input.trim(), uploadedImage || undefined);
     setInput('');
     setUploadedImage(null);
-    if (isListening) { recognitionRef.current?.stop(); setIsListening(false); }
+    if (isListening) { stopRecording(); }
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
   };
 
@@ -366,15 +405,23 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
                 onClick={toggleListening}
                 variant="ghost"
                 size="icon"
-                disabled={isLoading || isDisabled}
+                disabled={isLoading || isDisabled || isTranscribing}
                 className={`h-9 w-9 rounded-full transition-all duration-200 ${
                   isListening 
                     ? 'bg-destructive/10 text-destructive hover:bg-destructive/20 animate-pulse' 
+                    : isTranscribing
+                    ? 'bg-accent text-accent-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 }`}
-                title={language === 'hi' ? (isListening ? 'बंद करें' : 'बोलकर टाइप करें') : (isListening ? 'Stop' : 'Voice input')}
+                title={language === 'hi' ? (isListening ? 'बंद करें' : isTranscribing ? 'ट्रांसक्राइब हो रहा...' : 'बोलकर टाइप करें') : (isListening ? 'Stop' : isTranscribing ? 'Transcribing...' : 'Voice input')}
               >
-                {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                {isTranscribing ? (
+                  <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                ) : isListening ? (
+                  <MicOff className="h-4 w-4" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
               </Button>
 
               {/* Fast badge */}
