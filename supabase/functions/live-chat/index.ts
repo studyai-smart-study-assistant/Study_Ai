@@ -30,19 +30,26 @@ serve(async (req) => {
       });
     }
 
-    // Build user message with optional image
-    const userContent: any[] = [];
-    if (imageBase64) {
-      // Extract mime and data
-      const match = imageBase64.match(/^data:(image\/[^;]+);base64,(.+)$/);
-      if (match) {
-        userContent.push({
-          type: 'image_url',
-          image_url: { url: imageBase64 }
-        });
-      }
+    // Build user message with required camera frame for multimodal live mode
+    if (!imageBase64) {
+      return new Response(JSON.stringify({
+        response: 'मैं अभी कैमरा फ़्रेम नहीं देख पा रहा हूँ, कृपया कैमरा स्थिर रखें और दोबारा बोलें।',
+        success: true,
+        needsCamera: true
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
-    userContent.push({ type: 'text', text: imageBase64 ? prompt : `[NO_CAMERA_FRAME] ${prompt}` });
+
+    const userContent: any[] = [];
+    const match = imageBase64.match(/^data:(image\/[^;]+);base64,(.+)$/);
+    if (match) {
+      userContent.push({
+        type: 'image_url',
+        image_url: { url: imageBase64 }
+      });
+    }
+    userContent.push({ type: 'text', text: prompt });
 
     messages.push({ role: 'user', content: userContent });
 
