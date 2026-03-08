@@ -1,11 +1,12 @@
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useEnhancedChat } from '@/hooks/chat/useEnhancedChat';
 import ChatBody from './ChatBody';
 import ChatFooter from '../ChatFooter';
 import AlertHandler from './AlertHandler';
 import { useMessageHandler } from '@/hooks/chat/useMessageHandler';
 import { useScrollHandler } from '@/hooks/chat/useScrollHandler';
+import WebSearchSources from '../message/WebSearchSources';
 
 interface EnhancedChatContainerProps {
   chatId: string;
@@ -26,13 +27,15 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({
     sendMessage,
     messageLimitReached,
     enhancedSendMessage,
-    getChatStats
+    getChatStats,
+    webSearchEnabled,
+    setWebSearchEnabled,
+    lastSources
   } = useEnhancedChat(chatId, onChatUpdated);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { scrollToBottom } = useScrollHandler(messagesEndRef);
 
-  // Set up message handlers
   const { 
     handleSend, 
     handleMessageEdited, 
@@ -42,10 +45,9 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({
     loadMessages,
     onChatUpdated,
     scrollToBottom,
-    sendMessage: enhancedSendMessage // Use enhanced send message
+    sendMessage: enhancedSendMessage
   });
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
@@ -66,11 +68,20 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({
         onSendMessage={handleSend}
         messagesEndRef={messagesEndRef}
       />
+
+      {/* Show sources after the last bot message when web search was used */}
+      {lastSources.length > 0 && !isResponding && (
+        <div className="px-4 sm:px-8 max-w-[760px] mx-auto w-full">
+          <WebSearchSources sources={lastSources} />
+        </div>
+      )}
       
       <ChatFooter 
         onSend={handleSend} 
         isLoading={isLoading} 
         isDisabled={isResponding || messageLimitReached}
+        webSearchEnabled={webSearchEnabled}
+        onWebSearchToggle={setWebSearchEnabled}
       />
     </div>
   );
