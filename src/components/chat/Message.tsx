@@ -39,10 +39,11 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted, onEditI
     toast.info('Feedback recorded');
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     try {
+      toast.info('📄 PDF बन रहा है...');
       const title = message.content.split('\n')[0]?.replace(/^#*\s*/, '').slice(0, 60) || 'Study AI Notes';
-      downloadChatPdf(message.content, title);
+      await downloadChatPdf(message.content, title);
       toast.success('📥 PDF download हो गया!');
     } catch {
       toast.error('PDF बनाने में दिक्कत आई');
@@ -51,6 +52,7 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted, onEditI
 
   const handleSharePdf = async () => {
     try {
+      toast.info('📄 PDF बन रहा है...');
       const title = message.content.split('\n')[0]?.replace(/^#*\s*/, '').slice(0, 60) || 'Study AI Notes';
       const shared = await shareChatPdf(message.content, title);
       if (shared) toast.success('✅ PDF share किया गया!');
