@@ -75,25 +75,15 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
       let imageBase64: string | undefined;
       
       if (isBase64Image && imageUrl) {
-        // Store a thumbnail marker in chat DB for display
-        messageContent = messageContent 
-          ? `[IMG_BASE64]${messageContent}` 
-          : '[IMG_BASE64]इस image के बारे में बताओ';
+        const textPart = messageContent || 'इस image के बारे में बताओ';
+        // Store full base64 in content so it renders in chat
+        messageContent = `[IMG_DATA:${imageUrl}]${textPart}`;
         imageBase64 = imageUrl;
       } else if (imageUrl) {
         messageContent = messageContent ? `${messageContent}\n\n[Image: ${imageUrl}]` : `[Image: ${imageUrl}]`;
       }
       
-      // Store message - for base64 images, store a small placeholder in DB
-      const dbContent = imageBase64 
-        ? `${messageContent}\n[IMG_DATA:${imageBase64.substring(0, 100)}...]`
-        : messageContent;
       const userMessage = await chatDB.addMessage(chatId, messageContent, 'user');
-      
-      // For display, attach the full image data
-      if (imageBase64) {
-        (userMessage as any)._imageData = imageBase64;
-      }
       setMessages((prev) => [...prev, userMessage]);
       
       const chat = await chatDB.getChat(chatId);

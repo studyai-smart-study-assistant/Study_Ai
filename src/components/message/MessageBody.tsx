@@ -27,27 +27,25 @@ const MessageBody: React.FC<MessageBodyProps> = ({
 }) => {
   const [imageModalOpen, setImageModalOpen] = useState(false);
   
-  // Extract image from content like [IMG_BASE64]text or [Image: url]
-  const hasBase64Marker = displayedContent.startsWith('[IMG_BASE64]');
-  const hasImageLink = displayedContent.includes('[Image:') && displayedContent.includes(']');
-  
+  // Extract image from content: [IMG_DATA:base64...]text or [Image: url]
   let textContent = displayedContent;
   let imageUrl = '';
   
-  if (hasBase64Marker) {
-    textContent = displayedContent.replace('[IMG_BASE64]', '').trim();
+  // Check for inline base64 image data
+  const base64Match = displayedContent.match(/^\[IMG_DATA:(data:image\/[^\]]+)\]/);
+  if (base64Match) {
+    imageUrl = base64Match[1];
+    textContent = displayedContent.replace(base64Match[0], '').trim();
   }
   
-  if (hasImageLink) {
-    const match = displayedContent.match(/\[Image:\s*([^\]]+)\]/);
-    if (match) {
-      imageUrl = match[1].trim();
+  // Check for regular image link
+  if (!imageUrl) {
+    const linkMatch = displayedContent.match(/\[Image:\s*([^\]]+)\]/);
+    if (linkMatch) {
+      imageUrl = linkMatch[1].trim();
       textContent = displayedContent.replace(/\[Image:\s*[^\]]+\]/, '').trim();
     }
   }
-
-  // Check if there's a _imageData attached (from same session)
-  // This is handled via the content itself for base64
 
   if (isUserMessage) {
     return (
