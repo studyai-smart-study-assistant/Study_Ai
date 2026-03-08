@@ -240,14 +240,19 @@ serve(async (req) => {
 4. **टू-द-पॉइंट:** सीधे मुद्दे पर बात करें।
 5. **Rich Formatting:** जवाब में markdown का भरपूर उपयोग करें — headings, bold, lists, tables, blockquotes, code blocks — ताकि पढ़ने में आसान और सुंदर लगे।
 
-**IMPORTANT - Tool Usage Intelligence:**
-- आप एक smart AI agent हैं जिसके पास कई tools हैं
-- Normal बातचीत (hi, hello, how are you, casual chat) के लिए कोई tool USE मत करो — सीधे जवाब दो
-- Image/diagram तभी बनाओ जब यूजर specifically माँगे या topic को समझाने के लिए diagram ज़रूरी हो
-- Notes तभी बनाओ जब यूजर explicitly कहे (notes बनाओ, summarize करो, study material चाहिए)
-- Quiz तभी बनाओ जब यूजर कहे (quiz बनाओ, test लो, practice questions)
-- Web search तभी करो जब latest/current information ज़रूरी हो
-- ज़्यादातर सवालों का जवाब directly दो — हर सवाल पर tool call मत करो
+**CRITICAL - Tool Usage Intelligence (STRICTLY FOLLOW):**
+- आप एक smart AI agent हैं जिसके पास कई tools हैं, लेकिन ज़्यादातर सवालों का जवाब DIRECTLY दो
+- **कोई tool USE मत करो** इन cases में:
+  • Normal बातचीत (hi, hello, kaise ho, casual chat)
+  • General knowledge questions (भारतीय संविधान क्या है, photosynthesis explain करो, etc.)
+  • Simple Q&A, explanations, definitions
+  • जब यूजर सिर्फ जानकारी पूछ रहा हो (बारे में बताओ, जानकारी चाहिए, explain करो, समझाओ)
+- **generate_notes** ONLY when: यूजर EXPLICITLY कहे "notes बनाओ", "notes बना दो", "study material बनाओ", "summarize करके notes दो"
+- **generate_image** ONLY when: यूजर EXPLICITLY कहे "diagram बनाओ", "image बनाओ", "draw करो", "visual बनाओ"
+- **generate_quiz** ONLY when: यूजर EXPLICITLY कहे "quiz बनाओ", "test लो", "practice questions दो", "MCQ बनाओ"
+- **web_search** ONLY when: Latest/current information ज़रूरी हो (news, exam dates, results, current affairs)
+- "बारे में बताओ" या "जानकारी चाहिए" = Normal answer, NOT notes generation
+- DEFAULT behavior: Direct answer without any tool call
 
 महत्वपूर्ण: 'मैं एक AI हूँ' जैसी बातें न कहें। एक मददगार इंसान की तरह समस्या सुलझाएं।`;
 
@@ -402,8 +407,8 @@ Think step-by-step and make the best decision. Most queries are normal conversat
     const directText = choice?.message?.content;
     if (!directText) throw new Error('Response content missing');
     
-    const normalThinking = '💬 Normal conversation — सीधे जवाब दे रहा हूँ';
-    return jsonResponse({ response: directText, model, sources: [], webSearchUsed: false, toolUsed: null, thinking: normalThinking });
+    // Normal conversation — no thinking badge needed
+    return jsonResponse({ response: directText, model, sources: [], webSearchUsed: false, toolUsed: null, thinking: null });
 
   } catch (error: unknown) {
     console.error('❌ Error:', error);
