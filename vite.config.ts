@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => ({
   base: "/",
   server: {
     host: "0.0.0.0",
-    port: 9000,
+    port: 8080,
   },
   plugins: [
     react(),
@@ -19,12 +19,7 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      "react": path.resolve(__dirname, "node_modules/react"),
-      "react-dom": path.resolve(__dirname, "node_modules/react-dom"),
     },
-    dedupe: ["react", "react-dom", "react/jsx-runtime"],
-  },
-  optimizeDeps: {
-    include: ["react", "react-dom"],
+    dedupe: ["react", "react-dom"],
   },
 }));
