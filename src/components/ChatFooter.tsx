@@ -32,12 +32,56 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   const [isAttachOpen, setIsAttachOpen] = useState(false);
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const isMobile = useIsMobile();
   const { language } = useLanguage();
   const { currentUser } = useAuth();
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognitionAPI();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = language === 'hi' ? 'hi-IN' : 'en-US';
+      
+      recognition.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((result: any) => result[0].transcript)
+          .join('');
+        setInput(transcript);
+      };
+      
+      recognition.onend = () => setIsListening(false);
+      recognition.onerror = () => {
+        setIsListening(false);
+        toast.error(language === 'hi' ? 'वॉइस पहचान विफल' : 'Voice recognition failed');
+      };
+      
+      recognitionRef.current = recognition;
+    }
+    return () => { recognitionRef.current?.stop(); };
+  }, [language]);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      toast.error(language === 'hi' ? 'आपका ब्राउज़र वॉइस सपोर्ट नहीं करता' : 'Voice not supported in your browser');
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+      toast.success(language === 'hi' ? '🎙️ बोलिए...' : '🎙️ Listening...');
+    }
+  };
 
   useEffect(() => {
     if (textareaRef.current) {
