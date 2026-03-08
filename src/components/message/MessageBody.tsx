@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import MessageEditor from './MessageEditor';
 import MessageMarkdownContent from './MessageMarkdownContent';
 import ImageModal from '@/components/ui/image-modal';
+import InlineQuizCard from '@/components/chat/InlineQuizCard';
 import { ZoomIn, Download, Brain, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 
 interface MessageBodyProps {
