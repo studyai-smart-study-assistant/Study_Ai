@@ -113,26 +113,57 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
   throw new Error('All Google API keys exhausted (rate limited)');
 }
 
-// ─── Tavily Search ──────────────────────────────────────────
+// ─── Tavily Key Pool (Round-Robin) ──────────────────────────
+function getTavilyApiKeys(): string[] {
+  const keys: string[] = [];
+  for (let i = 1; i <= 5; i++) {
+    const k = Deno.env.get(`TAVILY_API_KEY_${i}`);
+    if (k) keys.push(k);
+  }
+  const base = Deno.env.get('TAVILY_API_KEY');
+  if (base) keys.push(base);
+  return [...new Set(keys)];
+}
+
+let _tavilyKeyIndex = 0;
+function getNextTavilyKey(): string {
+  const keys = getTavilyApiKeys();
+  if (keys.length === 0) throw new Error('No Tavily API keys configured');
+  const key = keys[_tavilyKeyIndex % keys.length];
+  _tavilyKeyIndex = (_tavilyKeyIndex + 1) % keys.length;
+  return key;
+}
+
+// ─── Tavily Search with Key Rotation ────────────────────────
 async function searchTavily(query: string): Promise<{ context: string; sources: { title: string; url: string }[] }> {
-  const TAVILY_API_KEY = Deno.env.get('TAVILY_API_KEY');
-  if (!TAVILY_API_KEY) {
-    console.warn('⚠️ TAVILY_API_KEY not set');
+  const keys = getTavilyApiKeys();
+  if (keys.length === 0) {
+    console.warn('⚠️ No Tavily API keys set');
     return { context: '', sources: [] };
   }
-  try {
-    const response = await fetch('https://api.tavily.com/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ api_key: TAVILY_API_KEY, query, search_depth: 'basic', include_answer: true, max_results: 5 }),
-    });
-    if (!response.ok) return { context: '', sources: [] };
+  for (let attempt = 0; attempt < keys.length; attempt++) {
+    const apiKey = getNextTavilyKey();
+    try {
+      const response = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: apiKey, query, search_depth: 'basic', include_answer: true, max_results: 5 }),
+      });
+      if (response.status === 429 || response.status === 403) {
+        console.warn(`⚠️ Tavily key#${_tavilyKeyIndex} rate limited, trying next...`);
+        try { await response.text(); } catch {}
+        continue;
+      }
+      if (!response.ok) return { context: '', sources: [] };
     const data = await response.json();
     const results = data.results || [];
     const context = results.map((r: any, i: number) => `[Source ${i+1}] ${r.title}\n${r.content?.substring(0, 500)}\nURL: ${r.url}`).join('\n\n');
     const sources = results.map((r: any) => ({ title: r.title, url: r.url }));
     return { context, sources };
-  } catch { return { context: '', sources: [] }; }
+    } catch { continue; }
+  }
+  console.warn('⚠️ All Tavily keys exhausted');
+  return { context: '', sources: [] };
 }
 
 // ─── Image Generation via Gemini ────────────────────────────

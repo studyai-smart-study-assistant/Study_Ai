@@ -28,37 +28,62 @@ function needsWebSearch(query: string): boolean {
   );
 }
 
-async function searchTavily(query: string, apiKey: string): Promise<{ results: any[]; answer?: string }> {
-  const response = await fetch('https://api.tavily.com/search', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      api_key: apiKey,
-      query,
-      search_depth: 'basic',
-      include_answer: true,
-      max_results: 5,
-      include_domains: [],
-      exclude_domains: [],
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Tavily API error:', response.status, errorText);
-    throw new Error(`Tavily search failed: ${response.status}`);
+// ─── Tavily Key Pool (Round-Robin) ──────────────────────────
+function getTavilyApiKeys(): string[] {
+  const keys: string[] = [];
+  for (let i = 1; i <= 5; i++) {
+    const k = Deno.env.get(`TAVILY_API_KEY_${i}`);
+    if (k) keys.push(k);
   }
+  const base = Deno.env.get('TAVILY_API_KEY');
+  if (base) keys.push(base);
+  return [...new Set(keys)];
+}
 
-  const data = await response.json();
-  return {
-    results: (data.results || []).map((r: any) => ({
-      title: r.title,
-      url: r.url,
-      content: r.content?.substring(0, 500),
-      score: r.score,
-    })),
-    answer: data.answer,
-  };
+let _tavilyIdx = 0;
+function getNextTavilyKey(): string {
+  const keys = getTavilyApiKeys();
+  if (keys.length === 0) throw new Error('No Tavily keys');
+  const key = keys[_tavilyIdx % keys.length];
+  _tavilyIdx = (_tavilyIdx + 1) % keys.length;
+  return key;
+}
+
+async function searchTavilyWithRotation(query: string): Promise<{ results: any[]; answer?: string }> {
+  const keys = getTavilyApiKeys();
+  for (let attempt = 0; attempt < keys.length; attempt++) {
+    const apiKey = getNextTavilyKey();
+    const response = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: apiKey, query, search_depth: 'basic',
+        include_answer: true, max_results: 5,
+      }),
+    });
+    if (response.status === 429 || response.status === 403) {
+      console.warn(`⚠️ Tavily key#${_tavilyIdx} rate limited, trying next...`);
+      try { await response.text(); } catch {}
+      continue;
+    }
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Tavily API error:', response.status, errorText);
+      throw new Error(`Tavily search failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      results: (data.results || []).map((r: any) => ({
+        title: r.title,
+        url: r.url,
+        content: r.content?.substring(0, 500),
+        score: r.score,
+      })),
+      answer: data.answer,
+    };
+  }
+  throw new Error('All Tavily API keys exhausted (rate limited)');
 }
 
 serve(async (req) => {
@@ -76,8 +101,8 @@ serve(async (req) => {
       });
     }
 
-    const TAVILY_API_KEY = Deno.env.get('TAVILY_API_KEY');
-    if (!TAVILY_API_KEY) {
+    const tavilyKeys = getTavilyApiKeys();
+    if (tavilyKeys.length === 0) {
       return new Response(JSON.stringify({ 
         error: 'Web search is not configured',
         shouldSearch: false,
@@ -104,7 +129,7 @@ serve(async (req) => {
 
     console.log(`🔍 Web search triggered for: "${query.substring(0, 100)}"`);
 
-    const searchResult = await searchTavily(query, TAVILY_API_KEY);
+    const searchResult = await searchTavilyWithRotation(query);
 
     // Build context string for AI
     const searchContext = searchResult.results.map((r, i) => 
