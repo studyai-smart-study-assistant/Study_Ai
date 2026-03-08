@@ -8,8 +8,13 @@ const corsHeaders = {
 const FALLBACK_LIVE_MODELS = [
   'models/gemini-2.0-flash-live-001',
   'models/gemini-2.0-flash-exp',
+  'models/gemini-2.5-flash-native-audio-latest',
   'models/gemini-live-2.5-flash-preview',
 ];
+
+function uniqueModels(models: string[]) {
+  return Array.from(new Set(models.filter(Boolean)));
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -18,7 +23,7 @@ serve(async (req) => {
     const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
     if (!GOOGLE_API_KEY) throw new Error('GOOGLE_API_KEY not configured');
 
-    let selectedModel = FALLBACK_LIVE_MODELS[0];
+    let discovered: string[] = [];
 
     try {
       const modelsResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GOOGLE_API_KEY}`);
@@ -26,31 +31,35 @@ serve(async (req) => {
         const modelsData = await modelsResp.json();
         const models = Array.isArray(modelsData?.models) ? modelsData.models : [];
 
-        const liveCapable = models.filter((m: any) =>
-          Array.isArray(m?.supportedGenerationMethods) &&
-          m.supportedGenerationMethods.some((method: string) =>
-            method?.toLowerCase?.() === 'bidigeneratecontent'
+        discovered = models
+          .filter((m: any) =>
+            Array.isArray(m?.supportedGenerationMethods) &&
+            m.supportedGenerationMethods.some((method: string) =>
+              method?.toLowerCase?.() === 'bidigeneratecontent'
+            )
           )
-        );
-
-        if (liveCapable.length > 0) {
-          const names = liveCapable
-            .map((m: any) => (m?.name || '').trim())
-            .filter((name: string) => !!name);
-
-          // Prefer known stable order, else first live-capable model returned by API
-          selectedModel =
-            names.find((name: string) => name.endsWith('gemini-2.0-flash-live-001')) ||
-            names.find((name: string) => name.endsWith('gemini-2.0-flash-exp')) ||
-            names[0] ||
-            selectedModel;
-        }
+          .map((m: any) => (m?.name || '').trim())
+          .filter(Boolean);
       }
     } catch (modelError) {
-      console.warn('Model discovery failed, using fallback model:', modelError);
+      console.warn('Model discovery failed, using fallback model list:', modelError);
     }
 
-    return new Response(JSON.stringify({ apiKey: GOOGLE_API_KEY, model: selectedModel }), {
+    const orderedModels = uniqueModels([
+      discovered.find((name) => name.endsWith('gemini-2.0-flash-live-001')) || '',
+      discovered.find((name) => name.endsWith('gemini-2.0-flash-exp')) || '',
+      discovered.find((name) => name.endsWith('gemini-2.5-flash-native-audio-latest')) || '',
+      ...discovered,
+      ...FALLBACK_LIVE_MODELS,
+    ]);
+
+    const selectedModel = orderedModels[0] || FALLBACK_LIVE_MODELS[0];
+
+    return new Response(JSON.stringify({
+      apiKey: GOOGLE_API_KEY,
+      model: selectedModel,
+      models: orderedModels,
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: unknown) {
