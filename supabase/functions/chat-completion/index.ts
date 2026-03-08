@@ -182,23 +182,44 @@ const agentTools = [
 ];
 
 // ─── Save Memories to DB ────────────────────────────────────
-async function saveMemories(userId: string, memories: Array<{key: string; value: string; category: string}>): Promise<void> {
+function normalizeMemoryKey(rawKey: string): string {
+  const key = (rawKey || '').trim().toLowerCase();
+  if (!key) return 'general_info';
+  if (key.includes('नाम') || key.includes('name')) return 'name';
+  if (key.includes('class') || key.includes('grade') || key.includes('कक्षा')) return 'class';
+  if (key.includes('goal') || key.includes('लक्ष्य') || key.includes('target')) return 'goal';
+  if (key.includes('subject') || key.includes('विषय')) return 'subject_preference';
+  return key.replace(/\s+/g, '_').slice(0, 64);
+}
+
+async function saveMemories(
+  adminClient: ReturnType<typeof createClient>,
+  userId: string,
+  memories: Array<{key: string; value: string; category: string}>
+): Promise<void> {
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const sb = createClient(supabaseUrl, supabaseKey);
-    for (const mem of memories) {
-      await sb.from('user_memories').upsert({
+    const validMemories = memories
+      .filter((m) => m?.key?.trim() && m?.value?.trim())
+      .map((m) => ({
         user_id: userId,
-        memory_key: mem.key,
-        memory_value: mem.value,
-        category: mem.category,
+        memory_key: normalizeMemoryKey(m.key),
+        memory_value: m.value.trim().slice(0, 500),
+        category: m.category || 'general',
         source: 'ai_detected',
         importance: 8,
-      }, { onConflict: 'user_id,memory_key' });
-    }
-    console.log(`🧠 Saved ${memories.length} memories for user`);
-  } catch (e) { console.warn('⚠️ Failed to save memories:', e); }
+      }));
+
+    if (!validMemories.length) return;
+
+    const { error } = await adminClient
+      .from('user_memories')
+      .upsert(validMemories, { onConflict: 'user_id,memory_key' });
+
+    if (error) throw error;
+    console.log(`🧠 Saved ${validMemories.length} memories for user ${userId.slice(0, 8)}...`);
+  } catch (e) {
+    console.warn('⚠️ Failed to save memories:', e);
+  }
 }
 
 // ─── Generate Notes Content ─────────────────────────────────
@@ -281,7 +302,12 @@ async function generateQuizContent(topic: string, numQuestions: number, difficul
 }
 
 // ─── Background Memory Extraction (runs after direct answers) ──
-async function backgroundExtractMemories(userId: string, userMessage: string, model: string): Promise<void> {
+async function backgroundExtractMemories(
+  adminClient: ReturnType<typeof createClient>,
+  userId: string,
+  userMessage: string,
+  model: string
+): Promise<void> {
   try {
     const extractPrompt = `Analyze this user message and extract ONLY important personal information worth remembering. If the message contains NO personal info (just a question, greeting, or study topic), respond with exactly: {"memories":[]}
 
@@ -299,19 +325,18 @@ Respond ONLY with valid JSON in this format:
       temperature: 0.2,
       max_tokens: 500,
     });
-    
+
     const data = await resp.json();
     const content = data?.choices?.[0]?.message?.content || '';
-    
-    // Parse JSON from response
+
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return;
-    
+
     const parsed = JSON.parse(jsonMatch[0]);
     const memories = parsed?.memories;
-    
+
     if (memories && Array.isArray(memories) && memories.length > 0) {
-      await saveMemories(userId, memories);
+      await saveMemories(adminClient, userId, memories);
       console.log(`🧠 Background extracted ${memories.length} memories`);
     }
   } catch (e) {
@@ -326,23 +351,47 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, history = [], model = 'google/gemini-3-flash-preview', forceWebSearch = false, webSearchContext, webSearchSources, imageBase64, userId } = await req.json();
-    
-    console.log('📥 Request:', { promptLength: prompt?.length, model, forceWebSearch, hasImage: !!imageBase64, userId: userId?.substring(0, 8) });
+    const { prompt, history = [], model = 'google/gemini-3-flash-preview', forceWebSearch = false, webSearchContext, webSearchSources, imageBase64 } = await req.json();
 
-    // ── Fetch user memories from Mind Vault ──
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const authHeader = req.headers.get('Authorization') ?? '';
+
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: authHeader ? { Authorization: authHeader } : {} },
+    });
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: authData } = await userClient.auth.getUser();
+    const authenticatedUserId = authData?.user?.id;
+
+    console.log('📥 Request:', {
+      promptLength: prompt?.length,
+      model,
+      forceWebSearch,
+      hasImage: !!imageBase64,
+      authenticatedUser: authenticatedUserId ? authenticatedUserId.substring(0, 8) : null,
+    });
+
+    // ── Fetch user memories from Mind Vault (RLS-enforced read) ──
     let memoriesContext = '';
-    if (userId) {
+    if (authenticatedUserId) {
       try {
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const sb = createClient(supabaseUrl, supabaseKey);
-        const { data: memories } = await sb.from('user_memories').select('memory_key, memory_value, category').eq('user_id', userId).order('importance', { ascending: false }).limit(20);
+        const { data: memories } = await userClient
+          .from('user_memories')
+          .select('memory_key, memory_value, category')
+          .eq('user_id', authenticatedUserId)
+          .order('importance', { ascending: false })
+          .limit(20);
+
         if (memories?.length) {
           memoriesContext = `\n\n🧠 **Mind Vault — इस यूजर के बारे में याद रखें:**\n${memories.map(m => `- ${m.memory_key}: ${m.memory_value}`).join('\n')}`;
           console.log(`🧠 Loaded ${memories.length} memories for user`);
         }
-      } catch (e) { console.warn('⚠️ Failed to load memories:', e); }
+      } catch (e) {
+        console.warn('⚠️ Failed to load memories:', e);
+      }
     }
 
     const recentHistory = history.slice(-30).map((msg: { role: string; content: string }) => ({
@@ -514,8 +563,8 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
       }
 
       // ── Memory Extraction ──
-      if (toolName === 'extract_memory' && userId) {
-        await saveMemories(userId, args.memories || []);
+      if (toolName === 'extract_memory' && authenticatedUserId) {
+        await saveMemories(adminClient, authenticatedUserId, args.memories || []);
         // Continue to generate a normal response after saving
         const step2Messages = [
           ...messages,
@@ -532,10 +581,10 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
     // ── No tool call — direct answer (normal conversation) ──
     const directText = choice?.message?.content;
     if (!directText) throw new Error('Response content missing');
-    
-    // ── Background Memory Extraction for logged-in users ──
-    if (userId && prompt) {
-      backgroundExtractMemories(userId, prompt, model).catch(e => console.warn('⚠️ Background memory extraction failed:', e));
+
+    // ── Reliable Memory Extraction for logged-in users ──
+    if (authenticatedUserId && prompt) {
+      await backgroundExtractMemories(adminClient, authenticatedUserId, prompt, model);
     }
     
     // Normal conversation — no thinking badge needed
