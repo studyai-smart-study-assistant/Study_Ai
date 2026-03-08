@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import MessageEditor from './MessageEditor';
 import MessageMarkdownContent from './MessageMarkdownContent';
 import ImageModal from '@/components/ui/image-modal';
+import InlineQuizCard from '@/components/chat/InlineQuizCard';
 import { ZoomIn, Download, Brain, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 
 interface MessageBodyProps {
@@ -44,6 +45,20 @@ function parseImage(content: string): { imageUrl: string; rest: string } {
     return { imageUrl: '', rest: content };
   }
   return { imageUrl: imgDataMatch[1], rest: content.replace(imgDataMatch[0], '').trim() };
+}
+
+// Parse quiz data from content
+function parseQuizData(content: string): { quizData: any | null; rest: string } {
+  const match = content.match(/\[QUIZ_DATA:([\s\S]+)\]/);
+  if (match) {
+    try {
+      const parsed = JSON.parse(match[1]);
+      if (parsed.questions && Array.isArray(parsed.questions)) {
+        return { quizData: parsed, rest: content.replace(match[0], '').trim() };
+      }
+    } catch {}
+  }
+  return { quizData: null, rest: content };
 }
 
 // Thinking indicator component
@@ -143,9 +158,10 @@ const MessageBody: React.FC<MessageBodyProps> = ({
     );
   }
 
-  // ── AI Message — parse image first (it's prepended last so appears first), then thinking ──
+  // ── AI Message — parse image, thinking, quiz ──
   const { imageUrl: botImageUrl, rest: afterImage } = parseImage(displayedContent);
-  const { thinking, rest: botTextContent } = parseThinking(afterImage);
+  const { thinking, rest: afterThinking } = parseThinking(afterImage);
+  const { quizData, rest: botTextContent } = parseQuizData(afterThinking);
 
   const handleBotDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -166,7 +182,7 @@ const MessageBody: React.FC<MessageBodyProps> = ({
 
   return (
     <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8 flex justify-start">
-      <div className="flex flex-col gap-2 max-w-[80%]">
+      <div className="flex flex-col gap-2 max-w-[90%]">
         {/* Thinking badge */}
         {thinking && !isEditing && (
           <ThinkingBadge thinking={thinking} />
@@ -182,7 +198,6 @@ const MessageBody: React.FC<MessageBodyProps> = ({
                 <button onClick={handleBotDownload} className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2 hover:bg-black/70"><Download className="h-5 w-5 text-white" /></button>
               </div>
             </div>
-            {/* Edit image button */}
             {onEditImage && (
               <button
                 onClick={handleEditImage}
@@ -194,9 +209,14 @@ const MessageBody: React.FC<MessageBodyProps> = ({
             )}
           </>
         )}
+
+        {/* Interactive Quiz */}
+        {quizData && !isEditing && (
+          <InlineQuizCard quizData={quizData} />
+        )}
         
         {/* Text bubble */}
-        {(botTextContent || isEditing) && (
+        {(botTextContent || isEditing) && !quizData && (
           <div className={cn("bg-muted text-foreground", "px-4 py-3 rounded-2xl")}>
             {isEditing ? (
               <MessageEditor editedContent={editedContent} setEditedContent={setEditedContent} handleSaveEdit={handleSaveEdit} handleCancelEdit={handleCancelEdit} />
