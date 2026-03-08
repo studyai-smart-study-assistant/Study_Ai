@@ -694,6 +694,15 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
       // ── Quiz Generation ──
       if (toolName === 'generate_quiz') {
         const quizContent = await generateQuizContent(args.topic, args.num_questions || 5, args.difficulty || 'medium', model);
+        
+        // Save quiz topic to memory for knowledge tracking
+        if (authenticatedUserId) {
+          const quizMemory = [
+            { key: `quiz_topic_${Date.now()}`, value: `${args.topic} (${args.difficulty || 'medium'}, ${args.num_questions || 5} questions)`, category: 'academic' }
+          ];
+          saveMemories(adminClient, authenticatedUserId, quizMemory).catch(() => {});
+        }
+        
         return jsonResponse({ response: quizContent, model, toolUsed: 'generate_quiz', sources: [], webSearchUsed: false, thinking });
       }
 
