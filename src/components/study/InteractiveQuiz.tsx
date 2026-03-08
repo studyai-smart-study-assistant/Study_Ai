@@ -805,6 +805,8 @@ Please follow this exact format.`;
     return (
       <QuizResultsView
         result={quizResult}
+        topic={config.topic}
+        difficulty={difficulty}
         onReset={resetQuiz}
         onReviewAnswers={goToReview}
       />
