@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Send, Image as ImageIcon, Bot, Phone, Video, Mic, Paperclip } from 'lucide-react';
-import CallScreen from './CallScreen';
+import { ArrowLeft, Send, Image as ImageIcon, Bot, Mic, Paperclip } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -56,7 +55,7 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [replyTo, setReplyTo] = useState<{ id: string; text: string | null; senderName?: string } | null>(null);
   const [reactions, setReactions] = useState<Record<string, Record<string, string[]>>>({});
-  const [activeCall, setActiveCall] = useState<{ isVideo: boolean } | null>(null);
+  
   const scrollToBottom = () => bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
 
   useEffect(() => {
@@ -226,21 +225,6 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
 
   const showAiHint = text.startsWith('/') || text.toLowerCase().startsWith('study ai');
 
-  const startCall = (isVideo: boolean) => {
-    setActiveCall({ isVideo });
-  };
-
-  if (activeCall) {
-    return (
-      <CallScreen
-        channelName={`call-${chatId}`}
-        isVideo={activeCall.isVideo}
-        callerName={partnerName}
-        callerAvatar={partnerAvatar}
-        onEnd={() => setActiveCall(null)}
-      />
-    );
-  }
 
   return (
     <div className="flex flex-col h-[100dvh] bg-background">
@@ -260,12 +244,6 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
           <h2 className="font-semibold text-sm truncate">{partnerName}</h2>
           <p className="text-xs text-white/70">tap here for info</p>
         </div>
-        <button onClick={() => startCall(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-          <Phone className="h-5 w-5" />
-        </button>
-        <button onClick={() => startCall(true)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-          <Video className="h-5 w-5" />
-        </button>
       </div>
 
       {/* Messages */}

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { useMediaPermissions } from '@/hooks/useMediaPermissions';
+
 import { toast } from 'sonner';
 import CampusTalkHeader from '@/components/campus-talk/CampusTalkHeader';
 import CampusTalkChatList from '@/components/campus-talk/CampusTalkChatList';
@@ -31,7 +31,7 @@ const ChatSystem = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedChat, setSelectedChat] = useState<CampusChatItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  useMediaPermissions();
+  
 
   // Auto-register current user in campus_users with correct profile name
   useEffect(() => {

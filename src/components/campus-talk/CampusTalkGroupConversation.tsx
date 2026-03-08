@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Send, Image as ImageIcon, Bot, Settings, Phone, Video, Paperclip } from 'lucide-react';
-import CallScreen from './CallScreen';
+import { ArrowLeft, Send, Image as ImageIcon, Bot, Settings, Paperclip } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -56,7 +55,7 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [replyTo, setReplyTo] = useState<{ id: string; text: string | null; senderName?: string } | null>(null);
   const [reactions, setReactions] = useState<Record<string, Record<string, string[]>>>({});
-  const [activeCall, setActiveCall] = useState<{ isVideo: boolean } | null>(null);
+  
 
   const scrollToBottom = () => bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
 
@@ -209,17 +208,6 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
   const formatTime = (ts: string) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const showAiHint = text.startsWith('/') || text.toLowerCase().startsWith('study ai');
 
-  if (activeCall) {
-    return (
-      <CallScreen
-        channelName={`group-call-${group.id}`}
-        isVideo={activeCall.isVideo}
-        callerName={group.name}
-        callerAvatar={group.avatar_url}
-        onEnd={() => setActiveCall(null)}
-      />
-    );
-  }
 
   if (showSettings) {
     return (
@@ -249,12 +237,6 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
           <h2 className="font-semibold text-sm truncate">{group.name}</h2>
           <p className="text-xs text-white/70">{group.member_count || 0} members • tap for settings</p>
         </div>
-        <button onClick={() => setActiveCall({ isVideo: false })} className="p-2 hover:bg-white/10 rounded-full">
-          <Phone className="h-5 w-5" />
-        </button>
-        <button onClick={() => setActiveCall({ isVideo: true })} className="p-2 hover:bg-white/10 rounded-full">
-          <Video className="h-5 w-5" />
-        </button>
         <button onClick={() => setShowSettings(true)} className="p-1.5 hover:bg-white/10 rounded-full">
           <Settings className="h-5 w-5" />
         </button>
