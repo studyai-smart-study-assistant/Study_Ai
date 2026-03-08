@@ -40,18 +40,43 @@ const MindVault: React.FC = () => {
   const [newCategory, setNewCategory] = useState('general');
 
   useEffect(() => {
-    if (currentUser?.uid) loadMemories();
+    if (currentUser?.uid) {
+      // Wait for auth session to be fully ready before querying
+      const loadWithAuth = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          loadMemories();
+        } else {
+          console.warn('MindVault: No active session, retrying...');
+          // Retry once after a short delay for session restoration
+          setTimeout(async () => {
+            const { data: { session: retrySession } } = await supabase.auth.getSession();
+            if (retrySession?.user) loadMemories();
+          }, 1500);
+        }
+      };
+      loadWithAuth();
+    }
   }, [currentUser]);
 
   const loadMemories = async () => {
     if (!currentUser?.uid) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from('user_memories')
-      .select('*')
-      .eq('user_id', currentUser.uid)
-      .order('importance', { ascending: false });
-    if (!error && data) setMemories(data as Memory[]);
+    try {
+      const { data, error } = await supabase
+        .from('user_memories')
+        .select('*')
+        .eq('user_id', currentUser.uid)
+        .order('importance', { ascending: false });
+      if (error) {
+        console.error('MindVault load error:', error);
+        toast.error('Memories लोड करने में दिक्कत हुई');
+      } else if (data) {
+        setMemories(data as Memory[]);
+      }
+    } catch (e) {
+      console.error('MindVault exception:', e);
+    }
     setLoading(false);
   };
 
