@@ -95,7 +95,18 @@ export const QuizResultsView: React.FC<QuizResultsViewProps> = ({
             </div>
           )}
 
-          {result.wrongAnswers.length > 0 && (
+          {/* Create Result Card Button */}
+          {!showCard && (
+            <Button
+              onClick={() => setShowCard(true)}
+              className="w-full mb-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white font-semibold gap-2 shadow-lg"
+            >
+              <ImageIcon className="h-4 w-4" />
+              {language === 'hi' ? '🎴 रिज़ल्ट कार्ड बनाएं (Download & Share)' : '🎴 Create Result Card (Download & Share)'}
+            </Button>
+          )}
+
+
             <div className="space-y-4 mb-6">
               <h3 className="text-base sm:text-lg font-semibold text-red-700 dark:text-red-400 flex items-center gap-2">
                 <XCircle className="h-4 w-4 sm:h-5 sm:w-5" />
