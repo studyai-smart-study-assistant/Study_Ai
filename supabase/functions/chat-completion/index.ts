@@ -301,29 +301,67 @@ async function generateQuizContent(topic: string, numQuestions: number, difficul
   return data?.choices?.[0]?.message?.content || 'Quiz generation failed';
 }
 
-// ─── Background Memory Extraction (runs after direct answers) ──
+// ─── Smart Background Memory Extraction (ChatGPT-level) ──
 async function backgroundExtractMemories(
   adminClient: ReturnType<typeof createClient>,
   userId: string,
   userMessage: string,
+  conversationHistory: Array<{role: string; content: string}>,
   model: string
 ): Promise<void> {
   try {
-    const extractPrompt = `Analyze this user message and extract ONLY important personal information worth remembering. If the message contains NO personal info (just a question, greeting, or study topic), respond with exactly: {"memories":[]}
+    // First fetch existing memories to avoid duplicates and enable updates
+    let existingMemories: Array<{memory_key: string; memory_value: string}> = [];
+    try {
+      const { data } = await adminClient
+        .from('user_memories')
+        .select('memory_key, memory_value')
+        .eq('user_id', userId);
+      if (data) existingMemories = data;
+    } catch {}
 
-User message: "${userMessage}"
+    const existingContext = existingMemories.length > 0
+      ? `\n\nAlready stored memories:\n${existingMemories.map(m => `- ${m.memory_key}: ${m.memory_value}`).join('\n')}`
+      : '';
 
-Extract info like: name, age, class/grade, exam target, favorite/weak subjects, goals, location, hobbies, preferences.
-DO NOT extract study questions or general knowledge queries.
+    // Include recent conversation for better context understanding
+    const recentConvo = conversationHistory.slice(-6).map(m => `${m.role}: ${m.content}`).join('\n');
 
-Respond ONLY with valid JSON in this format:
-{"memories":[{"key":"short label","value":"the info","category":"personal|academic|preference|goal|struggle|general"}]}`;
+    const extractPrompt = `You are an advanced personal memory extraction AI. Your job is to analyze conversations and extract MEANINGFUL personal information about the user that would help personalize future interactions.
+
+CURRENT CONVERSATION:
+${recentConvo}
+
+LATEST USER MESSAGE: "${userMessage}"
+${existingContext}
+
+EXTRACTION RULES:
+1. Extract ONLY genuinely personal/important info — name, age, class, school, city, exam target, weak/strong subjects, hobbies, learning style, study schedule, family details, career goals
+2. DO NOT extract: study questions, general knowledge, greetings, casual chat content
+3. If user CORRECTS or UPDATES previously stored info, extract the NEW value (it will overwrite)
+4. If user says "मेरा नाम X है" → extract name as X
+5. If user mentions struggling with a subject → extract as struggle
+6. If user mentions preparing for an exam → extract exam target
+7. Look for IMPLICIT info too: "12th ka exam hai" → class: 12th
+8. Detect emotional state and study patterns if mentioned repeatedly
+9. If NO personal info found, respond with: {"memories":[]}
+
+USE THESE STANDARDIZED KEYS:
+- name, age, class, school, city, state, board (CBSE/ICSE etc)
+- exam_target, career_goal, preparation_stage
+- strong_subjects, weak_subjects, favorite_subject
+- study_hours, preferred_time, learning_style
+- hobbies, interests
+- For other info use descriptive_snake_case keys
+
+Respond ONLY with valid JSON:
+{"memories":[{"key":"standardized_key","value":"extracted value in user's language","category":"personal|academic|preference|goal|struggle|general"}]}`;
 
     const resp = await callAI({
-      model: model,
+      model: 'google/gemini-2.5-flash-lite', // Use cheapest model for extraction
       messages: [{ role: 'user', content: extractPrompt }],
-      temperature: 0.2,
-      max_tokens: 500,
+      temperature: 0.1,
+      max_tokens: 800,
     });
 
     const data = await resp.json();
@@ -336,8 +374,18 @@ Respond ONLY with valid JSON in this format:
     const memories = parsed?.memories;
 
     if (memories && Array.isArray(memories) && memories.length > 0) {
-      await saveMemories(adminClient, userId, memories);
-      console.log(`🧠 Background extracted ${memories.length} memories`);
+      // Filter out duplicates — only save if value actually changed
+      const newMemories = memories.filter((m: any) => {
+        const existing = existingMemories.find(e => e.memory_key === normalizeMemoryKey(m.key));
+        return !existing || existing.memory_value.toLowerCase() !== m.value.trim().toLowerCase();
+      });
+
+      if (newMemories.length > 0) {
+        await saveMemories(adminClient, userId, newMemories);
+        console.log(`🧠 Smart extraction: saved ${newMemories.length} new/updated memories (skipped ${memories.length - newMemories.length} duplicates)`);
+      } else {
+        console.log('🧠 Smart extraction: no new info to save');
+      }
     }
   } catch (e) {
     console.warn('⚠️ Background memory extraction error:', e);
