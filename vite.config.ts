@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
-// https://vitejs.dev/config/
+// Force clean rebuild - v2
 export default defineConfig(({ mode }) => ({
   base: "/",
   server: {
@@ -21,5 +21,8 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
     dedupe: ["react", "react-dom"],
+  },
+  optimizeDeps: {
+    force: true,
   },
 }));
