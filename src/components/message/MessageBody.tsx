@@ -100,29 +100,64 @@ const MessageBody: React.FC<MessageBodyProps> = ({
     );
   }
 
-  // AI message
+  // AI message - also parse for images
+  let botTextContent = displayedContent;
+  let botImageUrl = '';
+  
+  const botBase64Match = displayedContent.match(/^\[IMG_DATA:(data:image\/[^\]]+)\]/);
+  if (botBase64Match) {
+    botImageUrl = botBase64Match[1];
+    botTextContent = displayedContent.replace(botBase64Match[0], '').trim();
+  }
+
   return (
     <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8 flex justify-start">
-      <div className={cn(
-        "max-w-[80%]",
-        "bg-muted text-foreground",
-        "px-4 py-3 rounded-2xl"
-      )}>
-        {isEditing ? (
-          <MessageEditor
-            editedContent={editedContent}
-            setEditedContent={setEditedContent}
-            handleSaveEdit={handleSaveEdit}
-            handleCancelEdit={handleCancelEdit}
-          />
-        ) : (
-          <MessageMarkdownContent
-            content={displayedContent}
-            isTyping={isTyping}
-            isBot={true}
-          />
+      <div className="flex flex-col gap-2 max-w-[80%]">
+        {/* Generated image preview */}
+        {botImageUrl && !isEditing && (
+          <div 
+            className="relative group rounded-2xl overflow-hidden border border-border/40 shadow-sm cursor-pointer bg-muted/30"
+            onClick={() => setImageModalOpen(true)}
+          >
+            <img 
+              src={botImageUrl} 
+              alt="Generated" 
+              className="max-w-[280px] sm:max-w-[320px] max-h-[300px] rounded-2xl object-contain"
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center">
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2">
+                <ZoomIn className="h-5 w-5 text-white" />
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Text bubble */}
+        {(botTextContent || isEditing) && (
+          <div className={cn(
+            "bg-muted text-foreground",
+            "px-4 py-3 rounded-2xl"
+          )}>
+            {isEditing ? (
+              <MessageEditor
+                editedContent={editedContent}
+                setEditedContent={setEditedContent}
+                handleSaveEdit={handleSaveEdit}
+                handleCancelEdit={handleCancelEdit}
+              />
+            ) : (
+              <MessageMarkdownContent
+                content={botTextContent}
+                isTyping={isTyping}
+                isBot={true}
+              />
+            )}
+          </div>
         )}
       </div>
+      {botImageUrl && (
+        <ImageModal isOpen={imageModalOpen} onClose={() => setImageModalOpen(false)} imageUrl={botImageUrl} />
+      )}
     </div>
   );
 };
