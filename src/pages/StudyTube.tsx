@@ -27,11 +27,7 @@ const StudyTube: React.FC = () => {
   const [showSearchHistory, setShowSearchHistory] = useState(false);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>();
   const [searchError, setSearchError] = useState(false);
-  const [relatedVideos, setRelatedVideos] = useState<YouTubeVideo[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showSearchHistory, setShowSearchHistory] = useState(false);
-  const [nextPageToken, setNextPageToken] = useState<string | undefined>();
+
 
   useEffect(() => {
     return () => { isMounted.current = false; };
