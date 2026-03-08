@@ -22,13 +22,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [messageLimitReached, setMessageLimitReached] = useState(false);
 
   useEffect(() => {
+    // CRITICAL: Set up onAuthStateChange BEFORE getSession
+    // This ensures we catch all auth events including session restoration
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id?.substring(0, 8));
         setSession(session);
         setCurrentUser(toExtendedUser(session?.user ?? null));
         setIsLoading(false);
         
         if (session?.user) {
+          // Use setTimeout to avoid deadlock in auth callback
           setTimeout(() => {
             syncUserPoints(session.user.id);
           }, 0);
@@ -36,7 +40,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
+    // Then restore session from storage
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Session restored:', session?.user?.id?.substring(0, 8) || 'none');
       setSession(session);
       setCurrentUser(toExtendedUser(session?.user ?? null));
       setIsLoading(false);
