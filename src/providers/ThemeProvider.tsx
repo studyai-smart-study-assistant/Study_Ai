@@ -32,7 +32,7 @@ export const ThemeProvider = ({
     return defaultTheme;
   });
 
-  React.useEffect(() => {
+  useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
 
