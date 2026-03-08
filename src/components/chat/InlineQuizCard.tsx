@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { CheckCircle, XCircle, ChevronRight, Trophy, RotateCcw, Download, SkipForward } from 'lucide-react';
+import { CheckCircle, XCircle, ChevronRight, Trophy, RotateCcw, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import QuizResultCard from './QuizResultCard';
 
 interface QuizQuestion {
   id: number;
