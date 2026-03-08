@@ -26,6 +26,10 @@ const SARVAM_VOICES = [
   { id: 'roopa', label: 'Roopa', gender: 'Female' },
   { id: 'amelia', label: 'Amelia', gender: 'Female' },
   { id: 'sophia', label: 'Sophia', gender: 'Female' },
+  { id: 'anushka', label: 'Anushka', gender: 'Female' },
+  { id: 'manisha', label: 'Manisha', gender: 'Female' },
+  { id: 'vidya', label: 'Vidya', gender: 'Female' },
+  { id: 'arya', label: 'Arya', gender: 'Female' },
   { id: 'aditya', label: 'Aditya', gender: 'Male' },
   { id: 'ashutosh', label: 'Ashutosh', gender: 'Male' },
   { id: 'rahul', label: 'Rahul', gender: 'Male' },
@@ -44,7 +48,14 @@ const SARVAM_VOICES = [
   { id: 'mohit', label: 'Mohit', gender: 'Male' },
   { id: 'rehan', label: 'Rehan', gender: 'Male' },
   { id: 'soham', label: 'Soham', gender: 'Male' },
-  { id: 'subh', label: 'Subh', gender: 'Male' },
+  { id: 'shubh', label: 'Shubh', gender: 'Male' },
+  { id: 'abhilash', label: 'Abhilash', gender: 'Male' },
+  { id: 'karun', label: 'Karun', gender: 'Male' },
+  { id: 'hitesh', label: 'Hitesh', gender: 'Male' },
+  { id: 'aayan', label: 'Aayan', gender: 'Male' },
+  { id: 'advait', label: 'Advait', gender: 'Male' },
+  { id: 'mani', label: 'Mani', gender: 'Male' },
+  { id: 'gokul', label: 'Gokul', gender: 'Male' },
 ];
 
 const DEMO_TEXT_HI = 'नमस्ते! यह एक टेस्ट ऑडियो है। इस आवाज़ को सुनकर अपनी पसंदीदा आवाज़ चुनें।';
@@ -62,7 +73,7 @@ export const getVoicePreferences = (): VoicePreferences => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) return JSON.parse(stored);
   } catch {}
-  return { voice: 'subh', speed: 1.0 };
+  return { voice: 'shubh', speed: 1.0 };
 };
 
 export const saveVoicePreferences = (prefs: VoicePreferences) => {
@@ -71,7 +82,7 @@ export const saveVoicePreferences = (prefs: VoicePreferences) => {
 
 const VoiceSettings: React.FC = () => {
   const { language } = useLanguage();
-  const [selectedVoice, setSelectedVoice] = useState('subh');
+  const [selectedVoice, setSelectedVoice] = useState('shubh');
   const [demoLang, setDemoLang] = useState<'hi' | 'en'>(language === 'hi' ? 'hi' : 'en');
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
