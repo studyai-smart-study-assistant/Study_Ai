@@ -144,7 +144,7 @@ export async function generateResponseWithSearch(
         role: "system",
         content: "You are Study AI, created by Ajit Kumar. Smart, friendly AI teacher for Bihar Board and competitive exam students."
       },
-      ...history.map((msg) => ({
+      ...history.slice(-30).map((msg) => ({
         role: msg.role,
         content: sanitizeForAI(msg.content),
       }))

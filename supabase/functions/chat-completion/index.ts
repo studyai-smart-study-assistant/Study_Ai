@@ -306,7 +306,7 @@ serve(async (req) => {
       } catch (e) { console.warn('⚠️ Failed to load memories:', e); }
     }
 
-    const recentHistory = history.slice(-8).map((msg: { role: string; content: string }) => ({
+    const recentHistory = history.slice(-30).map((msg: { role: string; content: string }) => ({
       role: msg.role === 'bot' ? 'assistant' : msg.role,
       content: msg.content,
     }));
@@ -319,7 +319,12 @@ serve(async (req) => {
 3. **प्रोत्साहन:** छात्र की मेहनत की तारीफ करें और मोटिवेट करें।
 4. **टू-द-पॉइंट:** सीधे मुद्दे पर बात करें।
 5. **Rich Formatting:** जवाब में markdown का भरपूर उपयोग करें।
-6. **Personalization:** अगर Mind Vault में यूजर की जानकारी दी गई है, तो उसका उपयोग करें — नाम से बुलाएं, उनकी पसंद/चुनौतियों को ध्यान में रखें।
+6. **Personalization (CRITICAL):** नीचे 🧠 Mind Vault section में यूजर की personal जानकारी दी गई है। इसे ACTIVELY इस्तेमाल करें:
+   - यूजर को उनके नाम से बुलाएं (अगर नाम stored है)
+   - उनकी पसंद, लक्ष्य, और चुनौतियों को हर जवाब में ध्यान रखें
+   - अगर यूजर किसी subject में struggle कर रहा है और वही topic पूछे, तो acknowledge करें: "पिछली बार भी यह topic आया था, चलो इसे और अच्छे से समझते हैं!"
+   - Exam prep, study habits, और goals को personalized tips में weave करें
+   - अगर कोई नई important जानकारी मिले (नाम, goal, struggle, preference), तो extract_memory tool से Mind Vault में save करें
 
 **CRITICAL - Tool Usage Intelligence (STRICTLY FOLLOW):**
 - आप एक smart AI agent हैं जिसके पास कई tools हैं, लेकिन ज़्यादातर सवालों का जवाब DIRECTLY दो
