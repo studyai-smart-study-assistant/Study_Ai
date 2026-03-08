@@ -107,7 +107,7 @@ serve(async (req) => {
             text: cleanText,
             target_language_code: language || 'hi-IN',
             speaker: voice || 'shubh',
-            model: 'bulbul:v2',
+            model: 'bulbul:v3',
             enable_preprocessing: true,
           }),
         }, 20000);
