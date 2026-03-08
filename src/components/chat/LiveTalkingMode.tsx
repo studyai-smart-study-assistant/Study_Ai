@@ -21,7 +21,7 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
   const [transcript, setTranscript] = useState('');
   const [aiResponse, setAiResponse] = useState('');
   const [activeAnalyser, setActiveAnalyser] = useState<AnalyserNode | null>(null);
-  const [liveModel, setLiveModel] = useState('models/gemini-2.0-flash-live-001');
+  const [liveModel, setLiveModel] = useState('models/gemini-2.5-flash-native-audio-latest');
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -129,11 +129,13 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
       }
 
       const modelCandidates = Array.from(new Set([
-        'models/gemini-2.0-flash-live-001',
-        'models/gemini-2.0-flash-exp',
+        'models/gemini-2.5-flash-native-audio-latest',
+        'models/gemini-live-2.5-flash-preview',
         ...(Array.isArray(data?.models) ? data.models : []),
         data?.model,
         liveModel,
+        'models/gemini-2.0-flash-live-001',
+        'models/gemini-2.0-flash-exp',
       ].filter(Boolean)));
 
       const tryModelAt = (index: number) => {
@@ -141,7 +143,7 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
 
         if (index >= modelCandidates.length) {
           setStatus('idle');
-          toast.error('This API key has no compatible Live model');
+          toast.error('इस API key पर compatible Live model नहीं मिला (2.5 preferred)');
           return;
         }
 

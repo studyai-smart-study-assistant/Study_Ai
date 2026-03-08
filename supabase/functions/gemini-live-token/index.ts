@@ -6,10 +6,10 @@ const corsHeaders = {
 };
 
 const FALLBACK_LIVE_MODELS = [
-  'models/gemini-2.0-flash-live-001',
-  'models/gemini-2.0-flash-exp',
   'models/gemini-2.5-flash-native-audio-latest',
   'models/gemini-live-2.5-flash-preview',
+  'models/gemini-2.0-flash-live-001',
+  'models/gemini-2.0-flash-exp',
 ];
 
 function uniqueModels(models: string[]) {
@@ -46,9 +46,10 @@ serve(async (req) => {
     }
 
     const orderedModels = uniqueModels([
+      discovered.find((name) => name.endsWith('gemini-2.5-flash-native-audio-latest')) || '',
+      discovered.find((name) => name.endsWith('gemini-live-2.5-flash-preview')) || '',
       discovered.find((name) => name.endsWith('gemini-2.0-flash-live-001')) || '',
       discovered.find((name) => name.endsWith('gemini-2.0-flash-exp')) || '',
-      discovered.find((name) => name.endsWith('gemini-2.5-flash-native-audio-latest')) || '',
       ...discovered,
       ...FALLBACK_LIVE_MODELS,
     ]);
