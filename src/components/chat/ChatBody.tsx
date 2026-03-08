@@ -12,6 +12,7 @@ interface ChatBodyProps {
   onMessageDeleted: () => void;
   onSendMessage: (message: string) => void;
   messagesEndRef: React.RefObject<HTMLDivElement>;
+  onEditImage?: (imageUrl: string, originalPrompt: string) => void;
 }
 
 const ChatBody: React.FC<ChatBodyProps> = ({
@@ -21,7 +22,8 @@ const ChatBody: React.FC<ChatBodyProps> = ({
   onMessageEdited,
   onMessageDeleted,
   onSendMessage,
-  messagesEndRef
+  messagesEndRef,
+  onEditImage
 }) => {
   return (
     <div className="flex-1 overflow-y-auto overflow-x-hidden w-full">
@@ -34,6 +36,7 @@ const ChatBody: React.FC<ChatBodyProps> = ({
             isLoading={isLoading}
             onMessageEdited={onMessageEdited}
             onMessageDeleted={onMessageDeleted}
+            onEditImage={onEditImage}
           />
           
           {/* Enhanced loading animation with status message */}

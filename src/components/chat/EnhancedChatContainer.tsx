@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { useEnhancedChat } from '@/hooks/chat/useEnhancedChat';
 import ChatBody from './ChatBody';
 import ChatFooter from '../ChatFooter';
@@ -7,6 +7,7 @@ import AlertHandler from './AlertHandler';
 import { useMessageHandler } from '@/hooks/chat/useMessageHandler';
 import { useScrollHandler } from '@/hooks/chat/useScrollHandler';
 import WebSearchSources from '../message/WebSearchSources';
+import ImageEditDialog from '../message/ImageEditDialog';
 
 interface EnhancedChatContainerProps {
   chatId: string;
@@ -48,6 +49,18 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({
     sendMessage: enhancedSendMessage
   });
 
+  const [editImageState, setEditImageState] = useState<{ imageUrl: string; prompt: string } | null>(null);
+
+  const handleEditImage = useCallback((imageUrl: string, originalPrompt: string) => {
+    setEditImageState({ imageUrl, prompt: originalPrompt });
+  }, []);
+
+  const handleEditImageSubmit = useCallback((newPrompt: string, imageUrl: string) => {
+    // Send the image with the new edit prompt
+    enhancedSendMessage(newPrompt, imageUrl);
+    setEditImageState(null);
+  }, [enhancedSendMessage]);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
@@ -67,6 +80,7 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({
         onMessageDeleted={handleMessageDeleted}
         onSendMessage={handleSend}
         messagesEndRef={messagesEndRef}
+        onEditImage={handleEditImage}
       />
 
       {/* Show sources after the last bot message when web search was used */}
@@ -83,6 +97,17 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({
         webSearchEnabled={webSearchEnabled}
         onWebSearchToggle={setWebSearchEnabled}
       />
+
+      {/* Image Edit Dialog */}
+      {editImageState && (
+        <ImageEditDialog
+          isOpen={!!editImageState}
+          imageUrl={editImageState.imageUrl}
+          originalPrompt={editImageState.prompt}
+          onClose={() => setEditImageState(null)}
+          onSubmit={handleEditImageSubmit}
+        />
+      )}
     </div>
   );
 };

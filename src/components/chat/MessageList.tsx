@@ -8,13 +8,15 @@ interface MessageListProps {
   isLoading: boolean;
   onMessageEdited: () => void;
   onMessageDeleted: () => void;
+  onEditImage?: (imageUrl: string, originalPrompt: string) => void;
 }
 
 const MessageList: React.FC<MessageListProps> = ({ 
   messages, 
   isLoading, 
   onMessageEdited, 
-  onMessageDeleted 
+  onMessageDeleted,
+  onEditImage
 }) => {
   return (
     <div className="pb-36 sm:pb-48 w-full max-w-full overflow-hidden space-y-4">
@@ -24,6 +26,7 @@ const MessageList: React.FC<MessageListProps> = ({
           message={message}
           onEdited={onMessageEdited}
           onDeleted={onMessageDeleted}
+          onEditImage={onEditImage}
         />
       ))}
       {isLoading && (
