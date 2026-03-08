@@ -103,8 +103,8 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
         
         const userId = currentUser?.uid || 'guest';
         
-        // Clean the prompt for AI - remove IMG_BASE64 marker
-        const aiPrompt = messageContent.replace('[IMG_BASE64]', '').trim() || 'इस image के बारे में बताओ';
+        // Clean the prompt for AI - remove IMG_DATA marker
+        const aiPrompt = messageContent.replace(/^\[IMG_DATA:[^\]]+\]/, '').trim() || 'इस image के बारे में बताओ';
         
         const result = await chatHandler.processQuery(
           aiPrompt,
