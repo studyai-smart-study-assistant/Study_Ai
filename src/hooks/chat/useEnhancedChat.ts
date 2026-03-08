@@ -99,17 +99,11 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
           async (query: string) => {
             setConnectionStatus('reconnecting');
             
-            if (webSearchEnabled) {
-              // Use web search enhanced response
-              const searchResult = await generateResponseWithSearch(query, chatHistory, chatId, 'google/gemini-2.5-flash', true);
-              setLastSources(searchResult.sources);
-              setConnectionStatus('connected');
-              return searchResult.text;
-            } else {
-              const response = await generateResponse(query, chatHistory, chatId);
-              setConnectionStatus('connected');
-              return response;
-            }
+            // Always call with search: forceSearch when toggle ON, auto-detect when OFF
+            const searchResult = await generateResponseWithSearch(query, chatHistory, chatId, 'google/gemini-2.5-flash', webSearchEnabled);
+            setLastSources(searchResult.sources);
+            setConnectionStatus('connected');
+            return searchResult.text;
           },
           chatHistory.map(msg => ({
             sender: msg.role === 'user' ? 'user' : 'ai' as const,
