@@ -130,18 +130,16 @@ export async function generateResponseWithSearch(
   try {
     console.log(`🚀 Study AI: Calling AI Gateway with model:`, model, `webSearch:`, enableWebSearch);
 
-    // Step 1: Optionally perform web search
+    // Always check web search - auto-detect keywords, force when toggle ON
     let searchContext: string | null = null;
     let sources: WebSearchSource[] = [];
 
-    if (enableWebSearch) {
-      const searchResult = await performWebSearch(prompt, true);
-      searchContext = searchResult.searchContext;
-      sources = searchResult.sources;
-      
-      if (searchResult.shouldSearch) {
-        toast.info('🔍 वेब से जानकारी खोज रहा हूँ...', { duration: 2000 });
-      }
+    const searchResult = await performWebSearch(prompt, enableWebSearch);
+    searchContext = searchResult.searchContext;
+    sources = searchResult.sources;
+    
+    if (searchResult.shouldSearch) {
+      toast.info('🔍 वेब से जानकारी खोज रहा हूँ...', { duration: 2000 });
     }
 
     const sanitizeForAI = (text: string) => {
