@@ -13,9 +13,10 @@ interface MessageProps {
   message: MessageType;
   onEdited: () => void;
   onDeleted: () => void;
+  onEditImage?: (imageUrl: string, originalPrompt: string) => void;
 }
 
-const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted }) => {
+const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted, onEditImage }) => {
   const { 
     isEditing, editedContent, setEditedContent, isTyping, displayedContent,
     isCopied, isLiked, isBookmarked, setIsBookmarked, 
@@ -81,6 +82,7 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted }) => {
           handleCancelEdit={handleCancelEdit}
           isTyping={isTyping}
           displayedContent={displayedContent}
+          onEditImage={!isUserMessage ? onEditImage : undefined}
         />
       </LongPressMenu>
       
