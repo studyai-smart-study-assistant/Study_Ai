@@ -632,7 +632,7 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
 
     // ── Reliable Memory Extraction for logged-in users ──
     if (authenticatedUserId && prompt) {
-      await backgroundExtractMemories(adminClient, authenticatedUserId, prompt, model);
+      await backgroundExtractMemories(adminClient, authenticatedUserId, prompt, recentHistory, model);
     }
     
     // Normal conversation — no thinking badge needed
