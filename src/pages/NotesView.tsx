@@ -121,20 +121,31 @@ const NotesView = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={shareNotes}
+                onClick={shareAsPdf}
+                disabled={pdfLoading}
                 className="gap-1.5 hover:bg-muted"
               >
-                <Share2 className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline text-sm">Share</span>
+                {pdfLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />}
+                <span className="hidden sm:inline text-sm">Share PDF</span>
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={downloadNotes}
+                onClick={downloadAsPdf}
+                disabled={pdfLoading}
+                className="gap-1.5 hover:bg-muted"
+              >
+                {pdfLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
+                <span className="hidden sm:inline text-sm">PDF</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={downloadAsTxt}
                 className="gap-1.5 hover:bg-muted"
               >
                 <Download className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline text-sm">Download</span>
+                <span className="hidden sm:inline text-sm">TXT</span>
               </Button>
             </div>
           </div>
