@@ -24,9 +24,21 @@ const UploadBookModal: React.FC<UploadBookModalProps> = ({ isOpen, onClose, onSu
     e.preventDefault();
     if (!form.title.trim() || !form.author.trim()) return toast.error('शीर्षक और लेखक आवश्यक है');
     setIsLoading(true);
-    try { await uploadBook(form); toast.success('पुस्तक अपलोड हो गई'); onSuccess(); onClose(); setForm(initialFormState); }
-    catch { toast.error('अपलोड में समस्या'); }
-    finally { setIsLoading(false); }
+    try {
+      // Get current user id from auth
+      const { data: { user } } = await (await import('@/integrations/supabase/client')).supabase.auth.getUser();
+      if (!user) throw new Error('Login required');
+      await uploadBook(form, user.id);
+      toast.success('पुस्तक अपलोड हो गई');
+      onSuccess();
+      onClose();
+      setForm(initialFormState);
+    } catch (err: any) {
+      toast.error('अपलोड में समस्या: ' + (err?.message || ''));
+    } finally {
+      setIsLoading(false);
+    }
+  };
   };
 
   return (
