@@ -9,6 +9,7 @@ import CampusTalkChatList from '@/components/campus-talk/CampusTalkChatList';
 import CampusTalkBottomNav from '@/components/campus-talk/CampusTalkBottomNav';
 import CampusTalkUsersList from '@/components/campus-talk/CampusTalkUsersList';
 import CampusTalkConversation from '@/components/campus-talk/CampusTalkConversation';
+import CampusTalkAccount from '@/components/campus-talk/CampusTalkAccount';
 
 export interface CampusChatItem {
   chatId: string;
@@ -29,15 +30,25 @@ const ChatSystem = () => {
   const [selectedChat, setSelectedChat] = useState<CampusChatItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Auto-register current user in campus_users
+  // Auto-register current user in campus_users with correct profile name
   useEffect(() => {
     if (!currentUser) return;
     const registerCampusUser = async () => {
       try {
+        // Get actual display name from profiles
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('display_name, avatar_url, photo_url')
+          .eq('user_id', currentUser.uid)
+          .maybeSingle();
+
+        const displayName = profile?.display_name || currentUser.displayName || currentUser.email?.split('@')[0] || 'User';
+        const avatarUrl = profile?.avatar_url || profile?.photo_url || currentUser.photoURL;
+
         await supabase.from('campus_users').upsert({
           firebase_uid: currentUser.uid,
-          display_name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-          avatar_url: currentUser.photoURL,
+          display_name: displayName,
+          avatar_url: avatarUrl,
           email: currentUser.email,
           status: 'online',
           last_seen: new Date().toISOString(),
@@ -48,7 +59,6 @@ const ChatSystem = () => {
     };
     registerCampusUser();
 
-    // Set offline on unmount
     return () => {
       supabase.from('campus_users').update({ 
         status: 'offline', 
@@ -57,7 +67,7 @@ const ChatSystem = () => {
     };
   }, [currentUser]);
 
-  // Handle navigation state (from leaderboard chat button)
+  // Handle navigation state
   useEffect(() => {
     const state = location.state as any;
     if (state?.selectedChatId && state?.partnerId) {
@@ -74,7 +84,6 @@ const ChatSystem = () => {
     if (!currentUser) return;
     loadChats();
 
-    // Realtime subscription for new messages
     const channel = supabase
       .channel('campus-chat-list')
       .on('postgres_changes', {
@@ -92,7 +101,6 @@ const ChatSystem = () => {
   const loadChats = async () => {
     if (!currentUser) return;
     try {
-      // Get all chats where current user is participant
       const { data: chats, error } = await supabase
         .from('campus_chats')
         .select('*')
@@ -107,25 +115,29 @@ const ChatSystem = () => {
         return;
       }
 
-      // Get partner UIDs
       const partnerUids = chats.map(c => 
         c.participant1_uid === currentUser.uid ? c.participant2_uid : c.participant1_uid
       );
 
-      // Fetch partner profiles
+      // Fetch from profiles for accurate names
       const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, avatar_url, photo_url')
+        .in('user_id', partnerUids);
+
+      const { data: campusProfiles } = await supabase
         .from('campus_users')
         .select('firebase_uid, display_name, avatar_url')
         .in('firebase_uid', partnerUids);
 
-      // Fetch last message for each chat
       const chatItems: CampusChatItem[] = await Promise.all(
         chats.map(async (chat) => {
           const partnerUid = chat.participant1_uid === currentUser.uid 
             ? chat.participant2_uid 
             : chat.participant1_uid;
           
-          const profile = profiles?.find(p => p.firebase_uid === partnerUid);
+          const profile = profiles?.find(p => p.user_id === partnerUid);
+          const campusProfile = campusProfiles?.find(p => p.firebase_uid === partnerUid);
 
           const { data: lastMsg } = await supabase
             .from('campus_messages')
@@ -144,8 +156,8 @@ const ChatSystem = () => {
           return {
             chatId: chat.id,
             partnerUid,
-            partnerName: profile?.display_name || partnerUid.slice(0, 8),
-            partnerAvatar: profile?.avatar_url,
+            partnerName: profile?.display_name || campusProfile?.display_name || partnerUid.slice(0, 8),
+            partnerAvatar: profile?.avatar_url || profile?.photo_url || campusProfile?.avatar_url,
             lastMessage,
             lastMessageTime: lastMsg?.created_at || chat.last_message_at,
           };
@@ -165,7 +177,6 @@ const ChatSystem = () => {
     if (!currentUser) return;
 
     try {
-      // Check for existing chat
       const { data: existing } = await supabase
         .from('campus_chats')
         .select('*')
@@ -182,7 +193,6 @@ const ChatSystem = () => {
         return;
       }
 
-      // Create new chat
       const { data: newChat, error } = await supabase
         .from('campus_chats')
         .insert({
@@ -208,7 +218,6 @@ const ChatSystem = () => {
     }
   };
 
-  // If a chat is selected, show conversation
   if (selectedChat) {
     return (
       <CampusTalkConversation
@@ -242,6 +251,9 @@ const ChatSystem = () => {
             onStartChat={handleStartChat}
             searchQuery={searchQuery}
           />
+        )}
+        {activeTab === 'groups' && (
+          <CampusTalkAccount />
         )}
       </div>
 
