@@ -42,6 +42,7 @@ const NotesCreator = lazy(() => import('@/pages/NotesCreator'));
 const QuizGeneratorPage = lazy(() => import('@/pages/QuizGeneratorPage'));
 const StudyPlannerPage = lazy(() => import('@/pages/StudyPlannerPage'));
 const HomeworkHelperPage = lazy(() => import('@/pages/HomeworkHelperPage'));
+const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'));
 
 // Page wrapper with skeleton fallback
 const PageWrapper = ({ children, variant = 'default' }: { children: React.ReactNode; variant?: 'default' | 'chat' | 'form' | 'cards' | 'profile' }) => (
@@ -89,6 +90,7 @@ function App() {
                     <Route path="/quiz-generator" element={<PageWrapper variant="form"><QuizGeneratorPage /></PageWrapper>} />
                     <Route path="/study-planner" element={<PageWrapper variant="form"><StudyPlannerPage /></PageWrapper>} />
                     <Route path="/homework-helper" element={<PageWrapper variant="form"><HomeworkHelperPage /></PageWrapper>} />
+                    <Route path="/admin/api-usage" element={<PageWrapper><AdminDashboard /></PageWrapper>} />
                     <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
                   </Route>
                 </Routes>
