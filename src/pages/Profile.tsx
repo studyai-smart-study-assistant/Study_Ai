@@ -14,6 +14,7 @@ import ActivePlansWidget from '@/components/study/ActivePlansWidget';
 import DangerZone from '@/components/profile/DangerZone';
 import VoiceSettings from '@/components/profile/VoiceSettings';
 import MindVault from '@/components/profile/MindVault';
+import ChangePassword from '@/components/profile/ChangePassword';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { logoutUser } from '@/lib/supabase/chat-functions';
@@ -86,6 +87,7 @@ const Profile = () => {
                   <Button variant="outline" size="sm" className="w-full mt-3" asChild><Link to="/student-activities"><Activity className="h-4 w-4 mr-2" />{language === 'hi' ? 'गतिविधियां देखें' : 'View Activities'}</Link></Button>
                 </div>
                 <UserInfoCards userCategory={userCategory} educationLevel={educationLevel} />
+                <div className="mt-6"><ChangePassword /></div>
                 <div className="mt-8"><DangerZone currentUser={currentUser} onLogout={handleLogout} /></div>
               </TabsContent>
               <TabsContent value="voice" className="m-0 p-4 sm:p-6"><VoiceSettings /></TabsContent>

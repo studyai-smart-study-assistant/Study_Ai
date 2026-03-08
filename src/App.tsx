@@ -19,6 +19,7 @@ const Index = lazy(() => import('@/pages/Index'));
 const Login = lazy(() => import('@/pages/Login'));
 const Signup = lazy(() => import('@/pages/Signup'));
 const ForgotPassword = lazy(() => import('@/pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
 const Profile = lazy(() => import('@/pages/Profile'));
 const StudentProfile = lazy(() => import('@/pages/StudentProfile'));
 const StudentActivities = lazy(() => import('@/pages/StudentActivities'));
@@ -68,6 +69,7 @@ function App() {
                     <Route path="/login" element={<PageWrapper variant="form"><Login /></PageWrapper>} />
                     <Route path="/signup" element={<PageWrapper variant="form"><Signup /></PageWrapper>} />
                     <Route path="/forgot-password" element={<PageWrapper variant="form"><ForgotPassword /></PageWrapper>} />
+                    <Route path="/reset-password" element={<PageWrapper variant="form"><ResetPassword /></PageWrapper>} />
                     <Route path="/profile" element={<PageWrapper variant="profile"><Profile /></PageWrapper>} />
                     <Route path="/student/:userId" element={<PageWrapper variant="profile"><StudentProfile /></PageWrapper>} />
                     <Route path="/student-activities" element={<PageWrapper><StudentActivities /></PageWrapper>} />
