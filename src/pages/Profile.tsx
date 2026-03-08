@@ -13,6 +13,7 @@ import BackupCard from '@/components/backup/BackupCard';
 import ActivePlansWidget from '@/components/study/ActivePlansWidget';
 import DangerZone from '@/components/profile/DangerZone';
 import VoiceSettings from '@/components/profile/VoiceSettings';
+import MindVault from '@/components/profile/MindVault';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { logoutUser } from '@/lib/supabase/chat-functions';
