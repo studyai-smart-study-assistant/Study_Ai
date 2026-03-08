@@ -7,17 +7,16 @@ import { VideoPlayer } from '@/components/studytube/VideoPlayer';
 import { RelatedVideos } from '@/components/studytube/RelatedVideos';
 import { YouTubeService, YouTubeVideo } from '@/services/youtubeService';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Button } from '@/components/ui/button';
+import { useMiniPlayer } from '@/contexts/MiniPlayerContext';
 import { ArrowLeft, Youtube } from 'lucide-react';
 import { toast } from 'sonner';
 
 const StudyTube: React.FC = () => {
-
   const { language } = useLanguage();
   const isHindi = language === 'hi';
+  const { playVideo, minimizePlayer, state: miniState } = useMiniPlayer();
 
   const isMounted = useRef(true);
-
   const [videos, setVideos] = useState<YouTubeVideo[]>([]);
   const [currentVideo, setCurrentVideo] = useState<YouTubeVideo | null>(null);
   const [relatedVideos, setRelatedVideos] = useState<YouTubeVideo[]>([]);
@@ -26,319 +25,134 @@ const StudyTube: React.FC = () => {
   const [showSearchHistory, setShowSearchHistory] = useState(false);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>();
 
-
-  // prevent memory leak
   useEffect(() => {
-    return () => {
-      isMounted.current = false;
-    };
+    return () => { isMounted.current = false; };
   }, []);
 
-
-  // default search
+  // Restore from mini player if returning to this page
   useEffect(() => {
-    handleSearch('educational videos in hindi', false);
-  }, []);
+    if (miniState.video && !miniState.isMinimized && !currentVideo) {
+      setCurrentVideo(miniState.video);
+    }
+  }, [miniState.video, miniState.isMinimized]);
 
-
-
-  const handleSearch = async (query: string, addToHistory: boolean = true) => {
-
+  const handleSearch = async (query: string) => {
     if (!query.trim()) return;
-
     try {
-
       setIsLoading(true);
       setShowSearchHistory(false);
       setCurrentVideo(null);
       setVideos([]);
-
       const result = await YouTubeService.searchVideos(query, 20);
-
       if (!isMounted.current) return;
-
       setVideos(result.items || []);
       setNextPageToken(result.nextPageToken);
       setSearchQuery(query);
-
-    } catch (error) {
-
-      console.error('Search error:', error);
-
-      toast.error(
-        isHindi ? 'खोज में त्रुटि हुई' : 'Search failed'
-      );
-
+    } catch {
+      toast.error(isHindi ? 'खोज में त्रुटि हुई' : 'Search failed');
     } finally {
-
-      if (isMounted.current) {
-        setIsLoading(false);
-      }
-
+      if (isMounted.current) setIsLoading(false);
     }
-
   };
-
-
 
   const handleVideoSelect = async (video: YouTubeVideo) => {
-
     setCurrentVideo(video);
-
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    });
+    playVideo(video);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 
     if (!video?.id?.videoId) return;
-
     try {
-
       const related = await YouTubeService.getRelatedVideos(video.id.videoId);
-
-      if (!isMounted.current) return;
-
-      setRelatedVideos(related || []);
-
-    } catch (error) {
-
-      console.error('Error loading related videos:', error);
-
-    }
-
+      if (isMounted.current) setRelatedVideos(related || []);
+    } catch {}
   };
-
-
 
   const handleBackToSearch = () => {
-
+    if (currentVideo) {
+      minimizePlayer();
+    }
     setCurrentVideo(null);
     setRelatedVideos([]);
-
   };
-
-
 
   const loadMoreVideos = async () => {
-
     if (!nextPageToken || !searchQuery || isLoading) return;
-
     try {
-
       setIsLoading(true);
-
-      const result = await YouTubeService.searchVideos(
-        searchQuery,
-        20,
-        nextPageToken
-      );
-
+      const result = await YouTubeService.searchVideos(searchQuery, 20, nextPageToken);
       if (!isMounted.current) return;
-
       setVideos(prev => [...prev, ...(result.items || [])]);
       setNextPageToken(result.nextPageToken);
-
-    } catch (error) {
-
-      console.error('Load more error:', error);
-
-      toast.error(
-        isHindi
-          ? 'और वीडियो लोड करने में त्रुटि'
-          : 'Failed to load more videos'
-      );
-
+    } catch {
+      toast.error(isHindi ? 'और वीडियो लोड करने में त्रुटि' : 'Failed to load more');
     } finally {
-
-      if (isMounted.current) {
-        setIsLoading(false);
-      }
-
+      if (isMounted.current) setIsLoading(false);
     }
-
   };
 
-
-
   return (
-
     <PageLayout>
-
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
-
-
-        {/* Header */}
-
-        <div className="sticky top-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-purple-200 dark:border-gray-700">
-
-          <div className="max-w-7xl mx-auto px-4 py-4">
-
-            <div className="flex items-center gap-4">
-
-              {currentVideo && (
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleBackToSearch}
-                  className="text-purple-600 hover:text-purple-700 hover:bg-purple-100 dark:text-purple-400 dark:hover:text-purple-300"
-                >
-
-                  <ArrowLeft className="h-5 w-5" />
-
-                </Button>
-
-              )}
-
-
-
-              <div className="flex items-center gap-3">
-
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-red-500 to-red-600 flex items-center justify-center shadow-lg">
-
-                  <Youtube className="h-6 w-6 text-white" />
-
-                </div>
-
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent">
-                  Study Tube
-                </h1>
-
+      <div className="min-h-screen bg-background">
+        {/* Sticky header */}
+        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
+          <div className="max-w-7xl mx-auto px-3 py-2.5 flex items-center gap-2.5">
+            {currentVideo ? (
+              <button onClick={handleBackToSearch} className="p-1.5 -ml-1 rounded-full hover:bg-muted transition-colors">
+                <ArrowLeft className="h-5 w-5 text-foreground" />
+              </button>
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center flex-shrink-0">
+                <Youtube className="h-4.5 w-4.5 text-white" />
               </div>
-
-
-
-              <div className="flex-1 max-w-2xl">
-
-                <SearchBar
-                  onSearch={handleSearch}
-                  onShowHistory={() => setShowSearchHistory(true)}
-                  placeholder={
-                    isHindi
-                      ? 'वीडियो खोजें...'
-                      : 'Search videos...'
-                  }
-                />
-
-              </div>
-
-            </div>
-
-
-
-            {showSearchHistory && (
-
-              <div className="mt-4">
-
-                <SearchHistory
-                  onSearchSelect={(term) => {
-                    handleSearch(term);
-                    setShowSearchHistory(false);
-                  }}
-                  onClose={() => setShowSearchHistory(false)}
-                />
-
-              </div>
-
             )}
 
+            <div className="flex-1 min-w-0">
+              <SearchBar
+                onSearch={handleSearch}
+                onShowHistory={() => setShowSearchHistory(!showSearchHistory)}
+                placeholder={isHindi ? 'वीडियो खोजें...' : 'Search videos...'}
+              />
+            </div>
           </div>
 
+          {showSearchHistory && (
+            <div className="px-3 pb-3">
+              <SearchHistory
+                onSearchSelect={(term) => { handleSearch(term); setShowSearchHistory(false); }}
+                onClose={() => setShowSearchHistory(false)}
+              />
+            </div>
+          )}
         </div>
 
-
-
-        <div className="max-w-7xl mx-auto px-4 py-6">
-
-
+        {/* Content */}
+        <div className="max-w-7xl mx-auto px-3 py-3">
           {currentVideo ? (
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <div className="lg:col-span-2">
-
                 <VideoPlayer video={currentVideo} />
-
               </div>
-
-
-
               <div className="lg:col-span-1">
-
                 <RelatedVideos
                   videos={relatedVideos}
                   onVideoSelect={handleVideoSelect}
                   isLoading={false}
                 />
-
               </div>
-
             </div>
-
           ) : (
-
-
-            <div className="space-y-6">
-
-
-              {!searchQuery && (
-
-                <div className="text-center py-12">
-
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-r from-red-500 to-red-600 flex items-center justify-center mx-auto mb-6 shadow-lg">
-
-                    <Youtube className="h-10 w-10 text-white" />
-
-                  </div>
-
-
-
-                  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-
-                    {isHindi
-                      ? 'Study Tube में आपका स्वागत है'
-                      : 'Welcome to Study Tube'}
-
-                  </h2>
-
-
-
-                  <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
-
-                    {isHindi
-                      ? 'यहाँ आप अपनी पढ़ाई के लिए बेहतरीन वीडियो खोज और देख सकते हैं।'
-                      : 'Find and watch amazing educational videos for your studies.'}
-
-                  </p>
-
-                </div>
-
-              )}
-
-
-
-              <VideoGrid
-                videos={videos}
-                onVideoSelect={handleVideoSelect}
-                isLoading={isLoading}
-                onLoadMore={loadMoreVideos}
-                hasMore={!!nextPageToken}
-              />
-
-
-            </div>
-
+            <VideoGrid
+              videos={videos}
+              onVideoSelect={handleVideoSelect}
+              isLoading={isLoading}
+              onLoadMore={loadMoreVideos}
+              hasMore={!!nextPageToken}
+            />
           )}
-
         </div>
-
       </div>
-
     </PageLayout>
-
   );
-
 };
 
 export default StudyTube;

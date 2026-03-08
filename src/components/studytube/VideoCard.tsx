@@ -1,8 +1,5 @@
 import React from 'react';
 import { YouTubeVideo, YouTubeService } from '@/services/youtubeService';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Play, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface VideoCardProps {
@@ -11,11 +8,7 @@ interface VideoCardProps {
   className?: string;
 }
 
-export const VideoCard: React.FC<VideoCardProps> = ({
-  video,
-  onClick,
-  className
-}) => {
+export const VideoCard: React.FC<VideoCardProps> = ({ video, onClick, className }) => {
   const thumbnail = video.snippet.thumbnails.medium || video.snippet.thumbnails.default;
   const title = video.snippet.title;
   const channelTitle = video.snippet.channelTitle;
@@ -23,72 +16,50 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   const viewCount = video.statistics?.viewCount;
 
   return (
-    <Card 
+    <div
       className={cn(
-        "group cursor-pointer transition-all duration-300 hover:shadow-xl hover:scale-[1.02] bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 overflow-hidden",
+        "cursor-pointer group active:scale-[0.98] transition-transform duration-150",
         className
       )}
       onClick={onClick}
     >
-      <CardContent className="p-0">
-        {/* Thumbnail */}
-        <div className="relative aspect-video bg-gray-100 dark:bg-gray-700 overflow-hidden">
-          <img
-            src={thumbnail.url}
-            alt={title}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-            loading="lazy"
-          />
-          
-          {/* Play Button Overlay */}
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center">
-            <div className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg">
-              <Play className="h-8 w-8 text-white ml-1" fill="white" />
-            </div>
-          </div>
+      {/* Thumbnail */}
+      <div className="relative aspect-video bg-muted rounded-xl overflow-hidden">
+        <img
+          src={thumbnail.url}
+          alt={title}
+          className="w-full h-full object-cover"
+          loading="lazy"
+        />
+      </div>
 
-          {/* Duration Badge (if available) */}
-          <div className="absolute bottom-2 right-2">
-            <Badge variant="secondary" className="bg-black/80 text-white text-xs px-2 py-1">
-              <Play className="h-3 w-3 mr-1" />
-              Video
-            </Badge>
-          </div>
+      {/* Info - YouTube style with channel avatar placeholder */}
+      <div className="flex gap-3 mt-3 px-1">
+        {/* Channel avatar */}
+        <div className="w-9 h-9 rounded-full bg-red-500/10 flex-shrink-0 flex items-center justify-center mt-0.5">
+          <span className="text-red-600 font-bold text-xs">
+            {channelTitle?.charAt(0)?.toUpperCase()}
+          </span>
         </div>
 
-        {/* Video Info */}
-        <div className="p-4 space-y-3">
-          {/* Title */}
-          <h3 className="font-semibold text-gray-900 dark:text-white text-sm leading-snug line-clamp-2 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-medium text-foreground text-sm leading-snug line-clamp-2">
             {title}
           </h3>
-
-          {/* Channel & Meta */}
-          <div className="space-y-2">
-            <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-              {channelTitle}
-            </p>
-            
-            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500">
+          <div className="mt-1 flex flex-col">
+            <span className="text-xs text-muted-foreground">{channelTitle}</span>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
               {viewCount && (
-                <div className="flex items-center gap-1">
-                  <Eye className="h-3 w-3" />
+                <>
                   <span>{YouTubeService.formatViews(viewCount)}</span>
-                </div>
+                  <span>•</span>
+                </>
               )}
-              <span>•</span>
               <span>{publishedAt}</span>
             </div>
           </div>
-
-          {/* Description Preview */}
-          {video.snippet.description && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
-              {video.snippet.description}
-            </p>
-          )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };

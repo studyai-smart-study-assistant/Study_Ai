@@ -25,10 +25,10 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
 
   if (isLoading && videos.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center py-16">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-red-600 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">
+          <Loader2 className="h-7 w-7 animate-spin text-red-600 mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">
             {isHindi ? 'वीडियो लोड हो रहे हैं...' : 'Loading videos...'}
           </p>
         </div>
@@ -38,24 +38,22 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
 
   if (videos.length === 0 && !isLoading) {
     return (
-      <div className="text-center py-12">
-        <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
-          <span className="text-2xl">📹</span>
-        </div>
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-          {isHindi ? 'कोई वीडियो नहीं मिला' : 'No videos found'}
+      <div className="text-center py-16">
+        <span className="text-4xl mb-4 block">🔍</span>
+        <h3 className="text-lg font-semibold text-foreground mb-1">
+          {isHindi ? 'वीडियो खोजें' : 'Search for videos'}
         </h3>
-        <p className="text-gray-600 dark:text-gray-400">
-          {isHindi ? 'कुछ अलग खोजने की कोशिश करें' : 'Try searching for something else'}
+        <p className="text-sm text-muted-foreground">
+          {isHindi ? 'ऊपर सर्च बार में कुछ टाइप करें' : 'Type something in the search bar above'}
         </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Video Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div className="space-y-4">
+      {/* Mobile: single column list, Tablet+: grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
         {videos.map((video, index) => (
           <VideoCard
             key={`${video.id.videoId || video.id.channelId}-${index}`}
@@ -65,15 +63,14 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
         ))}
       </div>
 
-      {/* Load More Button */}
       {hasMore && (
-        <div className="flex justify-center pt-8">
+        <div className="flex justify-center pt-4 pb-8">
           <Button
             onClick={onLoadMore}
             disabled={isLoading}
             variant="outline"
-            size="lg"
-            className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+            size="sm"
+            className="rounded-full px-6"
           >
             {isLoading ? (
               <>
@@ -81,7 +78,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
                 {isHindi ? 'लोड हो रहा है...' : 'Loading...'}
               </>
             ) : (
-              isHindi ? 'और वीडियो लोड करें' : 'Load More Videos'
+              isHindi ? 'और वीडियो दिखाएं' : 'Show more'
             )}
           </Button>
         </div>
