@@ -21,6 +21,8 @@ interface GeneratedNote {
 }
 
 const NotesView = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [pdfLoading, setPdfLoading] = useState(false);
   const note = location.state?.note as GeneratedNote | undefined;
 
