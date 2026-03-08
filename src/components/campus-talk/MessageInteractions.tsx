@@ -2,6 +2,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Copy, Reply, Volume2, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 // Emoji reactions
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -23,6 +24,37 @@ interface MessageLongPressMenuProps {
   onSpeak?: (text: string) => void;
 }
 
+// Use Sarvam AI TTS
+async function speakWithSarvamAI(text: string) {
+  try {
+    toast.info('🔊 आवाज़ तैयार हो रही है...', { duration: 2000 });
+    const { data, error } = await supabase.functions.invoke('text-to-speech', {
+      body: { text, language: 'hi-IN', voice: 'shubh' },
+    });
+    if (error || !data?.audioContent) {
+      throw new Error('TTS failed');
+    }
+    const binaryStr = atob(data.audioContent);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+    const blob = new Blob([bytes.buffer], { type: 'audio/mpeg' });
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.playbackRate = 1.1;
+    audio.onended = () => URL.revokeObjectURL(url);
+    audio.play();
+  } catch {
+    // Fallback to Web Speech API
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'hi-IN';
+      speechSynthesis.speak(utterance);
+    } else {
+      toast.error('TTS उपलब्ध नहीं है');
+    }
+  }
+}
+
 export const MessageLongPressMenu: React.FC<MessageLongPressMenuProps> = ({
   message, position, onClose, onReply, onReact, onDelete, onSpeak
 }) => {
@@ -42,12 +74,12 @@ export const MessageLongPressMenu: React.FC<MessageLongPressMenuProps> = ({
   };
 
   const handleSpeak = () => {
-    if (message.text && onSpeak) {
-      onSpeak(message.text);
-    } else if (message.text) {
-      const utterance = new SpeechSynthesisUtterance(message.text);
-      utterance.lang = 'hi-IN';
-      speechSynthesis.speak(utterance);
+    if (message.text) {
+      if (onSpeak) {
+        onSpeak(message.text);
+      } else {
+        speakWithSarvamAI(message.text);
+      }
     }
     onClose();
   };
@@ -179,7 +211,6 @@ export const useSwipeToReply = (onSwipe: () => void) => {
     if (!swiping.current) return;
     currentX.current = e.touches[0].clientX;
     const diff = currentX.current - startX.current;
-    // Only allow right swipe, max 80px
     if (diff > 0 && diff < 80) {
       setOffset(diff);
     }

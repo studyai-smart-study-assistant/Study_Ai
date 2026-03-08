@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Send, Image as ImageIcon, Bot, Settings, Phone, Video } from 'lucide-react';
+import { ArrowLeft, Send, Image as ImageIcon, Bot, Settings, Phone, Video, Paperclip } from 'lucide-react';
 import CallScreen from './CallScreen';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -156,20 +156,27 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
     if (aiQuery) await handleAiQuery(aiQuery);
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !currentUser) return;
     try {
       setSending(true);
-      const path = `campus-group/${group.id}/${Date.now()}.${file.name.split('.').pop()}`;
+      const ext = file.name.split('.').pop();
+      const path = `campus-group/${group.id}/${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage.from('chat_media').upload(path, file);
       if (upErr) throw upErr;
       const { data: { publicUrl } } = supabase.storage.from('chat_media').getPublicUrl(path);
+      
+      const isAudio = file.type.startsWith('audio/');
+      const isImage = file.type.startsWith('image/');
+      const msgType = isAudio ? 'audio' : isImage ? 'image' : 'file';
+      
       await supabase.from('campus_group_messages' as any).insert({
         group_id: group.id, sender_uid: currentUser.uid,
-        image_url: publicUrl, message_type: 'image',
+        image_url: publicUrl, message_type: msgType,
+        text_content: isAudio ? `🎵 Audio (${file.name})` : null,
       });
-    } catch { toast.error('Image भेजने में error'); }
+    } catch { toast.error('File भेजने में error'); }
     finally { setSending(false); if (fileRef.current) fileRef.current.value = ''; }
   };
 
@@ -313,9 +320,9 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
       {canSend ? (
         <div className="shrink-0 bg-background border-t border-border px-3 py-2 flex items-center gap-2">
           <button onClick={() => fileRef.current?.click()} className="p-2 text-muted-foreground hover:text-foreground">
-            <ImageIcon className="h-5 w-5" />
+            <Paperclip className="h-5 w-5" />
           </button>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+          <input ref={fileRef} type="file" accept="image/*,audio/*" className="hidden" onChange={handleFileUpload} />
           <Input
             value={text}
             onChange={e => setText(e.target.value)}
@@ -400,7 +407,12 @@ const GroupMessageBubble: React.FC<GroupBubbleProps> = ({ msg, isMine, isAi, sen
             {senderName}
           </p>
         )}
-        {msg.message_type === 'image' && msg.image_url ? (
+        {msg.message_type === 'audio' && msg.image_url ? (
+          <div className="space-y-1">
+            <audio src={msg.image_url} controls className="max-w-full h-10" />
+            {msg.text_content && <p className="text-xs text-muted-foreground">{msg.text_content}</p>}
+          </div>
+        ) : msg.message_type === 'image' && msg.image_url ? (
           <img src={msg.image_url} alt="Shared" className="rounded-lg max-w-full max-h-60 object-cover cursor-pointer" onClick={() => window.open(msg.image_url!, '_blank')} />
         ) : (
           <p className="text-sm whitespace-pre-wrap break-words">{msg.text_content}</p>
