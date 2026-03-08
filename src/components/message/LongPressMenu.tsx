@@ -101,7 +101,6 @@ const LongPressMenu: React.FC<LongPressMenuProps> = ({
               <Share2 className="h-5 w-5 mr-3" /> Share PDF
             </Button>
           )}
-          </Button>
 
           {!message.isUser && onFeedback && (
             <div className="flex gap-2">
