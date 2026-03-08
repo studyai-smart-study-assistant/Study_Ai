@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, Send, Image as ImageIcon, Bot, Settings } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -7,6 +7,11 @@ import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import type { CampusGroup } from './CampusTalkGroupList';
 import CampusTalkGroupSettings from './CampusTalkGroupSettings';
+import {
+  MessageLongPressMenu, ReplyPreview, ReactionsDisplay,
+  useSwipeToReply, useLongPress,
+  type MessageAction
+} from './MessageInteractions';
 
 interface GMsg {
   id: string;
@@ -16,7 +21,6 @@ interface GMsg {
   message_type: string;
   created_at: string;
   is_ai_response: boolean;
-  sender_name?: string;
 }
 
 const avatarColors = [
@@ -46,26 +50,28 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Message interactions
+  const [menuMsg, setMenuMsg] = useState<MessageAction | null>(null);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [replyTo, setReplyTo] = useState<{ id: string; text: string | null; senderName?: string } | null>(null);
+  const [reactions, setReactions] = useState<Record<string, Record<string, string[]>>>({});
+
   const scrollToBottom = () => bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
 
-  // Load member names
   useEffect(() => {
     const loadNames = async () => {
       const { data: members } = await supabase
         .from('campus_group_members' as any)
         .select('user_uid, role')
         .eq('group_id', group.id);
-
       if (!members) return;
       const uids = (members as any[]).map((m: any) => m.user_uid);
       const myMember = (members as any[]).find((m: any) => m.user_uid === currentUser?.uid);
       if (myMember) setMyRole((myMember as any).role);
-
       const { data: profiles } = await supabase
         .from('campus_users')
         .select('firebase_uid, display_name')
         .in('firebase_uid', uids);
-
       const map: Record<string, string> = {};
       (profiles || []).forEach(p => { map[p.firebase_uid] = p.display_name || p.firebase_uid.slice(0, 6); });
       map['study-ai'] = '🤖 Study AI';
@@ -74,7 +80,6 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
     loadNames();
   }, [group.id, currentUser]);
 
-  // Load messages
   useEffect(() => {
     const load = async () => {
       const { data, error } = await supabase
@@ -82,7 +87,6 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
         .select('*')
         .eq('group_id', group.id)
         .order('created_at', { ascending: true });
-
       if (!error && data) setMessages(data as any as GMsg[]);
       setLoading(false);
     };
@@ -91,14 +95,11 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
 
   useEffect(() => { scrollToBottom(); }, [messages]);
 
-  // Realtime
   useEffect(() => {
     const channel = supabase
       .channel(`group-conv-${group.id}`)
       .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'campus_group_messages',
+        event: 'INSERT', schema: 'public', table: 'campus_group_messages',
         filter: `group_id=eq.${group.id}`,
       }, (payload) => {
         const newMsg = payload.new as any as GMsg;
@@ -124,53 +125,32 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
     setAiLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
-        body: {
-          prompt: `You are Study AI in a group chat. Answer concisely in Hinglish. Question: ${query}`,
-          history: []
-        }
+        body: { prompt: `You are Study AI in a group chat. Answer concisely in Hinglish. Question: ${query}`, history: [] }
       });
       if (error) throw error;
       const aiResponse = data?.generatedText || data?.response || data?.text || 'जवाब नहीं मिला।';
-
-      // Save AI response to group messages so everyone can see
       await supabase.from('campus_group_messages' as any).insert({
-        group_id: group.id,
-        sender_uid: 'study-ai',
-        text_content: `🤖 Study AI: ${aiResponse}`,
-        message_type: 'text',
-        is_ai_response: true,
+        group_id: group.id, sender_uid: 'study-ai',
+        text_content: `🤖 Study AI: ${aiResponse}`, message_type: 'text', is_ai_response: true,
       });
-    } catch (err) {
-      console.error('AI error:', err);
-      toast.error('AI से जवाब नहीं मिला');
-    } finally {
-      setAiLoading(false);
-    }
+    } catch { toast.error('AI से जवाब नहीं मिला'); }
+    finally { setAiLoading(false); }
   };
 
   const handleSend = async () => {
     if (!text.trim() || !currentUser || sending) return;
     const content = text.trim();
     setText('');
-
+    setReplyTo(null);
     const aiQuery = isAiQuery(content);
-
-    // Send user message first
     setSending(true);
     try {
       await supabase.from('campus_group_messages' as any).insert({
-        group_id: group.id,
-        sender_uid: currentUser.uid,
-        text_content: content,
-        message_type: 'text',
+        group_id: group.id, sender_uid: currentUser.uid,
+        text_content: content, message_type: 'text',
       });
-    } catch (err: any) {
-      toast.error('Message भेजने में error');
-    } finally {
-      setSending(false);
-    }
-
-    // If AI query, fetch and save response
+    } catch { toast.error('Message भेजने में error'); }
+    finally { setSending(false); }
     if (aiQuery) await handleAiQuery(aiQuery);
   };
 
@@ -184,24 +164,46 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
       if (upErr) throw upErr;
       const { data: { publicUrl } } = supabase.storage.from('chat_media').getPublicUrl(path);
       await supabase.from('campus_group_messages' as any).insert({
-        group_id: group.id,
-        sender_uid: currentUser.uid,
-        image_url: publicUrl,
-        message_type: 'image',
+        group_id: group.id, sender_uid: currentUser.uid,
+        image_url: publicUrl, message_type: 'image',
       });
     } catch { toast.error('Image भेजने में error'); }
     finally { setSending(false); if (fileRef.current) fileRef.current.value = ''; }
   };
 
-  const formatTime = (ts: string) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const handleLongPress = useCallback((msg: GMsg, e: React.TouchEvent | React.MouseEvent) => {
+    const clientX = 'touches' in e ? e.touches[0]?.clientX || 150 : (e as React.MouseEvent).clientX;
+    const clientY = 'touches' in e ? e.touches[0]?.clientY || 300 : (e as React.MouseEvent).clientY;
+    setMenuMsg({
+      id: msg.id,
+      text: msg.text_content,
+      isMine: msg.sender_uid === currentUser?.uid,
+      senderName: namesMap[msg.sender_uid] || msg.sender_uid.slice(0, 6),
+    });
+    setMenuPos({ x: clientX, y: clientY });
+  }, [currentUser, namesMap]);
 
+  const handleReact = (msgId: string, emoji: string) => {
+    setReactions(prev => {
+      const msgReactions = { ...(prev[msgId] || {}) };
+      const users = msgReactions[emoji] || [];
+      const uid = currentUser?.uid || '';
+      msgReactions[emoji] = users.includes(uid) ? users.filter(u => u !== uid) : [...users, uid];
+      return { ...prev, [msgId]: msgReactions };
+    });
+  };
+
+  const handleReply = (msg: MessageAction) => {
+    setReplyTo({ id: msg.id, text: msg.text, senderName: msg.senderName });
+  };
+
+  const formatTime = (ts: string) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const showAiHint = text.startsWith('/') || text.toLowerCase().startsWith('study ai');
 
   if (showSettings) {
     return (
       <CampusTalkGroupSettings
-        group={group}
-        myRole={myRole}
+        group={group} myRole={myRole}
         onBack={() => setShowSettings(false)}
         onGroupUpdated={() => {}}
       />
@@ -240,9 +242,7 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
         ) : messages.length === 0 ? (
           <div className="text-center py-10 space-y-2">
             <p className="text-sm text-muted-foreground">Group में पहला message भेजें 👋</p>
-            <p className="text-xs text-muted-foreground">
-              💡 <code className="bg-muted px-1 rounded">/</code> से AI पूछें - सबको दिखेगा
-            </p>
+            <p className="text-xs text-muted-foreground">💡 <code className="bg-muted px-1 rounded">/</code> से AI पूछें - सबको दिखेगा</p>
           </div>
         ) : (
           messages.map((msg) => {
@@ -251,29 +251,20 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
             const senderName = namesMap[msg.sender_uid] || msg.sender_uid.slice(0, 6);
 
             return (
-              <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-2xl px-3 py-2 ${
-                  isAi
-                    ? 'bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-bl-md'
-                    : isMine
-                      ? 'bg-[hsl(230,70%,55%)] text-white rounded-br-md'
-                      : 'bg-card text-foreground border border-border rounded-bl-md'
-                }`}>
-                  {!isMine && (
-                    <p className={`text-xs font-semibold mb-0.5 ${isAi ? 'text-purple-500' : 'text-[hsl(230,70%,55%)]'}`}>
-                      {senderName}
-                    </p>
-                  )}
-                  {msg.message_type === 'image' && msg.image_url ? (
-                    <img src={msg.image_url} alt="Shared" className="rounded-lg max-w-full max-h-60 object-cover cursor-pointer" onClick={() => window.open(msg.image_url!, '_blank')} />
-                  ) : (
-                    <p className="text-sm whitespace-pre-wrap break-words">{msg.text_content}</p>
-                  )}
-                  <p className={`text-[10px] mt-1 text-right ${isMine ? 'text-white/60' : 'text-muted-foreground'}`}>
-                    {formatTime(msg.created_at)}
-                  </p>
-                </div>
-              </div>
+              <SwipeableGroupMessage
+                key={msg.id}
+                onSwipe={() => handleReply({ id: msg.id, text: msg.text_content, isMine, senderName })}
+              >
+                <GroupMessageBubble
+                  msg={msg}
+                  isMine={isMine}
+                  isAi={isAi}
+                  senderName={senderName}
+                  reactions={reactions[msg.id]}
+                  onLongPress={(e) => handleLongPress(msg, e)}
+                  formatTime={formatTime}
+                />
+              </SwipeableGroupMessage>
             );
           })
         )}
@@ -290,17 +281,15 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
         <div ref={bottomRef} />
       </div>
 
-      {/* AI Hint */}
       {showAiHint && (
         <div className="px-3 py-1.5 bg-purple-500/10 border-t border-purple-500/20 flex items-center gap-2">
           <Bot className="h-4 w-4 text-purple-500" />
-          <span className="text-xs text-purple-600 dark:text-purple-400">
-            AI Mode: जवाब सभी members को दिखेगा
-          </span>
+          <span className="text-xs text-purple-600 dark:text-purple-400">AI Mode: जवाब सभी members को दिखेगा</span>
         </div>
       )}
 
-      {/* Input */}
+      <ReplyPreview replyTo={replyTo} onCancel={() => setReplyTo(null)} />
+
       {canSend ? (
         <div className="shrink-0 bg-background border-t border-border px-3 py-2 flex items-center gap-2">
           <button onClick={() => fileRef.current?.click()} className="p-2 text-muted-foreground hover:text-foreground">
@@ -311,7 +300,7 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
             value={text}
             onChange={e => setText(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder="Message... ( / से AI पूछें)"
+            placeholder={replyTo ? 'Reply लिखें...' : 'Message... ( / से AI पूछें)'}
             className="flex-1 rounded-full bg-muted border-0"
             disabled={sending || aiLoading}
           />
@@ -328,6 +317,79 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
           <p className="text-xs text-muted-foreground">सिर्फ Admin/Owner message भेज सकते हैं</p>
         </div>
       )}
+
+      <MessageLongPressMenu
+        message={menuMsg}
+        position={menuPos}
+        onClose={() => { setMenuMsg(null); setMenuPos(null); }}
+        onReply={handleReply}
+        onReact={handleReact}
+      />
+    </div>
+  );
+};
+
+// Swipeable wrapper for group
+const SwipeableGroupMessage: React.FC<{ children: React.ReactNode; onSwipe: () => void }> = ({ children, onSwipe }) => {
+  const { offset, onTouchStart, onTouchMove, onTouchEnd } = useSwipeToReply(onSwipe);
+  return (
+    <div
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      style={{ transform: `translateX(${offset}px)`, transition: offset === 0 ? 'transform 0.2s' : 'none' }}
+      className="relative"
+    >
+      {offset > 30 && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2">
+          <div className="bg-[hsl(230,70%,55%)] text-white rounded-full p-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 17 4 12 9 7"></polyline><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path></svg>
+          </div>
+        </div>
+      )}
+      {children}
+    </div>
+  );
+};
+
+// Group message bubble
+interface GroupBubbleProps {
+  msg: GMsg;
+  isMine: boolean;
+  isAi: boolean;
+  senderName: string;
+  reactions?: Record<string, string[]>;
+  onLongPress: (e: React.TouchEvent | React.MouseEvent) => void;
+  formatTime: (ts: string) => string;
+}
+
+const GroupMessageBubble: React.FC<GroupBubbleProps> = ({ msg, isMine, isAi, senderName, reactions, onLongPress, formatTime }) => {
+  const longPressHandlers = useLongPress(onLongPress, 500);
+
+  return (
+    <div className={`flex ${isMine ? 'justify-end' : 'justify-start'}`} {...longPressHandlers}>
+      <div className={`max-w-[80%] rounded-2xl px-3 py-2 select-none ${
+        isAi
+          ? 'bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-bl-md'
+          : isMine
+            ? 'bg-[hsl(230,70%,55%)] text-white rounded-br-md'
+            : 'bg-card text-foreground border border-border rounded-bl-md'
+      }`}>
+        {!isMine && (
+          <p className={`text-xs font-semibold mb-0.5 ${isAi ? 'text-purple-500' : 'text-[hsl(230,70%,55%)]'}`}>
+            {senderName}
+          </p>
+        )}
+        {msg.message_type === 'image' && msg.image_url ? (
+          <img src={msg.image_url} alt="Shared" className="rounded-lg max-w-full max-h-60 object-cover cursor-pointer" onClick={() => window.open(msg.image_url!, '_blank')} />
+        ) : (
+          <p className="text-sm whitespace-pre-wrap break-words">{msg.text_content}</p>
+        )}
+        <p className={`text-[10px] mt-1 text-right ${isMine ? 'text-white/60' : 'text-muted-foreground'}`}>
+          {formatTime(msg.created_at)}
+        </p>
+        {reactions && <ReactionsDisplay reactions={reactions} />}
+      </div>
     </div>
   );
 };
