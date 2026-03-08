@@ -1,1 +1,7 @@
 project_id = "nzvaekedfdsmgaoauyyf"
+
+[functions.gemini-live-token]
+verify_jwt = false
+
+[functions.chat-completion]
+verify_jwt = false
