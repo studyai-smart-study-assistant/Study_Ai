@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import MessageEditor from './MessageEditor';
 import MessageMarkdownContent from './MessageMarkdownContent';
 import ImageModal from '@/components/ui/image-modal';
-import { ZoomIn } from 'lucide-react';
+import { ZoomIn, Download } from 'lucide-react';
 
 interface MessageBodyProps {
   isUserMessage: boolean;
@@ -48,29 +48,48 @@ const MessageBody: React.FC<MessageBodyProps> = ({
     }
   }
 
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!imageUrl) return;
+    
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = `image_${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const imagePreview = imageUrl && !isEditing && (
+    <div 
+      className="relative group rounded-2xl overflow-hidden border border-border/40 shadow-sm cursor-pointer bg-muted/30"
+      onClick={() => setImageModalOpen(true)}
+    >
+      <img 
+        src={imageUrl} 
+        alt="Uploaded" 
+        className="max-w-[280px] sm:max-w-[320px] max-h-[300px] rounded-2xl object-contain"
+      />
+      {/* Hover overlay with zoom & download */}
+      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center gap-3">
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2">
+          <ZoomIn className="h-5 w-5 text-white" />
+        </div>
+        <button 
+          onClick={handleDownload}
+          className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2 hover:bg-black/70"
+        >
+          <Download className="h-5 w-5 text-white" />
+        </button>
+      </div>
+    </div>
+  );
+
   if (isUserMessage) {
     return (
       <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8 flex justify-end">
         <div className="flex flex-col items-end gap-2 max-w-[85%]">
-          {/* Image preview card - separate from text bubble */}
-          {imageUrl && !isEditing && (
-            <div 
-              className="relative group rounded-2xl overflow-hidden border border-border/40 shadow-sm cursor-pointer bg-muted/30"
-              onClick={() => setImageModalOpen(true)}
-            >
-              <img 
-                src={imageUrl} 
-                alt="Uploaded" 
-                className="max-w-[280px] sm:max-w-[320px] max-h-[300px] rounded-2xl object-contain"
-              />
-              {/* Hover overlay */}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center">
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2">
-                  <ZoomIn className="h-5 w-5 text-white" />
-                </div>
-              </div>
-            </div>
-          )}
+          {imagePreview}
           
           {/* Text bubble */}
           {(textContent || isEditing) && (
@@ -110,6 +129,17 @@ const MessageBody: React.FC<MessageBodyProps> = ({
     botTextContent = displayedContent.replace(botBase64Match[0], '').trim();
   }
 
+  const handleBotDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!botImageUrl) return;
+    const link = document.createElement('a');
+    link.href = botImageUrl;
+    link.download = `generated_${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8 flex justify-start">
       <div className="flex flex-col gap-2 max-w-[80%]">
@@ -124,10 +154,16 @@ const MessageBody: React.FC<MessageBodyProps> = ({
               alt="Generated" 
               className="max-w-[280px] sm:max-w-[320px] max-h-[300px] rounded-2xl object-contain"
             />
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center gap-3">
               <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2">
                 <ZoomIn className="h-5 w-5 text-white" />
               </div>
+              <button 
+                onClick={handleBotDownload}
+                className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2 hover:bg-black/70"
+              >
+                <Download className="h-5 w-5 text-white" />
+              </button>
             </div>
           </div>
         )}
