@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from "@/lib/utils";
 import MessageEditor from './MessageEditor';
 import MessageMarkdownContent from './MessageMarkdownContent';
+import ImageModal from '@/components/ui/image-modal';
 
 interface MessageBodyProps {
   isUserMessage: boolean;
@@ -24,8 +25,31 @@ const MessageBody: React.FC<MessageBodyProps> = ({
   isTyping,
   displayedContent
 }) => {
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  
+  // Extract image from content like [IMG_BASE64]text or [Image: url]
+  const hasBase64Marker = displayedContent.startsWith('[IMG_BASE64]');
+  const hasImageLink = displayedContent.includes('[Image:') && displayedContent.includes(']');
+  
+  let textContent = displayedContent;
+  let imageUrl = '';
+  
+  if (hasBase64Marker) {
+    textContent = displayedContent.replace('[IMG_BASE64]', '').trim();
+  }
+  
+  if (hasImageLink) {
+    const match = displayedContent.match(/\[Image:\s*([^\]]+)\]/);
+    if (match) {
+      imageUrl = match[1].trim();
+      textContent = displayedContent.replace(/\[Image:\s*[^\]]+\]/, '').trim();
+    }
+  }
+
+  // Check if there's a _imageData attached (from same session)
+  // This is handled via the content itself for base64
+
   if (isUserMessage) {
-    // User message: right-aligned, violet bubble
     return (
       <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8 flex justify-end">
         <div className={cn(
@@ -41,16 +65,33 @@ const MessageBody: React.FC<MessageBodyProps> = ({
               handleCancelEdit={handleCancelEdit}
             />
           ) : (
-            <p className="text-[15px] leading-relaxed font-normal whitespace-pre-wrap break-words">
-              {displayedContent}
-            </p>
+            <>
+              {imageUrl && (
+                <div className="mb-2">
+                  <img 
+                    src={imageUrl} 
+                    alt="Uploaded" 
+                    className="max-w-full max-h-48 rounded-lg cursor-pointer object-cover"
+                    onClick={() => setImageModalOpen(true)}
+                  />
+                </div>
+              )}
+              {textContent && (
+                <p className="text-[15px] leading-relaxed font-normal whitespace-pre-wrap break-words">
+                  {textContent}
+                </p>
+              )}
+            </>
           )}
         </div>
+        {imageUrl && (
+          <ImageModal isOpen={imageModalOpen} onClose={() => setImageModalOpen(false)} imageUrl={imageUrl} />
+        )}
       </div>
     );
   }
 
-  // AI message: left-aligned, light-colored bubble
+  // AI message
   return (
     <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8 flex justify-start">
       <div className={cn(
