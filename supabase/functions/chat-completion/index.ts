@@ -9,6 +9,7 @@ const corsHeaders = {
 
 const LOVABLE_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 const GOOGLE_NATIVE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 // ─── Google API Key Pool (Round-Robin) ──────────────────────
 function getGoogleApiKeys(): string[] {
@@ -166,6 +167,48 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
       if (e instanceof AiProviderError) throw e;
       console.warn(`⚠️ Google API network error on ${keyLabel}:`, e);
       continue;
+    }
+  }
+
+  // ── Fallback 3: OpenRouter ──
+  const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
+  if (OPENROUTER_API_KEY) {
+    console.log('🔄 All Google keys exhausted, trying OpenRouter fallback...');
+    try {
+      const orModel = body.model?.startsWith('google/') 
+        ? body.model.replace('google/', 'google/') // OpenRouter uses same format
+        : 'google/gemini-2.5-flash';
+      
+      const orPayload: any = { ...body, model: orModel };
+      if (options?.modalities) orPayload.modalities = options.modalities;
+      // Remove tools if present to avoid schema issues on OpenRouter
+      delete orPayload.tools;
+      delete orPayload.tool_choice;
+
+      const start = Date.now();
+      const orResponse = await fetch(OPENROUTER_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://study-ai-001-41.lovable.app',
+          'X-Title': 'Study AI',
+        },
+        body: JSON.stringify(orPayload),
+      });
+
+      if (orResponse.ok) {
+        console.log('✅ OpenRouter fallback success');
+        logApiUsage('openrouter', 'OPENROUTER_KEY', 'success', undefined, Date.now() - start);
+        return orResponse;
+      }
+
+      const orStatus = orResponse.status;
+      const orErr = await orResponse.text();
+      logApiUsage('openrouter', 'OPENROUTER_KEY', 'error', String(orStatus), Date.now() - start);
+      console.warn(`⚠️ OpenRouter error ${orStatus}: ${orErr.substring(0, 200)}`);
+    } catch (e) {
+      console.warn('⚠️ OpenRouter network error:', e);
     }
   }
 
