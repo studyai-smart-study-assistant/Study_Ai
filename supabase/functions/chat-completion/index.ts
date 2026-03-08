@@ -6,7 +6,72 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+const LOVABLE_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+const GOOGLE_NATIVE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+
+// ─── Fallback AI Call: Lovable Gateway → Google Native API ──
+async function callAI(body: any, options?: { modalities?: string[] }): Promise<Response> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
+
+  // Strip google/ prefix for native API
+  const nativeModel = body.model?.replace('google/', '') || 'gemini-2.5-flash';
+
+  // Try Lovable Gateway first
+  if (LOVABLE_API_KEY) {
+    try {
+      const payload = { ...body };
+      if (options?.modalities) payload.modalities = options.modalities;
+
+      const response = await fetch(LOVABLE_GATEWAY_URL, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        console.log('✅ Lovable Gateway success');
+        return response;
+      }
+
+      const status = response.status;
+      if (status !== 402 && status !== 429) {
+        // Non-quota error, still return it
+        console.warn(`⚠️ Lovable Gateway error: ${status}`);
+        // Fall through to Google
+      } else {
+        console.warn(`⚠️ Lovable Gateway quota/rate limited (${status}), falling back to Google API`);
+      }
+    } catch (err) {
+      console.warn('⚠️ Lovable Gateway unreachable, falling back to Google API:', err);
+    }
+  }
+
+  // Fallback: Google Native API (OpenAI-compatible)
+  if (!GOOGLE_API_KEY) {
+    throw new Error('Both Lovable AI and Google API keys are unavailable');
+  }
+
+  console.log(`🔄 Using Google Native API with model: ${nativeModel}`);
+
+  const payload: any = { ...body, model: nativeModel };
+  if (options?.modalities) payload.modalities = options.modalities;
+
+  const response = await fetch(GOOGLE_NATIVE_URL, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${GOOGLE_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error('❌ Google Native API error:', response.status, errText);
+    throw new Error(`Google API error: ${response.status}`);
+  }
+
+  console.log('✅ Google Native API success');
+  return response;
+}
 
 // ─── Tavily Search ──────────────────────────────────────────
 async function searchTavily(query: string): Promise<{ context: string; sources: { title: string; url: string }[] }> {
@@ -31,7 +96,7 @@ async function searchTavily(query: string): Promise<{ context: string; sources: 
 }
 
 // ─── Image Generation via Gemini ────────────────────────────
-async function generateImage(prompt: string, apiKey: string, editImageBase64?: string): Promise<string | null> {
+async function generateImage(prompt: string, editImageBase64?: string): Promise<string | null> {
   try {
     let userContent: any;
     if (editImageBase64) {
@@ -43,16 +108,11 @@ async function generateImage(prompt: string, apiKey: string, editImageBase64?: s
       userContent = prompt;
     }
 
-    const response = await fetch(GATEWAY_URL, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'google/gemini-3-pro-image-preview',
-        messages: [{ role: 'user', content: userContent }],
-        modalities: ['image', 'text']
-      }),
-    });
-    if (!response.ok) { console.error('Image gen error:', response.status); return null; }
+    const response = await callAI({
+      model: 'google/gemini-3-pro-image-preview',
+      messages: [{ role: 'user', content: userContent }],
+    }, { modalities: ['image', 'text'] });
+
     const data = await response.json();
     return data.choices?.[0]?.message?.images?.[0]?.image_url?.url || null;
   } catch (err) { console.error('Image generation failed:', err); return null; }
@@ -124,7 +184,7 @@ const agentTools = [
 ];
 
 // ─── Generate Notes Content ─────────────────────────────────
-async function generateNotesContent(topic: string, detailLevel: string, apiKey: string, model: string): Promise<string> {
+async function generateNotesContent(topic: string, detailLevel: string, model: string): Promise<string> {
   const notesPrompt = `आप एक expert study notes creator हैं। "${topic}" पर ${detailLevel === 'comprehensive' ? 'विस्तृत और गहरे' : detailLevel === 'detailed' ? 'अच्छे विस्तार से' : 'संक्षिप्त'} study notes बनाएं।
 
 **Notes Format Rules:**
@@ -139,23 +199,18 @@ async function generateNotesContent(topic: string, detailLevel: string, apiKey: 
 - Tables use करें जहां comparison हो
 - Mnemonics या tricks दें जो याद रखने में मदद करें`;
 
-  const resp = await fetch(GATEWAY_URL, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: 'user', content: notesPrompt }],
-      temperature: 0.7,
-      max_tokens: 10000,
-    }),
+  const resp = await callAI({
+    model,
+    messages: [{ role: 'user', content: notesPrompt }],
+    temperature: 0.7,
+    max_tokens: 10000,
   });
-  if (!resp.ok) throw new Error('Notes generation failed');
   const data = await resp.json();
   return data?.choices?.[0]?.message?.content || 'Notes generation failed';
 }
 
 // ─── Generate Quiz Content ──────────────────────────────────
-async function generateQuizContent(topic: string, numQuestions: number, difficulty: string, apiKey: string, model: string): Promise<string> {
+async function generateQuizContent(topic: string, numQuestions: number, difficulty: string, model: string): Promise<string> {
   const quizPrompt = `"${topic}" पर ${numQuestions} ${difficulty} level के MCQ quiz questions बनाएं।
 
 **STRICT FORMAT - Follow exactly:**
@@ -197,17 +252,12 @@ async function generateQuizContent(topic: string, numQuestions: number, difficul
 - Each question का proper explanation दें
 - Options realistic और tricky हों`;
 
-  const resp = await fetch(GATEWAY_URL, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: 'user', content: quizPrompt }],
-      temperature: 0.7,
-      max_tokens: 10000,
-    }),
+  const resp = await callAI({
+    model,
+    messages: [{ role: 'user', content: quizPrompt }],
+    temperature: 0.7,
+    max_tokens: 10000,
   });
-  if (!resp.ok) throw new Error('Quiz generation failed');
   const data = await resp.json();
   return data?.choices?.[0]?.message?.content || 'Quiz generation failed';
 }
@@ -222,9 +272,6 @@ serve(async (req) => {
     const { prompt, history = [], model = 'google/gemini-3-flash-preview', forceWebSearch = false, webSearchContext, webSearchSources, imageBase64 } = await req.json();
     
     console.log('📥 Request:', { promptLength: prompt?.length, model, forceWebSearch, hasPreSearchContext: !!webSearchContext, hasImage: !!imageBase64 });
-
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY is not configured');
 
     const recentHistory = history.slice(-6).map((msg: { role: string; content: string }) => ({
       role: msg.role === 'bot' ? 'assistant' : msg.role,
@@ -286,12 +333,7 @@ serve(async (req) => {
 
     // ── Pre-fetched web context mode ──
     if (webSearchContext) {
-      const response = await fetch(GATEWAY_URL, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, messages, temperature: 0.8, max_tokens: 8000 }),
-      });
-      if (!response.ok) return handleGatewayError(response);
+      const response = await callAI({ model, messages, temperature: 0.8, max_tokens: 8000 });
       const data = await response.json();
       const text = data?.choices?.[0]?.message?.content;
       if (!text) throw new Error('Response content missing');
@@ -313,18 +355,17 @@ Before responding, carefully analyze the user's intent:
 
 CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functionality.`;
 
-
-    const step1Response = await fetch(GATEWAY_URL, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, messages: [
+    const step1Response = await callAI({
+      model,
+      messages: [
         { role: 'system', content: thinkingSystemContent },
         ...recentHistory,
         { role: 'user', content: userContent }
-      ], tools: agentTools, temperature: 0.7, max_tokens: 8000 }),
+      ],
+      tools: agentTools,
+      temperature: 0.7,
+      max_tokens: 8000,
     });
-
-    if (!step1Response.ok) return handleGatewayError(step1Response);
 
     const step1Data = await step1Response.json();
     const choice = step1Data?.choices?.[0];
@@ -354,12 +395,7 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
           choice.message,
           { role: 'tool', tool_call_id: toolCall.id, content: searchResult.context || 'No results found.' }
         ];
-        const step2Response = await fetch(GATEWAY_URL, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model, messages: step2Messages, temperature: 0.8, max_tokens: 8000 }),
-        });
-        if (!step2Response.ok) return handleGatewayError(step2Response);
+        const step2Response = await callAI({ model, messages: step2Messages, temperature: 0.8, max_tokens: 8000 });
         const step2Data = await step2Response.json();
         const finalText = step2Data?.choices?.[0]?.message?.content;
         return jsonResponse({ response: finalText, model, sources: searchResult.sources, webSearchUsed: true, toolUsed: 'web_search', thinking });
@@ -368,7 +404,7 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
       // ── Image Generation ──
       if (toolName === 'generate_image') {
         const imagePrompt = args.image_prompt;
-        const imageUrl = await generateImage(imagePrompt, LOVABLE_API_KEY, imageBase64 || undefined);
+        const imageUrl = await generateImage(imagePrompt, imageBase64 || undefined);
         
         if (imageUrl) {
           const step2Messages = [
@@ -376,13 +412,9 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
             choice.message,
             { role: 'tool', tool_call_id: toolCall.id, content: 'Image generated successfully.' }
           ];
-          const step2Response = await fetch(GATEWAY_URL, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model, messages: step2Messages, temperature: 0.8, max_tokens: 2000 }),
-          });
+          const step2Response = await callAI({ model, messages: step2Messages, temperature: 0.8, max_tokens: 2000 });
           let explanationText = '✨ Image बन गई है!';
-          if (step2Response.ok) {
+          if (step2Response) {
             const step2Data = await step2Response.json();
             explanationText = step2Data?.choices?.[0]?.message?.content || explanationText;
           }
@@ -394,13 +426,13 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
 
       // ── Notes Generation ──
       if (toolName === 'generate_notes') {
-        const notesContent = await generateNotesContent(args.topic, args.detail_level || 'detailed', LOVABLE_API_KEY, model);
+        const notesContent = await generateNotesContent(args.topic, args.detail_level || 'detailed', model);
         return jsonResponse({ response: notesContent, model, toolUsed: 'generate_notes', sources: [], webSearchUsed: false, thinking });
       }
 
       // ── Quiz Generation ──
       if (toolName === 'generate_quiz') {
-        const quizContent = await generateQuizContent(args.topic, args.num_questions || 5, args.difficulty || 'medium', LOVABLE_API_KEY, model);
+        const quizContent = await generateQuizContent(args.topic, args.num_questions || 5, args.difficulty || 'medium', model);
         return jsonResponse({ response: quizContent, model, toolUsed: 'generate_quiz', sources: [], webSearchUsed: false, thinking });
       }
     }
@@ -422,16 +454,4 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
 
 function jsonResponse(data: any) {
   return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-}
-
-async function handleGatewayError(response: Response) {
-  const errorText = await response.text();
-  console.error('❌ AI Gateway Error:', response.status, errorText);
-  if (response.status === 429) {
-    return new Response(JSON.stringify({ error: 'दोस्त, अभी बहुत सारे छात्र सवाल पूछ रहे हैं। बस एक मिनट रुकें!' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  }
-  if (response.status === 402) {
-    return new Response(JSON.stringify({ error: 'सर्विस में कुछ दिक्कत है, कृपया बाद में कोशिश करें।' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  }
-  throw new Error(`Gateway Error: ${response.status}`);
 }
