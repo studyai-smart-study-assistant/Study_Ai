@@ -61,7 +61,7 @@ const ResetPassword = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
         <div className="w-full max-w-sm text-center space-y-4">
-          <Sparkles className="h-12 w-12 text-primary mx-auto" />
+          <img src="/images/study-ai-logo.png" alt="Study AI" className="h-16 w-16 rounded-xl mx-auto" />
           <h1 className="text-2xl font-bold text-foreground">Invalid Link</h1>
           <p className="text-muted-foreground">This password reset link is invalid or expired.</p>
           <Button onClick={() => navigate('/forgot-password')}>Request New Link</Button>
@@ -74,8 +74,8 @@ const ResetPassword = () => {
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4">
-            <Sparkles className="w-7 h-7 text-primary-foreground" />
+          <div className="w-20 h-20 rounded-2xl overflow-hidden mx-auto mb-4 shadow-lg">
+            <img src="/images/study-ai-logo.png" alt="Study AI" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Set New Password</h1>
           <p className="text-sm text-muted-foreground mt-1">Enter your new password below</p>
