@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import MessageEditor from './MessageEditor';
 import MessageMarkdownContent from './MessageMarkdownContent';
 import ImageModal from '@/components/ui/image-modal';
-import { ZoomIn, Download } from 'lucide-react';
+import { ZoomIn, Download, Brain, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface MessageBodyProps {
   isUserMessage: boolean;
@@ -16,6 +16,70 @@ interface MessageBodyProps {
   displayedContent: string;
 }
 
+// Parse thinking block from content
+function parseThinking(content: string): { thinking: string | null; rest: string } {
+  const match = content.match(/^\[THINKING:([^\]]+)\]/);
+  if (match) {
+    return { thinking: match[1], rest: content.replace(match[0], '') };
+  }
+  return { thinking: null, rest: content };
+}
+
+// Parse image from content
+function parseImage(content: string): { imageUrl: string; rest: string } {
+  const base64Match = content.match(/^\[IMG_DATA:(data:image\/[^\]]+)\]/);
+  if (base64Match) {
+    return { imageUrl: base64Match[1], rest: content.replace(base64Match[0], '').trim() };
+  }
+  const linkMatch = content.match(/\[Image:\s*([^\]]+)\]/);
+  if (linkMatch) {
+    return { imageUrl: linkMatch[1].trim(), rest: content.replace(/\[Image:\s*[^\]]+\]/, '').trim() };
+  }
+  return { imageUrl: '', rest: content };
+}
+
+// Thinking indicator component
+const ThinkingBadge: React.FC<{ thinking: string }> = ({ thinking }) => {
+  const [expanded, setExpanded] = useState(false);
+  
+  // Determine icon/color based on thinking content
+  const getThinkingStyle = () => {
+    if (thinking.includes('🎨') || thinking.includes('Image')) return { color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-950/40', border: 'border-violet-200 dark:border-violet-800' };
+    if (thinking.includes('📝') || thinking.includes('Notes')) return { color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950/40', border: 'border-blue-200 dark:border-blue-800' };
+    if (thinking.includes('🎯') || thinking.includes('Quiz')) return { color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/40', border: 'border-amber-200 dark:border-amber-800' };
+    if (thinking.includes('🔍') || thinking.includes('Search')) return { color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40', border: 'border-emerald-200 dark:border-emerald-800' };
+    return { color: 'text-muted-foreground', bg: 'bg-muted/50', border: 'border-border/50' };
+  };
+
+  const style = getThinkingStyle();
+
+  return (
+    <button
+      onClick={() => setExpanded(!expanded)}
+      className={cn(
+        "w-full text-left rounded-xl border px-3 py-2 mb-2 transition-all duration-200",
+        style.bg, style.border,
+        "hover:shadow-sm"
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Brain size={14} className={cn(style.color, "animate-pulse")} />
+          <span className={cn("text-xs font-medium", style.color)}>
+            {expanded ? 'Thinking Process' : 'AI ने सोचा...'}
+          </span>
+        </div>
+        {expanded ? <ChevronUp size={14} className={style.color} /> : <ChevronDown size={14} className={style.color} />}
+      </div>
+      {expanded && (
+        <p className={cn("mt-1.5 text-xs leading-relaxed", style.color)}>
+          {thinking}
+        </p>
+      )}
+    </button>
+  );
+};
+
 const MessageBody: React.FC<MessageBodyProps> = ({
   isUserMessage,
   isEditing,
@@ -27,107 +91,52 @@ const MessageBody: React.FC<MessageBodyProps> = ({
   displayedContent
 }) => {
   const [imageModalOpen, setImageModalOpen] = useState(false);
-  
-  // Extract image from content: [IMG_DATA:base64...]text or [Image: url]
-  let textContent = displayedContent;
-  let imageUrl = '';
-  
-  // Check for inline base64 image data
-  const base64Match = displayedContent.match(/^\[IMG_DATA:(data:image\/[^\]]+)\]/);
-  if (base64Match) {
-    imageUrl = base64Match[1];
-    textContent = displayedContent.replace(base64Match[0], '').trim();
-  }
-  
-  // Check for regular image link
-  if (!imageUrl) {
-    const linkMatch = displayedContent.match(/\[Image:\s*([^\]]+)\]/);
-    if (linkMatch) {
-      imageUrl = linkMatch[1].trim();
-      textContent = displayedContent.replace(/\[Image:\s*[^\]]+\]/, '').trim();
-    }
-  }
 
-  const handleDownload = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!imageUrl) return;
-    
-    const link = document.createElement('a');
-    link.href = imageUrl;
-    link.download = `image_${Date.now()}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const imagePreview = imageUrl && !isEditing && (
-    <div 
-      className="relative group rounded-2xl overflow-hidden border border-border/40 shadow-sm cursor-pointer bg-muted/30"
-      onClick={() => setImageModalOpen(true)}
-    >
-      <img 
-        src={imageUrl} 
-        alt="Uploaded" 
-        className="max-w-[280px] sm:max-w-[320px] max-h-[300px] rounded-2xl object-contain"
-      />
-      {/* Hover overlay with zoom & download */}
-      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center gap-3">
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2">
-          <ZoomIn className="h-5 w-5 text-white" />
-        </div>
-        <button 
-          onClick={handleDownload}
-          className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2 hover:bg-black/70"
-        >
-          <Download className="h-5 w-5 text-white" />
-        </button>
-      </div>
-    </div>
-  );
-
+  // ── User Message ──
   if (isUserMessage) {
+    const { imageUrl, rest: textContent } = parseImage(displayedContent);
+
+    const handleDownload = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!imageUrl) return;
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      link.download = `image_${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
     return (
       <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8 flex justify-end">
         <div className="flex flex-col items-end gap-2 max-w-[85%]">
-          {imagePreview}
-          
-          {/* Text bubble */}
+          {imageUrl && !isEditing && (
+            <div className="relative group rounded-2xl overflow-hidden border border-border/40 shadow-sm cursor-pointer bg-muted/30" onClick={() => setImageModalOpen(true)}>
+              <img src={imageUrl} alt="Uploaded" className="max-w-[280px] sm:max-w-[320px] max-h-[300px] rounded-2xl object-contain" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center gap-3">
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2"><ZoomIn className="h-5 w-5 text-white" /></div>
+                <button onClick={handleDownload} className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2 hover:bg-black/70"><Download className="h-5 w-5 text-white" /></button>
+              </div>
+            </div>
+          )}
           {(textContent || isEditing) && (
-            <div className={cn(
-              "bg-primary text-primary-foreground",
-              "px-4 py-3 rounded-2xl"
-            )}>
+            <div className={cn("bg-primary text-primary-foreground", "px-4 py-3 rounded-2xl")}>
               {isEditing ? (
-                <MessageEditor
-                  editedContent={editedContent}
-                  setEditedContent={setEditedContent}
-                  handleSaveEdit={handleSaveEdit}
-                  handleCancelEdit={handleCancelEdit}
-                />
+                <MessageEditor editedContent={editedContent} setEditedContent={setEditedContent} handleSaveEdit={handleSaveEdit} handleCancelEdit={handleCancelEdit} />
               ) : (
-                <p className="text-[15px] leading-relaxed font-normal whitespace-pre-wrap break-words">
-                  {textContent}
-                </p>
+                <p className="text-[15px] leading-relaxed font-normal whitespace-pre-wrap break-words">{textContent}</p>
               )}
             </div>
           )}
         </div>
-        {imageUrl && (
-          <ImageModal isOpen={imageModalOpen} onClose={() => setImageModalOpen(false)} imageUrl={imageUrl} />
-        )}
+        {imageUrl && <ImageModal isOpen={imageModalOpen} onClose={() => setImageModalOpen(false)} imageUrl={imageUrl} />}
       </div>
     );
   }
 
-  // AI message - also parse for images
-  let botTextContent = displayedContent;
-  let botImageUrl = '';
-  
-  const botBase64Match = displayedContent.match(/^\[IMG_DATA:(data:image\/[^\]]+)\]/);
-  if (botBase64Match) {
-    botImageUrl = botBase64Match[1];
-    botTextContent = displayedContent.replace(botBase64Match[0], '').trim();
-  }
+  // ── AI Message — parse thinking, image, text ──
+  const { thinking, rest: afterThinking } = parseThinking(displayedContent);
+  const { imageUrl: botImageUrl, rest: botTextContent } = parseImage(afterThinking);
 
   const handleBotDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -143,57 +152,34 @@ const MessageBody: React.FC<MessageBodyProps> = ({
   return (
     <div className="max-w-[760px] mx-auto px-3 sm:px-4 md:px-8 flex justify-start">
       <div className="flex flex-col gap-2 max-w-[80%]">
-        {/* Generated image preview */}
+        {/* Thinking badge */}
+        {thinking && !isEditing && (
+          <ThinkingBadge thinking={thinking} />
+        )}
+
+        {/* Generated image */}
         {botImageUrl && !isEditing && (
-          <div 
-            className="relative group rounded-2xl overflow-hidden border border-border/40 shadow-sm cursor-pointer bg-muted/30"
-            onClick={() => setImageModalOpen(true)}
-          >
-            <img 
-              src={botImageUrl} 
-              alt="Generated" 
-              className="max-w-[280px] sm:max-w-[320px] max-h-[300px] rounded-2xl object-contain"
-            />
+          <div className="relative group rounded-2xl overflow-hidden border border-border/40 shadow-sm cursor-pointer bg-muted/30" onClick={() => setImageModalOpen(true)}>
+            <img src={botImageUrl} alt="Generated" className="max-w-[280px] sm:max-w-[320px] max-h-[300px] rounded-2xl object-contain" />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center gap-3">
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2">
-                <ZoomIn className="h-5 w-5 text-white" />
-              </div>
-              <button 
-                onClick={handleBotDownload}
-                className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2 hover:bg-black/70"
-              >
-                <Download className="h-5 w-5 text-white" />
-              </button>
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2"><ZoomIn className="h-5 w-5 text-white" /></div>
+              <button onClick={handleBotDownload} className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2 hover:bg-black/70"><Download className="h-5 w-5 text-white" /></button>
             </div>
           </div>
         )}
         
         {/* Text bubble */}
         {(botTextContent || isEditing) && (
-          <div className={cn(
-            "bg-muted text-foreground",
-            "px-4 py-3 rounded-2xl"
-          )}>
+          <div className={cn("bg-muted text-foreground", "px-4 py-3 rounded-2xl")}>
             {isEditing ? (
-              <MessageEditor
-                editedContent={editedContent}
-                setEditedContent={setEditedContent}
-                handleSaveEdit={handleSaveEdit}
-                handleCancelEdit={handleCancelEdit}
-              />
+              <MessageEditor editedContent={editedContent} setEditedContent={setEditedContent} handleSaveEdit={handleSaveEdit} handleCancelEdit={handleCancelEdit} />
             ) : (
-              <MessageMarkdownContent
-                content={botTextContent}
-                isTyping={isTyping}
-                isBot={true}
-              />
+              <MessageMarkdownContent content={botTextContent} isTyping={isTyping} isBot={true} />
             )}
           </div>
         )}
       </div>
-      {botImageUrl && (
-        <ImageModal isOpen={imageModalOpen} onClose={() => setImageModalOpen(false)} imageUrl={botImageUrl} />
-      )}
+      {botImageUrl && <ImageModal isOpen={imageModalOpen} onClose={() => setImageModalOpen(false)} imageUrl={botImageUrl} />}
     </div>
   );
 };
