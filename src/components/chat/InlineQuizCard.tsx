@@ -102,19 +102,21 @@ const InlineQuizCard: React.FC<InlineQuizCardProps> = ({ quizData, onQuizComplet
     const pct = Math.round((score / total) * 100);
     return (
       <div
-        className="w-full max-w-md mx-auto rounded-2xl border border-border bg-card p-5 space-y-4"
+        className="w-full max-w-md mx-auto space-y-4"
         onTouchStart={stopPropagation} onTouchEnd={stopPropagation} onMouseDown={stopPropagation} onMouseUp={stopPropagation}
       >
-        <div className="text-center space-y-2">
-          <div className="text-4xl">{getScoreEmoji()}</div>
-          <h3 className="text-lg font-bold text-foreground">Quiz Complete!</h3>
-          <p className="text-2xl font-bold text-primary">{score}/{total}</p>
-          <p className="text-sm text-muted-foreground">{pct}% सही</p>
-          <Progress value={pct} className="h-2 mt-2" />
-        </div>
+        {/* Premium Result Card */}
+        <QuizResultCard
+          score={score}
+          total={total}
+          topic={quizData.topic}
+          difficulty={quizData.difficulty}
+          percentage={pct}
+        />
 
-        {/* Review */}
-        <div className="space-y-2 pt-2">
+        {/* Review answers */}
+        <div className="space-y-2 rounded-2xl border border-border bg-card p-4">
+          <p className="text-xs font-semibold text-muted-foreground mb-2">📝 Answer Review</p>
           {quizData.questions.map((q, i) => {
             const userAns = answers[i];
             const correct = userAns === q.correctAnswer;
@@ -142,14 +144,9 @@ const InlineQuizCard: React.FC<InlineQuizCardProps> = ({ quizData, onQuizComplet
           })}
         </div>
 
-        <div className="flex gap-2">
-          <Button onClick={handleDownloadResult} variant="outline" className="flex-1 gap-2">
-            <Download className="h-4 w-4" /> डाउनलोड
-          </Button>
-          <Button onClick={handleRestart} variant="outline" className="flex-1 gap-2">
-            <RotateCcw className="h-4 w-4" /> फिर से करें
-          </Button>
-        </div>
+        <Button onClick={handleRestart} variant="outline" className="w-full gap-2">
+          <RotateCcw className="h-4 w-4" /> फिर से करें
+        </Button>
       </div>
     );
   }
