@@ -331,6 +331,21 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
     };
   }, [open]);
 
+  // Connection watchdog: prevent infinite "Connecting..." state
+  useEffect(() => {
+    if (!open) return;
+
+    const timeout = setTimeout(() => {
+      if (!isConnectedRef.current && status === 'idle') {
+        toast.error('Live connection timeout — retrying...');
+        wsRef.current?.close();
+        connectWebSocket();
+      }
+    }, 8000);
+
+    return () => clearTimeout(timeout);
+  }, [open, status, connectWebSocket]);
+
   // Start frame streaming when camera/connection changes
   useEffect(() => {
     if (open && isCameraOn && isConnectedRef.current) {
