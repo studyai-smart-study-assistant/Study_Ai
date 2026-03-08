@@ -111,7 +111,7 @@ export async function generateResponse(
   prompt: string,
   history: Message[] = [],
   chatId?: string,
-  model: string = 'google/gemini-2.5-flash'
+  model: string = 'google/gemini-3-flash-preview'
 ): Promise<string> {
   const result = await generateResponseWithSearch(prompt, history, chatId, model, false);
   return result.text;
@@ -126,7 +126,7 @@ export async function generateResponseWithSearch(
   prompt: string,
   history: Message[] = [],
   chatId?: string,
-  model: string = 'google/gemini-2.5-flash',
+  model: string = 'google/gemini-3-flash-preview',
   forceWebSearch: boolean = false,
   imageBase64?: string
 ): Promise<GenerateResponseWithSearchResult> {
