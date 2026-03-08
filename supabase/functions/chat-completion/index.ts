@@ -233,8 +233,8 @@ const agentTools = [
     type: "function",
     function: {
       name: "generate_quiz",
-      description: "Generate quiz. Use ONLY when user EXPLICITLY says 'quiz बनाओ' or 'test लो'.",
-      parameters: { type: "object", properties: { topic: { type: "string" }, num_questions: { type: "number" }, difficulty: { type: "string", enum: ["easy", "medium", "hard"] } }, required: ["topic"], additionalProperties: false }
+      description: "Generate interactive quiz. Use when user EXPLICITLY asks for quiz/test. If user hasn't specified topic, subject, class, difficulty, or number of questions — DO NOT call this tool. Instead, ask the user for these details first in a friendly conversational way. Only call this tool when you have enough info (at minimum: topic).",
+      parameters: { type: "object", properties: { topic: { type: "string", description: "Specific topic for quiz" }, num_questions: { type: "number", description: "Number of questions (default 5)" }, difficulty: { type: "string", enum: ["easy", "medium", "hard"], description: "Difficulty level" }, class_level: { type: "string", description: "Student class like 10th, 12th etc." } }, required: ["topic"], additionalProperties: false }
     }
   },
   {
@@ -557,7 +557,7 @@ serve(async (req) => {
   • Simple Q&A, explanations, definitions
 - **generate_notes** ONLY when: यूजर EXPLICITLY कहे "notes बनाओ"
 - **generate_image** ONLY when: यूजर EXPLICITLY कहे "diagram बनाओ", "image बनाओ"
-- **generate_quiz** ONLY when: यूजर EXPLICITLY कहे "quiz बनाओ", "test लो"
+- **generate_quiz** ONLY when: यूजर EXPLICITLY कहे "quiz बनाओ", "test लो". BUT if user just says "quiz बनाओ" without specifying topic/subject/class, then FIRST ASK them: किस विषय (subject) पर? कौन सी class? कितने questions? कौन सा difficulty level? — THEN generate quiz when they provide details.
 - **web_search** ONLY when: Latest/current information ज़रूरी हो
 - **extract_memory** ONLY when: यूजर ने कोई important personal info share की हो (नाम, पसंद, लक्ष्य, चुनौती)
 - DEFAULT behavior: Direct answer without any tool call
