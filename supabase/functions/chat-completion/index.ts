@@ -212,6 +212,59 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
     }
   }
 
+  // ── Fallback 4: RapidAPI ChatGPT-42 ──
+  const RAPIDAPI_KEY = Deno.env.get('RAPIDAPI_KEY');
+  if (RAPIDAPI_KEY) {
+    console.log('🔄 All other providers exhausted, trying RapidAPI ChatGPT-42 fallback...');
+    try {
+      const start = Date.now();
+      const rapidMessages = body.messages?.map((m: any) => ({
+        role: m.role === 'bot' ? 'assistant' : m.role,
+        content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+      })) || [];
+
+      const rapidResponse = await fetch('https://chatgpt-42.p.rapidapi.com/conversationgpt4-2', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-rapidapi-host': 'chatgpt-42.p.rapidapi.com',
+          'x-rapidapi-key': RAPIDAPI_KEY,
+        },
+        body: JSON.stringify({
+          messages: rapidMessages,
+          web_access: false,
+        }),
+      });
+
+      if (rapidResponse.ok) {
+        const rapidData = await rapidResponse.json();
+        console.log('✅ RapidAPI ChatGPT-42 fallback success');
+        logApiUsage('rapidapi-chatgpt42', 'RAPIDAPI_KEY', 'success', undefined, Date.now() - start);
+
+        // Normalize to OpenAI-compatible format
+        const normalizedResponse = {
+          choices: [{
+            message: {
+              role: 'assistant',
+              content: rapidData.result || rapidData.message || rapidData.response || JSON.stringify(rapidData),
+            },
+            finish_reason: 'stop',
+          }],
+        };
+
+        return new Response(JSON.stringify(normalizedResponse), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      const rapidErr = await rapidResponse.text();
+      logApiUsage('rapidapi-chatgpt42', 'RAPIDAPI_KEY', 'error', String(rapidResponse.status), Date.now() - start);
+      console.warn(`⚠️ RapidAPI error ${rapidResponse.status}: ${rapidErr.substring(0, 200)}`);
+    } catch (e) {
+      console.warn('⚠️ RapidAPI network error:', e);
+    }
+  }
+
   throw new AiProviderError(429, 'AI अभी थोड़ी देर के लिए busy है (rate limited). 1-2 मिनट बाद फिर try करें।');
 }
 
