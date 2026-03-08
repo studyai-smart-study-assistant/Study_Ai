@@ -124,7 +124,7 @@ const CampusTalkCreateGroup: React.FC<Props> = ({ onBack, onCreated }) => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
         {/* Group Name */}
         <div className="space-y-2">
           <label className="text-xs font-medium text-muted-foreground">Group का नाम *</label>
@@ -165,55 +165,64 @@ const CampusTalkCreateGroup: React.FC<Props> = ({ onBack, onCreated }) => {
           </div>
         )}
 
-        {/* Search */}
-        <Input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search users..."
-          className="bg-muted border-0"
-        />
+        {/* Search & User list */}
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-muted-foreground">Members जोड़ें *</label>
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="नाम से search करें..."
+            className="bg-muted border-0"
+          />
+        </div>
 
-        {/* User list */}
-        <div className="divide-y divide-border rounded-xl overflow-hidden">
-          {filtered.map(u => {
-            const n = u.display_name || u.firebase_uid.slice(0, 8);
-            const isSelected = selected.has(u.firebase_uid);
-            return (
-              <button
-                key={u.firebase_uid}
-                onClick={() => toggle(u.firebase_uid)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 transition-colors ${isSelected ? 'bg-[hsl(230,70%,55%)]/5' : 'hover:bg-muted/50'}`}
-              >
-                {u.avatar_url ? (
-                  <img src={u.avatar_url} alt={n} className="w-10 h-10 rounded-full object-cover" />
-                ) : (
-                  <div className={`w-10 h-10 rounded-full ${getColor(n)} flex items-center justify-center text-white font-bold`}>
-                    {n.charAt(0).toUpperCase()}
+        {/* User list - always visible */}
+        <div className="divide-y divide-border rounded-xl overflow-hidden bg-card border border-border">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+              {search ? `"${search}" से कोई user नहीं मिला` : 'कोई user उपलब्ध नहीं'}
+            </div>
+          ) : (
+            filtered.map(u => {
+              const n = u.display_name || u.firebase_uid.slice(0, 8);
+              const isSelected = selected.has(u.firebase_uid);
+              return (
+                <button
+                  key={u.firebase_uid}
+                  onClick={() => toggle(u.firebase_uid)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 transition-colors ${isSelected ? 'bg-[hsl(230,70%,55%)]/5' : 'hover:bg-muted/50'}`}
+                >
+                  {u.avatar_url ? (
+                    <img src={u.avatar_url} alt={n} className="w-10 h-10 rounded-full object-cover" />
+                  ) : (
+                    <div className={`w-10 h-10 rounded-full ${getColor(n)} flex items-center justify-center text-white font-bold`}>
+                      {n.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-medium text-foreground">{n}</p>
+                    <p className="text-xs text-muted-foreground">{u.status === 'online' ? '🟢 Online' : 'Offline'}</p>
                   </div>
-                )}
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-medium text-foreground">{n}</p>
-                  <p className="text-xs text-muted-foreground">{u.status === 'online' ? '🟢 Online' : 'Offline'}</p>
-                </div>
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                  isSelected ? 'bg-[hsl(230,70%,55%)] border-[hsl(230,70%,55%)]' : 'border-muted-foreground/30'
-                }`}>
-                  {isSelected && <Check className="h-3 w-3 text-white" />}
-                </div>
-              </button>
-            );
-          })}
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    isSelected ? 'bg-[hsl(230,70%,55%)] border-[hsl(230,70%,55%)]' : 'border-muted-foreground/30'
+                  }`}>
+                    {isSelected && <Check className="h-3 w-3 text-white" />}
+                  </div>
+                </button>
+              );
+            })
+          )}
         </div>
       </div>
 
-      {/* Create button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border">
+      {/* Fixed Create button at bottom */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border z-50">
         <Button
           onClick={handleCreate}
           disabled={creating || !name.trim() || selected.size === 0}
-          className="w-full bg-[hsl(230,70%,55%)] hover:bg-[hsl(230,70%,45%)]"
+          className="w-full bg-[hsl(230,70%,55%)] hover:bg-[hsl(230,70%,45%)] h-12 text-base font-semibold"
         >
-          {creating ? 'बना रहे हैं...' : `Group बनाएं (${selected.size + 1} members)`}
+          {creating ? 'बना रहे हैं...' : selected.size === 0 ? 'Members select करें' : `Group बनाएं (${selected.size + 1} members)`}
         </Button>
       </div>
     </div>
