@@ -8,6 +8,7 @@ import { useMessageState } from '@/hooks/useMessageState';
 import { useMessageBookmark } from '@/hooks/useMessageBookmark';
 import { cn } from "@/lib/utils";
 import { toast } from 'sonner';
+import { downloadChatPdf, shareChatPdf } from '@/utils/generateChatPdf';
 
 interface MessageProps {
   message: MessageType;
@@ -36,6 +37,27 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted, onEditI
 
   const handleDislike = () => {
     toast.info('Feedback recorded');
+  };
+
+  const handleDownloadPdf = () => {
+    try {
+      const title = message.content.split('\n')[0]?.replace(/^#*\s*/, '').slice(0, 60) || 'Study AI Notes';
+      downloadChatPdf(message.content, title);
+      toast.success('📥 PDF download हो गया!');
+    } catch {
+      toast.error('PDF बनाने में दिक्कत आई');
+    }
+  };
+
+  const handleSharePdf = async () => {
+    try {
+      const title = message.content.split('\n')[0]?.replace(/^#*\s*/, '').slice(0, 60) || 'Study AI Notes';
+      const shared = await shareChatPdf(message.content, title);
+      if (shared) toast.success('✅ PDF share किया गया!');
+      else toast.success('📥 PDF download हो गया!');
+    } catch {
+      toast.error('Share नहीं हो पाया');
+    }
   };
 
   const messageForMenu = {
@@ -72,6 +94,8 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted, onEditI
         onCopy={handleCopyForMenu}
         onDelete={handleDeleteForMenu}
         onFeedback={!isUserMessage ? handleFeedbackForMenu : undefined}
+        onDownloadPdf={!isUserMessage ? handleDownloadPdf : undefined}
+        onSharePdf={!isUserMessage ? handleSharePdf : undefined}
         isLiked={isLiked}
         hasInteractiveContent={hasQuizContent}
       >
@@ -104,6 +128,8 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted, onEditI
             handleDelete={handleDelete}
             handleLike={handleLike}
             handleBookmark={handleBookmark}
+            handleDownloadPdf={!isUserMessage ? handleDownloadPdf : undefined}
+            handleSharePdf={!isUserMessage ? handleSharePdf : undefined}
           />
         </div>
       )}
