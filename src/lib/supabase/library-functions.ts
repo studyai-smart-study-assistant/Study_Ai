@@ -130,12 +130,16 @@ export async function toggleLikeBook(bookId: string, userId: string): Promise<bo
     .select('id')
     .eq('book_id', bookId)
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
   
   if (existing) {
     // Unlike
     await supabase.from('book_likes').delete().eq('id', existing.id);
-    await supabase.from('books').update({ likes: supabase.rpc('decrement_likes', { row_id: bookId }) }).eq('id', bookId);
+    // Decrement likes count
+    const { data: book } = await supabase.from('books').select('likes').eq('id', bookId).single();
+    if (book) {
+      await supabase.from('books').update({ likes: Math.max(0, (book.likes || 1) - 1) }).eq('id', bookId);
+    }
     return false;
   } else {
     // Like

@@ -4,7 +4,8 @@ import { Book } from '@/types/library';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Download, Heart, ExternalLink, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { incrementDownload, likeBook } from '@/lib/supabase/library-functions';
+import { incrementDownload, toggleLikeBook } from '@/lib/supabase/library-functions';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { hi } from 'date-fns/locale';
@@ -12,7 +13,14 @@ import { hi } from 'date-fns/locale';
 interface BookCardProps { book: Book; }
 
 const BookCard: React.FC<BookCardProps> = ({ book }) => {
-  const handleLike = async () => { try { await likeBook(book.id); toast.success("पुस्तक को सराहा गया!"); } catch { toast.error("लाइक करने में समस्या"); } };
+  const { currentUser } = useAuth();
+  const handleLike = async () => {
+    try {
+      if (!currentUser) return toast.error("पहले लॉगिन करें");
+      await toggleLikeBook(book.id, currentUser.uid);
+      toast.success("पुस्तक को सराहा गया!");
+    } catch { toast.error("लाइक करने में समस्या"); }
+  };
   const handleDownload = async () => { try { if (!book.fileUrl) return toast.error("डाउनलोड लिंक उपलब्ध नहीं"); await incrementDownload(book.id); window.open(book.fileUrl, '_blank'); toast.success("पुस्तक डाउनलोड हो रही है"); } catch { toast.error("डाउनलोड में समस्या"); } };
   const handleExternalLink = () => { if (book.externalLink) window.open(book.externalLink, '_blank'); else toast.error("बाहरी लिंक उपलब्ध नहीं"); };
   const getUploadDate = () => book.uploadedAt && typeof (book.uploadedAt as any).toDate === 'function' ? (book.uploadedAt as any).toDate() : new Date(book.uploadedAt as any);
