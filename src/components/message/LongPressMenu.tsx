@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Copy, Trash, ThumbsUp, ThumbsDown, Volume2, Pause, Play, Loader } from 'lucide-react';
+import { Copy, Trash, ThumbsUp, ThumbsDown, Volume2, Pause, Play, Loader, FileDown, Share2 } from 'lucide-react';
 import { useTTS } from '@/contexts/TTSContext';
 
 interface LongPressMenuProps {
@@ -10,6 +10,8 @@ interface LongPressMenuProps {
   onCopy: (content: string) => void;
   onDelete: (id: string) => void;
   onFeedback?: (id: string, rating: 'like' | 'dislike') => void;
+  onDownloadPdf?: () => void;
+  onSharePdf?: () => void;
   isLiked?: boolean;
   hasInteractiveContent?: boolean;
 }
@@ -23,6 +25,8 @@ const LongPressMenu: React.FC<LongPressMenuProps> = ({
   onCopy,
   onDelete,
   onFeedback,
+  onDownloadPdf,
+  onSharePdf,
   isLiked,
   hasInteractiveContent,
 }) => {
@@ -84,6 +88,19 @@ const LongPressMenu: React.FC<LongPressMenuProps> = ({
 
           <Button variant="outline" className="justify-start py-6" onClick={handleAction(() => onCopy(message.content))}>
             <Copy className="h-5 w-5 mr-3" /> Copy Text
+          </Button>
+
+          {!message.isUser && onDownloadPdf && (
+            <Button variant="outline" className="justify-start py-6" onClick={handleAction(onDownloadPdf)}>
+              <FileDown className="h-5 w-5 mr-3" /> Download PDF
+            </Button>
+          )}
+
+          {!message.isUser && onSharePdf && (
+            <Button variant="outline" className="justify-start py-6" onClick={handleAction(onSharePdf)}>
+              <Share2 className="h-5 w-5 mr-3" /> Share PDF
+            </Button>
+          )}
           </Button>
 
           {!message.isUser && onFeedback && (
