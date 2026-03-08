@@ -148,6 +148,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     onSend(input.trim(), uploadedImage || undefined);
     setInput('');
     setUploadedImage(null);
+    if (isListening) { recognitionRef.current?.stop(); setIsListening(false); }
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
   };
 
