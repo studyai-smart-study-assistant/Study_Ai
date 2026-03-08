@@ -41,12 +41,26 @@ function stripMarkdown(text: string): string {
     .replace(/\*([^*]+)\*/g, '$1')
     .replace(/#{1,6}\s/g, '')
     .replace(/`([^`]+)`/g, '$1')
+    .replace(/```[\s\S]*?```/g, '') // remove code blocks entirely
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/^\s*[-*+]\s+/gm, '')
     .replace(/^\s*\d+\.\s+/gm, '')
     .replace(/\n{2,}/g, '. ')
     .replace(/\n/g, ' ')
+    .replace(/\s{2,}/g, ' ')
     .trim();
+}
+
+// Fetch with timeout
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, { ...options, signal: controller.signal });
+    return resp;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 serve(async (req) => {
@@ -67,14 +81,23 @@ serve(async (req) => {
     }
 
     const cleanText = stripMarkdown(text);
-    console.log(`🔊 TTS request: ${cleanText.substring(0, 80)}... (${cleanText.length} chars, ${keys.length} keys in pool)`);
+    if (!cleanText || cleanText.length < 2) {
+      return new Response(JSON.stringify({ error: 'Text too short after cleaning' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    for (let attempt = 0; attempt < keys.length; attempt++) {
+    console.log(`🔊 TTS request: ${cleanText.substring(0, 80)}... (${cleanText.length} chars, ${keys.length} keys, voice=${voice || 'shubh'})`);
+
+    // Try each key with retries
+    const maxAttempts = Math.min(keys.length * 2, 6); // retry up to 6 times across keys
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const apiKey = getNextSarvamKey();
       const keyLabel = `SARVAM_KEY_${(_sarvamKeyIndex) % keys.length}`;
       const start = Date.now();
       try {
-        const response = await fetch('https://api.sarvam.ai/text-to-speech', {
+        const response = await fetchWithTimeout('https://api.sarvam.ai/text-to-speech', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -84,39 +107,55 @@ serve(async (req) => {
             text: cleanText,
             target_language_code: language || 'hi-IN',
             speaker: voice || 'shubh',
-            model: 'bulbul:v3',
+            model: 'bulbul:v2',
             enable_preprocessing: true,
           }),
-        });
+        }, 20000);
 
         if (response.status === 429 || response.status === 403) {
           logUsage(keyLabel, 'rate_limited', String(response.status), Date.now() - start);
-          console.warn(`⚠️ Sarvam TTS ${keyLabel} rate limited, trying next...`);
+          console.warn(`⚠️ TTS ${keyLabel} rate limited (${response.status}), trying next...`);
           try { await response.text(); } catch {}
+          continue;
+        }
+
+        if (response.status === 500 || response.status === 502 || response.status === 503) {
+          logUsage(keyLabel, 'server_error', String(response.status), Date.now() - start);
+          console.warn(`⚠️ TTS ${keyLabel} server error (${response.status}), retrying...`);
+          try { await response.text(); } catch {}
+          // Brief delay before retry on server errors
+          await new Promise(r => setTimeout(r, 500));
           continue;
         }
 
         if (!response.ok) {
           const errorText = await response.text();
           logUsage(keyLabel, 'error', String(response.status), Date.now() - start);
-          throw new Error(`Sarvam API error: ${response.status} - ${errorText}`);
+          console.error(`❌ TTS ${keyLabel} error: ${response.status} - ${errorText}`);
+          throw new Error(`Sarvam API error: ${response.status}`);
         }
 
         const data = await response.json();
         if (data.audios && data.audios[0]) {
           logUsage(keyLabel, 'success', undefined, Date.now() - start);
-          console.log(`✅ TTS success (${keyLabel})`);
+          console.log(`✅ TTS success (${keyLabel}, ${Date.now() - start}ms)`);
           return new Response(JSON.stringify({ audioContent: data.audios[0] }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        throw new Error('No audio data in Sarvam response');
+        console.warn(`⚠️ TTS ${keyLabel}: No audio in response, retrying...`);
+        continue;
       } catch (err: any) {
-        if (attempt === keys.length - 1) throw err;
-        console.warn(`⚠️ Sarvam TTS attempt ${attempt + 1} failed: ${err.message}`);
+        if (err.name === 'AbortError') {
+          logUsage(keyLabel, 'timeout', 'TIMEOUT', Date.now() - start);
+          console.warn(`⚠️ TTS ${keyLabel} timed out, trying next...`);
+          continue;
+        }
+        if (attempt === maxAttempts - 1) throw err;
+        console.warn(`⚠️ TTS attempt ${attempt + 1} failed: ${err.message}`);
       }
     }
-    throw new Error('All Sarvam TTS keys exhausted');
+    throw new Error('All Sarvam TTS attempts exhausted');
 
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
