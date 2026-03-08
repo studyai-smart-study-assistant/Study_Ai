@@ -16,7 +16,7 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    const { prompt } = await req.json();
+    const { prompt, imageBase64 } = await req.json();
 
     if (!prompt) {
       return new Response(
@@ -25,7 +25,24 @@ serve(async (req) => {
       );
     }
 
-    console.log('Generating image with prompt:', prompt);
+    const isEditMode = !!imageBase64;
+    console.log(`${isEditMode ? 'Editing' : 'Generating'} image with prompt:`, prompt);
+
+    // Build message content - multimodal if user uploaded an image
+    let userContent: any;
+    if (isEditMode) {
+      // User uploaded their own image + prompt = EDIT that image
+      userContent = [
+        { type: 'text', text: prompt },
+        {
+          type: 'image_url',
+          image_url: { url: imageBase64 }
+        }
+      ];
+    } else {
+      // Text-only prompt = GENERATE new image
+      userContent = prompt;
+    }
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -38,7 +55,7 @@ serve(async (req) => {
         messages: [
           {
             role: 'user',
-            content: prompt
+            content: userContent
           }
         ],
         modalities: ['image', 'text']
@@ -60,7 +77,7 @@ serve(async (req) => {
       }
       const errorText = await response.text();
       console.error('AI gateway error:', response.status, errorText);
-      throw new Error(`Failed to generate image: ${response.status}`);
+      throw new Error(`Failed to ${isEditMode ? 'edit' : 'generate'} image: ${response.status}`);
     }
 
     const data = await response.json();
@@ -73,7 +90,7 @@ serve(async (req) => {
       throw new Error('No image generated');
     }
 
-    console.log('✅ Image generated successfully, base64 length:', imageUrl.length);
+    console.log('✅ Image processed successfully, base64 length:', imageUrl.length);
 
     return new Response(
       JSON.stringify({ imageUrl }),
