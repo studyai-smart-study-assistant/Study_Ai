@@ -71,6 +71,115 @@ export type Database = {
         }
         Relationships: []
       }
+      campus_group_members: {
+        Row: {
+          group_id: string
+          id: string
+          joined_at: string
+          role: string
+          user_uid: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          joined_at?: string
+          role?: string
+          user_uid: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          joined_at?: string
+          role?: string
+          user_uid?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campus_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "campus_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campus_group_messages: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          image_url: string | null
+          is_ai_response: boolean
+          message_type: string
+          sender_uid: string
+          text_content: string | null
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          image_url?: string | null
+          is_ai_response?: boolean
+          message_type?: string
+          sender_uid: string
+          text_content?: string | null
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          image_url?: string | null
+          is_ai_response?: boolean
+          message_type?: string
+          sender_uid?: string
+          text_content?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campus_group_messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "campus_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campus_groups: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          only_admins_add_members: boolean
+          only_admins_send: boolean
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+          only_admins_add_members?: boolean
+          only_admins_send?: boolean
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+          only_admins_add_members?: boolean
+          only_admins_send?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       campus_messages: {
         Row: {
           chat_id: string
