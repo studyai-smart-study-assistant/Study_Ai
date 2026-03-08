@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.text-to-speech]
 verify_jwt = false
+
+[functions.admin-users]
+verify_jwt = false
