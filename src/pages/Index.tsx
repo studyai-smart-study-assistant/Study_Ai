@@ -299,18 +299,16 @@ const Index = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* New Chat Button - Premium style */}
+              {/* New Chat Button - Gemini/ChatGPT style */}
               {currentChatId && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 px-3 rounded-full gap-1.5 border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 hover:border-primary/50 shadow-sm hover:shadow-md transition-all duration-200 font-semibold text-xs"
+                <button
                   onClick={handleNewChat}
                   title="New Chat"
+                  className="relative h-9 w-9 flex items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-105 active:scale-95 transition-all duration-200"
                 >
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">New</span>
-                </Button>
+                  <Plus className="h-4.5 w-4.5" strokeWidth={2.5} />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-background" />
+                </button>
               )}
 
               {/* Theme Toggle in Header */}
