@@ -17,43 +17,65 @@ interface TTSContextType {
 
 const TTSContext = createContext<TTSContextType | undefined>(undefined);
 
-const chunkText = (text: string, maxLength = 400): string[] => {
-  if (text.length <= maxLength) return [text];
-  const chunks: string[] = [];
-  let currentChunk = "";
-  // Split on sentence endings
-  const parts = text.split(/([.!?।]+(?:\s|$))/g);
-  for (const part of parts) {
-    if (currentChunk.length + part.length > maxLength) {
-      if (currentChunk.trim()) chunks.push(currentChunk.trim());
-      currentChunk = part;
-    } else {
-      currentChunk += part;
-    }
-  }
-  if (currentChunk.trim()) chunks.push(currentChunk.trim());
-  // Further split any chunks still over limit
-  const finalChunks: string[] = [];
-  for (const chunk of chunks) {
-    if (chunk.length > maxLength) {
-      let wordChunk = '';
-      for (const word of chunk.split(/\s+/g)) {
-        if (wordChunk.length + word.length + 1 > maxLength) {
-          finalChunks.push(wordChunk.trim());
-          wordChunk = word + ' ';
-        } else {
-          wordChunk += word + ' ';
+const processTextForTTS = (text: string): string => {
+  const tableRegex = /\|(.+)\|\n\|(?::?-+:?)+?\|\n((?:\|.*\|\n?)*)/g;
+  return text.replace(tableRegex, (table, headerLine, body) => {
+    const headers = headerLine.split('|').map(h => h.trim()).filter(Boolean);
+    const rows = body.trim().split('\n').map(rowLine => rowLine.split('|').map(c => c.trim()).filter(Boolean));
+    
+    if (headers.length === 0) return table;
+
+    let spokenTable = `A table with columns: ${headers.join(', ')}.`;
+    rows.forEach((row, rowIndex) => {
+      spokenTable += ` Row ${rowIndex + 1}:`;
+      row.forEach((cell, cellIndex) => {
+        if (headers[cellIndex]) {
+          spokenTable += ` ${headers[cellIndex]} is ${cell};`;
         }
-      }
-      if (wordChunk.trim()) finalChunks.push(wordChunk.trim());
-    } else {
-      finalChunks.push(chunk);
-    }
-  }
-  return finalChunks.filter(Boolean);
+      });
+    });
+    return spokenTable;
+  });
 };
 
-// Retry a single chunk with exponential backoff
+const chunkText = (text: string, maxLength = 400): string[] => {
+    const processedText = processTextForTTS(text);
+    if (processedText.length <= maxLength) return [processedText];
+    
+    const chunks: string[] = [];
+    let currentChunk = "";
+    const parts = processedText.split(/([.!?।;]+(?:\s|$))/g);
+    
+    for (const part of parts) {
+        if (currentChunk.length + part.length > maxLength) {
+            if (currentChunk.trim()) chunks.push(currentChunk.trim());
+            currentChunk = part;
+        } else {
+            currentChunk += part;
+        }
+    }
+    if (currentChunk.trim()) chunks.push(currentChunk.trim());
+
+    const finalChunks: string[] = [];
+    for (const chunk of chunks) {
+        if (chunk.length > maxLength) {
+            let wordChunk = '';
+            for (const word of chunk.split(/\s+/g)) {
+                if (wordChunk.length + word.length + 1 > maxLength) {
+                    finalChunks.push(wordChunk.trim());
+                    wordChunk = word + ' ';
+                } else {
+                    wordChunk += word + ' ';
+                }
+            }
+            if (wordChunk.trim()) finalChunks.push(wordChunk.trim());
+        } else {
+            finalChunks.push(chunk);
+        }
+    }
+    return finalChunks.filter(Boolean);
+};
+
 async function fetchChunkWithRetry(
   chunk: string, language: string, voice: string, signal: AbortSignal, retries = 2
 ): Promise<Blob> {
@@ -95,116 +117,157 @@ export const TTSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const audioQueueRef = useRef<Blob[]>([]);
+  const currentlyPlayingUrl = useRef<string | null>(null);
+  const isFetchingChunksRef = useRef(false);
+  const speedRef = useRef(speed);
+
+  useEffect(() => {
+    speedRef.current = speed;
+  }, [speed]);
 
   const stop = useCallback(() => {
     abortControllerRef.current?.abort();
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    
+    audioQueueRef.current = [];
+    isFetchingChunksRef.current = false;
+
     if (audioRef.current) {
       audioRef.current.pause();
+      if (currentlyPlayingUrl.current) {
+        URL.revokeObjectURL(currentlyPlayingUrl.current);
+        currentlyPlayingUrl.current = null;
+      }
       audioRef.current.src = "";
     }
+    
     setState({ isGenerating: false, isPlaying: false, isAudioReady: false, isSpeakingNatively: false });
     setCurrentText('');
   }, []);
 
+  const playNextInQueue = useCallback(() => {
+    if (currentlyPlayingUrl.current) {
+      URL.revokeObjectURL(currentlyPlayingUrl.current);
+      currentlyPlayingUrl.current = null;
+    }
+
+    const nextBlob = audioQueueRef.current.shift();
+
+    if (nextBlob && audioRef.current) {
+      const audioUrl = URL.createObjectURL(nextBlob);
+      currentlyPlayingUrl.current = audioUrl;
+      audioRef.current.src = audioUrl;
+      audioRef.current.playbackRate = speedRef.current;
+      audioRef.current.play().catch(e => {
+        console.error("Audio play failed:", e);
+        stop(); // If play fails, stop everything.
+      });
+      setState(s => ({ ...s, isPlaying: true, isAudioReady: true, isGenerating: false }));
+    } else if (isFetchingChunksRef.current) {
+      // Queue is empty, but we are still fetching. Show buffering state.
+      setState(s => ({ ...s, isPlaying: false, isGenerating: true }));
+    } else {
+      // Done fetching and queue is empty.
+      stop();
+    }
+  }, [stop]);
+  
+  useEffect(() => {
+    const audio = new Audio();
+    audioRef.current = audio;
+    
+    const handleEnd = () => playNextInQueue();
+    audio.addEventListener('ended', handleEnd);
+    
+    return () => {
+      stop();
+      audio.removeEventListener('ended', handleEnd);
+    };
+  }, [playNextInQueue, stop]);
+
   const setSpeed = useCallback((newSpeed: number) => {
     setSpeedState(newSpeed);
-    if (audioRef.current) audioRef.current.playbackRate = newSpeed;
+    if (audioRef.current) {
+        audioRef.current.playbackRate = newSpeed;
+    }
+    const prefs = getVoicePreferences();
+    localStorage.setItem('voicePreferences', JSON.stringify({ ...prefs, speed: newSpeed }));
   }, []);
 
   const playWithWebSpeechAPI = useCallback((text: string, language: string) => {
-    if (!('speechSynthesis' in window)) {
-      toast.error("Browser does not support TTS.");
-      setState(s => ({ ...s, isGenerating: false }));
-      return;
-    }
     stop();
-    setCurrentText(text.slice(0, 100) + (text.length > 100 ? '...' : ''));
-    const utterance = new SpeechSynthesisUtterance(text);
+    const processedText = processTextForTTS(text);
+    setCurrentText(processedText.slice(0, 100) + (processedText.length > 100 ? '...' : ''));
+    const utterance = new SpeechSynthesisUtterance(processedText);
     utterance.lang = language;
     utterance.rate = speed;
     utterance.onstart = () => setState({ isGenerating: false, isPlaying: true, isAudioReady: true, isSpeakingNatively: true });
-    utterance.onend = () => {
-      setState({ isGenerating: false, isPlaying: false, isAudioReady: false, isSpeakingNatively: false });
-      setCurrentText('');
-    };
-    utterance.onerror = () => {
-      setState({ isGenerating: false, isPlaying: false, isAudioReady: false, isSpeakingNatively: false });
-      setCurrentText('');
-    };
+    utterance.onend = stop;
+    utterance.onerror = stop;
     window.speechSynthesis.speak(utterance);
   }, [stop, speed]);
 
-  const playWithSarvamAI = useCallback(async (text: string, language: string) => {
-    stop();
+  const playWithSarvamAI = useCallback((text: string, language: string) => {
+    stop(); // Stop any previous playback
     setCurrentText(text.slice(0, 100) + (text.length > 100 ? '...' : ''));
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
+
     setState({ isGenerating: true, isPlaying: false, isAudioReady: false, isSpeakingNatively: false });
+    isFetchingChunksRef.current = true;
 
-    try {
-      const textChunks = chunkText(text);
-      const audioBlobs: Blob[] = [];
-      const prefs = getVoicePreferences();
+    (async () => {
+      try {
+        const textChunks = chunkText(text);
+        const prefs = getVoicePreferences();
+        
+        for (let i = 0; i < textChunks.length; i++) {
+          if (signal.aborted) throw new Error('cancelled');
+          const blob = await fetchChunkWithRetry(textChunks[i], language, prefs.voice, signal);
+          if (signal.aborted) throw new Error('cancelled');
 
-      for (const chunk of textChunks) {
-        if (signal.aborted) throw new Error('cancelled');
-        const blob = await fetchChunkWithRetry(chunk, language, prefs.voice, signal);
-        audioBlobs.push(blob);
+          const wasQueueEmptyAndPlayerPaused = audioQueueRef.current.length === 0 && (audioRef.current?.paused ?? true);
+          audioQueueRef.current.push(blob);
+
+          if (wasQueueEmptyAndPlayerPaused) {
+            playNextInQueue();
+          }
+        }
+      } catch (error: any) {
+        if (!signal.aborted) {
+          console.error('Sarvam TTS failed, falling back to browser:', error.message);
+          toast.warning("AI Voice failed. Using browser voice.", { duration: 3000 });
+          playWithWebSpeechAPI(text, language);
+        }
+      } finally {
+        if (!signal.aborted) {
+          isFetchingChunksRef.current = false;
+        }
       }
-
-      if (signal.aborted) throw new Error('cancelled');
-      const mergedBlob = new Blob(audioBlobs, { type: 'audio/mpeg' });
-      const audioUrl = URL.createObjectURL(mergedBlob);
-
-      if (audioRef.current) {
-        audioRef.current.src = audioUrl;
-        audioRef.current.playbackRate = speed;
-        audioRef.current.play();
-        setState({ isGenerating: false, isPlaying: true, isAudioReady: true, isSpeakingNatively: false });
-      }
-    } catch (error: any) {
-      if (error.message.includes('cancelled')) {
-        setState(s => ({ ...s, isGenerating: false }));
-        setCurrentText('');
-      } else {
-        console.error('Sarvam TTS failed, falling back to browser:', error.message);
-        toast.warning("AI Voice failed. Using browser voice.", { duration: 3000 });
-        playWithWebSpeechAPI(text, language);
-      }
-    }
-  }, [stop, speed, playWithWebSpeechAPI]);
+    })();
+  }, [stop, playWithWebSpeechAPI, playNextInQueue]);
 
   const togglePlayPause = useCallback((text: string, language: string = 'hi-IN') => {
-    const { isPlaying, isAudioReady, isSpeakingNatively } = state;
+    const { isPlaying, isAudioReady, isSpeakingNatively, isGenerating } = state;
+    
+    if (isGenerating && !isAudioReady) return;
 
     if (isPlaying) {
       if (isSpeakingNatively) window.speechSynthesis.pause();
       else if (audioRef.current) audioRef.current.pause();
       setState(s => ({ ...s, isPlaying: false }));
     } else if (isAudioReady) {
-      if (isSpeakingNatively) window.speechSynthesis.resume();
-      else if (audioRef.current) audioRef.current.play();
-      setState(s => ({ ...s, isPlaying: true }));
+      if (isSpeakingNatively) {
+        window.speechSynthesis.resume();
+      } else if (audioRef.current?.paused) {
+         audioRef.current.play().catch(console.error);
+         setState(s => ({ ...s, isPlaying: true }));
+      }
     } else {
       playWithSarvamAI(text, language);
     }
   }, [state, playWithSarvamAI]);
-
-  useEffect(() => {
-    const audio = new Audio();
-    audioRef.current = audio;
-    const handleEnd = () => {
-      setState(s => ({ ...s, isPlaying: false, isAudioReady: false }));
-      setCurrentText('');
-    };
-    audio.addEventListener('ended', handleEnd);
-    return () => {
-      stop();
-      audio.removeEventListener('ended', handleEnd);
-      if (audioRef.current?.src) URL.revokeObjectURL(audioRef.current.src);
-    };
-  }, [stop]);
 
   return (
     <TTSContext.Provider value={{ ...state, currentText, speed, setSpeed, togglePlayPause, stop }}>

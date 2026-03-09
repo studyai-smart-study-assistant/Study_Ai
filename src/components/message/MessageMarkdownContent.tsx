@@ -174,7 +174,12 @@ const MessageMarkdownContent: React.FC<MessageMarkdownContentProps> = ({
           <h3 className="text-lg font-semibold mt-4 mb-2 text-foreground/90">{children}</h3>
         ),
         
-        p: ({ children }) => <p className="mb-3.5 last:mb-0 leading-[1.8] text-foreground/90">{children}</p>,
+        p: ({ node, children }) => {
+            if (node.children[0]?.tagName === "code") {
+              return <div>{children}</div>;
+            }
+            return <p className="mb-3.5 last:mb-0 leading-[1.8] text-foreground/90">{children}</p>;
+        },
         
         table: ({ children }) => (
           <div className="my-5 rounded-xl border border-border/60 shadow-sm overflow-hidden">
