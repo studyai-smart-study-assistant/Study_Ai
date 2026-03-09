@@ -42,6 +42,9 @@ const AdminUsersTab = () => {
   const [search, setSearch] = useState('');
   const [editingPoints, setEditingPoints] = useState<string | null>(null);
   const [newPoints, setNewPoints] = useState('');
+  const [memoriesUser, setMemoriesUser] = useState<EnrichedUser | null>(null);
+  const [memories, setMemories] = useState<any[]>([]);
+  const [memoriesLoading, setMemoriesLoading] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
