@@ -368,7 +368,7 @@ const AdminDashboard = () => {
                 <CardContent className="p-3">
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium text-sm text-foreground">{log.service}</span>
-                    <Badge className={statusColor(log.status)} variant="secondary" className2="text-xs">{log.status}</Badge>
+                    <Badge className={`${statusColor(log.status)} text-xs`} variant="secondary">{log.status}</Badge>
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span className="font-mono truncate max-w-[40%]">{log.key_identifier}</span>
