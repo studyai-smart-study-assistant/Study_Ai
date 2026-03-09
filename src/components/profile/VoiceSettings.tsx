@@ -35,8 +35,20 @@ const TOP_VOICES: VoiceInfo[] = [
   { id: 'shubh', label: 'Shubh', gender: 'Male', description_hi: 'डिफॉल्ट आवाज़ — बैलेंस्ड और सबके लिए उपयुक्त', description_en: 'Default voice — balanced & suitable for all', badge: '🔵 Default', color: 'from-slate-500 to-gray-400' },
 ];
 
-const DEMO_TEXT_HI = 'नमस्ते! मैं आपकी AI टीचर हूँ। आइए आज कुछ नया सीखते हैं!';
-const DEMO_TEXT_EN = 'Hello! I am your AI teacher. Let us learn something new today!';
+const DEMO_TEXTS_HI = [
+  'Study AI में आपका स्वागत है! चलो मिलकर कुछ नया सीखते हैं!',
+  'नमस्ते! मैं Study AI हूँ, आपका पढ़ाई का साथी। बताइए आज क्या पढ़ना है?',
+  'हेलो! मेरे साथ पढ़ाई करो, मज़ा भी आएगा और समझ भी!',
+  'Study AI में आइए! आज कौन सा टॉपिक क्लियर करना है?',
+  'स्वागत है दोस्त! चलो आज कुछ नया सीखते हैं, तैयार हो?',
+];
+const DEMO_TEXTS_EN = [
+  'Welcome to Study AI! Let us learn something amazing together!',
+  'Hello! I am Study AI, your study partner. What shall we learn today?',
+  'Hey there! Study with me, it will be fun and easy!',
+  'Welcome! Which topic should we crack today?',
+  'Hi friend! Ready to learn something new with Study AI?',
+];
 
 export interface VoicePreferences {
   voice: string;
