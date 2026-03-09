@@ -61,36 +61,21 @@ const BrowserStorageManager: React.FC = () => {
     }
   };
 
-  const viewContent = (content: SavedContent) => {
-    const blob = new Blob([content.content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${content.title}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
+  const viewContent = async (content: SavedContent) => {
+    const { safeDownloadText } = await import('@/utils/webviewDownload');
+    await safeDownloadText(content.content, `${content.title}.txt`);
     toast.success('📥 Content download हो गया!');
   };
 
-  const exportAllContent = () => {
+  const exportAllContent = async () => {
     const allContent = savedContent.map(item => ({
       ...item,
       content: item.content
     }));
     
+    const { safeDownload } = await import('@/utils/webviewDownload');
     const blob = new Blob([JSON.stringify(allContent, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `study-ai-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
+    await safeDownload({ blob, filename: `study-ai-backup-${new Date().toISOString().split('T')[0]}.json`, mimeType: 'application/json' });
     toast.success('📦 सारा content export हो गया!');
   };
 
