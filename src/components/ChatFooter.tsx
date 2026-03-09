@@ -293,7 +293,13 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   const getPlaceholder = () => {
     if (isDisabled) return language === 'hi' ? "AI जवाब दे रहा है..." : "Waiting for AI...";
     if (isImageMode) return language === 'hi' ? "Image का description लिखें..." : "Describe the image...";
+    if (isDeepThinking) return language === 'hi' ? "कोई भी टॉपिक लिखें — गहन रिसर्च होगी..." : "Enter topic for deep research...";
     return language === 'hi' ? "कुछ भी पूछें..." : "Ask anything...";
+  };
+
+  const handleDeepThinkingSend = (text: string) => {
+    const deepPrompt = `🔬 [DEEP RESEARCH] ${text} — इस विषय पर गहन इंटरनेट रिसर्च करो और एडवांस लेवल की जानकारी दो। सभी पहलुओं को कवर करो — इतिहास, वर्तमान स्थिति, भविष्य की संभावनाएं, और expert opinions। हिंदी और English दोनों में समझाओ।`;
+    onSend(deepPrompt);
   };
 
   const hasContent = input.trim() || uploadedImage;
