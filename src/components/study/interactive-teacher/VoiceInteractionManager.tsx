@@ -1,19 +1,18 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { 
   Mic, 
   MicOff, 
   Volume2, 
   VolumeX,
-  Play,
-  Pause,
-  Settings,
+  Loader2,
   Headphones
 } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useSarvamSTT } from '@/hooks/useSarvamSTT';
 
 
 interface VoiceInteractionManagerProps {
@@ -29,76 +28,20 @@ const VoiceInteractionManager: React.FC<VoiceInteractionManagerProps> = ({
   isProcessing = false,
   currentMessage = ''
 }) => {
-  const [isListening, setIsListening] = useState(false);
+  const { language } = useLanguage();
   const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
-  const [confidence, setConfidence] = useState(0);
-  const [interimText, setInterimText] = useState('');
-  const [voiceSettings, setVoiceSettings] = useState({
-    rate: 1.0,
-    pitch: 1.0,
-    volume: 0.8
+
+  const { isRecording, isProcessing: isSttProcessing, toggleRecording } = useSarvamSTT({
+    language,
+    onTranscript: (text) => {
+      // Show interim text
+    },
+    onAutoSend: (text) => {
+      // Auto-send transcribed text to teacher
+      onVoiceInput(text);
+    },
+    silenceThreshold: 25000
   });
-
-  const isTTSEnabled = false;
-  const isSupported = false;
-
-  useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognitionInstance = new SpeechRecognition();
-      
-      recognitionInstance.continuous = true;
-      recognitionInstance.interimResults = true;
-      recognitionInstance.lang = 'hi-IN';
-
-      recognitionInstance.onresult = (event) => {
-        let finalText = '';
-        let interimText = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-          if (result.isFinal) {
-            finalText += result[0].transcript;
-            setConfidence(Math.round(result[0].confidence * 100));
-          } else {
-            interimText += result[0].transcript;
-          }
-        }
-
-        if (finalText) {
-          onVoiceInput(finalText);
-          setInterimText('');
-        } else {
-          setInterimText(interimText);
-        }
-      };
-
-      recognitionInstance.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
-        setIsListening(false);
-      };
-
-      recognitionInstance.onend = () => {
-        setIsListening(false);
-        setInterimText('');
-      };
-
-      setRecognition(recognitionInstance);
-    }
-  }, [onVoiceInput]);
-
-  const toggleListening = useCallback(() => {
-    if (!recognition) return;
-
-    if (isListening) {
-      recognition.stop();
-      setIsListening(false);
-    } else {
-      recognition.start();
-      setIsListening(true);
-    }
-  }, [recognition, isListening]);
 
   const toggleVoiceOutput = useCallback(() => {
     const newState = !voiceEnabled;
@@ -106,32 +49,14 @@ const VoiceInteractionManager: React.FC<VoiceInteractionManagerProps> = ({
     onVoiceToggle(newState);
   }, [voiceEnabled, onVoiceToggle]);
 
-  const speakText = useCallback((text: string) => {
-    if (!voiceEnabled || !isSupported) return;
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = voiceSettings.rate;
-    utterance.pitch = voiceSettings.pitch;
-    utterance.volume = voiceSettings.volume;
-    utterance.lang = 'hi-IN';
-
-    speechSynthesis.speak(utterance);
-  }, [voiceEnabled, isSupported, voiceSettings]);
-
-  useEffect(() => {
-    if (currentMessage && voiceEnabled) {
-      speakText(currentMessage);
-    }
-  }, [currentMessage, voiceEnabled, speakText]);
-
   return (
-    <Card className="border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50">
+    <Card className="border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950">
       <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2 text-indigo-700">
+        <CardTitle className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
           <Headphones className="h-5 w-5" />
-          Voice Interaction Manager
-          <Badge className={`${voiceEnabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-            {voiceEnabled ? 'Active' : 'Inactive'}
+          Voice Mode (Sarvam AI)
+          <Badge className={`${isRecording ? 'bg-red-100 text-red-800 animate-pulse' : voiceEnabled ? 'bg-green-100 text-green-800' : 'bg-muted text-muted-foreground'}`}>
+            {isRecording ? '🔴 Recording' : voiceEnabled ? 'Active' : 'Inactive'}
           </Badge>
         </CardTitle>
       </CardHeader>
@@ -139,114 +64,81 @@ const VoiceInteractionManager: React.FC<VoiceInteractionManagerProps> = ({
         {/* Voice Input Section */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="font-medium text-sm">Voice Input</h4>
+            <div>
+              <h4 className="font-medium text-sm">
+                {language === 'hi' ? 'बोलकर जवाब दें' : 'Speak Your Answer'}
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                {language === 'hi' 
+                  ? 'माइक दबाएं और बोलें — चुप होने पर अपने आप भेज देगा' 
+                  : 'Press mic and speak — auto-sends when you stop talking'}
+              </p>
+            </div>
             <Button
-              size="sm"
-              variant={isListening ? "default" : "outline"}
-              onClick={toggleListening}
-              disabled={isProcessing}
-              className={`${isListening ? 'bg-red-500 hover:bg-red-600' : ''}`}
+              size="lg"
+              variant={isRecording ? "destructive" : "default"}
+              onClick={toggleRecording}
+              disabled={isProcessing || isSttProcessing}
+              className={`rounded-full w-14 h-14 ${isRecording ? 'animate-pulse' : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700'}`}
             >
-              {isListening ? <MicOff className="h-4 w-4 mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
-              {isListening ? 'Stop' : 'Listen'}
+              {isSttProcessing ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : isRecording ? (
+                <MicOff className="h-6 w-6" />
+              ) : (
+                <Mic className="h-6 w-6" />
+              )}
             </Button>
           </div>
 
-          {isListening && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                <span className="text-sm text-red-600">Listening...</span>
+          {isRecording && (
+            <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
+              <div className="flex gap-1">
+                {[...Array(5)].map((_, i) => (
+                  <div 
+                    key={i}
+                    className="w-1 bg-red-500 rounded-full animate-pulse"
+                    style={{ 
+                      height: `${12 + Math.random() * 16}px`,
+                      animationDelay: `${i * 0.1}s`
+                    }}
+                  />
+                ))}
               </div>
-              
-              {interimText && (
-                <div className="p-3 bg-gray-50 rounded-lg border-l-4 border-indigo-400">
-                  <p className="text-sm text-gray-600 italic">{interimText}</p>
-                </div>
-              )}
+              <span className="text-sm text-red-600 dark:text-red-400 font-medium">
+                {language === 'hi' ? '🎤 सुन रहा हूं... बोलते रहें' : '🎤 Listening... keep speaking'}
+              </span>
+            </div>
+          )}
 
-              {confidence > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">Confidence:</span>
-                  <Progress value={confidence} className="h-1 w-20" />
-                  <span className="text-xs text-gray-500">{confidence}%</span>
-                </div>
-              )}
+          {isSttProcessing && (
+            <div className="flex items-center gap-2 p-3 bg-indigo-50 dark:bg-indigo-950 rounded-lg">
+              <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+              <span className="text-sm text-indigo-600 dark:text-indigo-400">
+                {language === 'hi' ? 'टेक्स्ट में बदल रहा है...' : 'Converting to text...'}
+              </span>
             </div>
           )}
         </div>
 
-        {/* Voice Output Section */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="font-medium text-sm">Voice Output</h4>
-            <Button
-              size="sm"
-              variant={voiceEnabled ? "default" : "outline"}
-              onClick={toggleVoiceOutput}
-              className={`${voiceEnabled ? 'bg-green-500 hover:bg-green-600' : ''}`}
-            >
-              {voiceEnabled ? <Volume2 className="h-4 w-4 mr-2" /> : <VolumeX className="h-4 w-4 mr-2" />}
-              {voiceEnabled ? 'On' : 'Off'}
-            </Button>
+        {/* Voice Output Toggle */}
+        <div className="flex items-center justify-between pt-3 border-t">
+          <div>
+            <h4 className="font-medium text-sm">
+              {language === 'hi' ? 'आवाज़ आउटपुट' : 'Voice Output'}
+            </h4>
+            <p className="text-xs text-muted-foreground">
+              {language === 'hi' ? 'टीचर की आवाज़ सुनें' : 'Listen to teacher voice'}
+            </p>
           </div>
-
-          {voiceEnabled && (
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="text-xs text-gray-600">Speed</label>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="2"
-                  step="0.1"
-                  value={voiceSettings.rate}
-                  onChange={(e) => setVoiceSettings(prev => ({ ...prev, rate: parseFloat(e.target.value) }))}
-                  className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                />
-                <span className="text-xs text-gray-500">{voiceSettings.rate}x</span>
-              </div>
-
-              <div>
-                <label className="text-xs text-gray-600">Pitch</label>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="2"
-                  step="0.1"
-                  value={voiceSettings.pitch}
-                  onChange={(e) => setVoiceSettings(prev => ({ ...prev, pitch: parseFloat(e.target.value) }))}
-                  className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                />
-                <span className="text-xs text-gray-500">{voiceSettings.pitch}</span>
-              </div>
-
-              <div>
-                <label className="text-xs text-gray-600">Volume</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={voiceSettings.volume}
-                  onChange={(e) => setVoiceSettings(prev => ({ ...prev, volume: parseFloat(e.target.value) }))}
-                  className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                />
-                <span className="text-xs text-gray-500">{Math.round(voiceSettings.volume * 100)}%</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Quick Actions */}
-        <div className="flex gap-2 pt-2 border-t">
-          <Button size="sm" variant="outline" onClick={() => speakText("Voice test करने के लिए यह message है")}>
-            <Play className="h-3 w-3 mr-1" />
-            Test Voice
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => speechSynthesis.cancel()}>
-            <Pause className="h-3 w-3 mr-1" />
-            Stop Speaking
+          <Button
+            size="sm"
+            variant={voiceEnabled ? "default" : "outline"}
+            onClick={toggleVoiceOutput}
+            className={voiceEnabled ? 'bg-green-500 hover:bg-green-600' : ''}
+          >
+            {voiceEnabled ? <Volume2 className="h-4 w-4 mr-2" /> : <VolumeX className="h-4 w-4 mr-2" />}
+            {voiceEnabled ? 'On' : 'Off'}
           </Button>
         </div>
       </CardContent>
