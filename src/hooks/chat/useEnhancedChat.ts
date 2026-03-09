@@ -70,12 +70,17 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
       setConnectionStatus('connected');
       setLastSources([]); // Clear previous sources
       
-      // For display: store text + image marker separately
+      // For display: store text + file marker separately
       const isBase64Image = imageUrl?.startsWith('data:image/');
+      const isBase64Pdf = imageUrl?.startsWith('data:application/pdf');
       let messageContent = input.trim();
       let imageBase64: string | undefined;
       
-      if (isBase64Image && imageUrl) {
+      if (isBase64Pdf && imageUrl) {
+        const textPart = messageContent || 'इस PDF के बारे में बताओ';
+        messageContent = `[PDF_ATTACHED] 📄 ${textPart}`;
+        imageBase64 = imageUrl; // Send PDF base64 to AI for analysis
+      } else if (isBase64Image && imageUrl) {
         const textPart = messageContent || 'इस image के बारे में बताओ';
         // Store full base64 in content so it renders in chat
         messageContent = `[IMG_DATA:${imageUrl}]${textPart}`;
