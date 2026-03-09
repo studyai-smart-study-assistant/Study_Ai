@@ -55,11 +55,7 @@ export async function deleteImageFromGallery(id: string): Promise<void> {
   });
 }
 
-export function downloadImage(imageData: string, filename: string) {
-  const link = document.createElement('a');
-  link.href = imageData;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+export async function downloadImage(imageData: string, filename: string) {
+  const { safeDownloadImage } = await import('@/utils/webviewDownload');
+  await safeDownloadImage(imageData, filename);
 }

@@ -167,24 +167,28 @@ export async function generateChatPdfAsync(content: string, title?: string): Pro
 
 /** Download chat content as PDF */
 export async function downloadChatPdf(content: string, title?: string) {
+  const { safeDownload } = await import('./webviewDownload');
   const doc = await generateChatPdfAsync(content, title);
-  doc.save(`${(title || 'Study-AI-Notes').replace(/\s+/g, '-')}.pdf`);
+  const blob = doc.output('blob');
+  const fileName = `${(title || 'Study-AI-Notes').replace(/\s+/g, '-')}.pdf`;
+  await safeDownload({ blob, filename: fileName, mimeType: 'application/pdf' });
 }
 
 /** Share chat content as PDF (with fallback to download) */
 export async function shareChatPdf(content: string, title?: string) {
+  const { safeDownload } = await import('./webviewDownload');
   const doc = await generateChatPdfAsync(content, title);
   const blob = doc.output('blob');
   const fileName = `${(title || 'Study-AI-Notes').replace(/\s+/g, '-')}.pdf`;
-  const file = new File([blob], fileName, { type: 'application/pdf' });
 
-  if (navigator.share && navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ title: title || 'Study AI Notes', files: [file] });
-    return true;
-  } else if (navigator.share) {
-    await navigator.share({ title: title || 'Study AI Notes', text: content.slice(0, 500) });
-    return true;
-  }
-  doc.save(fileName);
+  try {
+    const file = new File([blob], fileName, { type: 'application/pdf' });
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ title: title || 'Study AI Notes', files: [file] });
+      return true;
+    }
+  } catch { /* fallback */ }
+
+  await safeDownload({ blob, filename: fileName, mimeType: 'application/pdf' });
   return false;
 }

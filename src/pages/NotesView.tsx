@@ -48,8 +48,10 @@ const NotesView = () => {
   const downloadAsPdf = async () => {
     setPdfLoading(true);
     try {
+      const { safeDownload } = await import('@/utils/webviewDownload');
       const doc = generateNotesPdf(note);
-      doc.save(`${note.title}.pdf`);
+      const blob = doc.output('blob');
+      await safeDownload({ blob, filename: `${note.title}.pdf`, mimeType: 'application/pdf' });
       toast.success('📥 PDF download हो गया!');
     } catch {
       toast.error('PDF बनाने में दिक्कत आई');
@@ -81,14 +83,9 @@ const NotesView = () => {
     }
   };
 
-  const downloadAsTxt = () => {
-    const element = document.createElement('a');
-    const file = new Blob([note.content], { type: 'text/plain' });
-    element.href = URL.createObjectURL(file);
-    element.download = `${note.title}.txt`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+  const downloadAsTxt = async () => {
+    const { safeDownloadText } = await import('@/utils/webviewDownload');
+    await safeDownloadText(note.content, `${note.title}.txt`, 'text/plain');
     toast.success('📥 Text file download हो गई!');
   };
 
