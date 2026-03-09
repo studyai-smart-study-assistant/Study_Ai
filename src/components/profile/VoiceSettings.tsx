@@ -218,7 +218,7 @@ const VoiceSettings: React.FC = () => {
         <div className="flex items-center justify-center gap-2">
           <Volume2 className="h-6 w-6 text-primary" />
           <h2 className="text-xl font-bold text-foreground">
-            {language === 'hi' ? 'AI टीचर की आवाज़' : 'AI Teacher Voice'}
+            {language === 'hi' ? 'Study AI आवाज़ चुनें' : 'Choose Study AI Voice'}
           </h2>
         </div>
         <p className="text-sm text-muted-foreground">
