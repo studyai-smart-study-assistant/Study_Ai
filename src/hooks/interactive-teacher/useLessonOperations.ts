@@ -142,12 +142,13 @@ export const useLessonOperations = ({
         console.log('Using enhanced prompt with conversation history:', updatedHistory.length, 'messages');
 
         // Build proper message history for context-aware generation
-        const messageHistory = updatedHistory.map(entry => {
-          if (entry.startsWith('Teacher:')) {
-            return { role: 'assistant' as const, content: entry.replace('Teacher: ', '') };
-          }
-          return { role: 'user' as const, content: entry.replace('Student: ', '') };
-        });
+        const messageHistory = updatedHistory.map((entry, i) => ({
+          id: `hist_${i}`,
+          chatId: 'interactive-teacher',
+          role: entry.startsWith('Teacher:') ? 'bot' as const : 'user' as const,
+          content: entry.replace(/^(Teacher|Student): /, ''),
+          timestamp: Date.now() - (updatedHistory.length - i) * 1000
+        }));
 
         // Use Lovable AI with proper conversation context to prevent repetition
         const response = await generateResponse(contextPrompt, messageHistory, undefined, 'google/gemini-3-flash-preview');
