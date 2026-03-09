@@ -113,9 +113,11 @@ export async function generateResponse(
   chatId?: string,
   model: string = 'google/gemini-3-flash-preview'
 ): Promise<string> {
-  const result = await generateResponseWithSearch(prompt, history, chatId, model, false);
+const result = await generateResponseWithSearch(prompt, history, chatId, model, false);
   return result.text;
 }
+
+import { getRealtimeContext, isDateTimeQuery, getDateTimeAnswer } from '../utils/realtimeContext';
 
 /**
  * Enhanced generateResponse - Gemini auto-decides web search via tool calling
@@ -132,6 +134,17 @@ export async function generateResponseWithSearch(
 ): Promise<GenerateResponseWithSearchResult> {
   try {
     console.log(`🚀 Study AI: model=${model}, forceWebSearch=${forceWebSearch}`);
+    
+    // Quick interception for exact date/time queries to avoid unnecessary AI processing and latency
+    if (!imageBase64 && !forceWebSearch && isDateTimeQuery(prompt)) {
+      const answer = getDateTimeAnswer(prompt);
+      
+      if (chatId) {
+        await chatDB.addMessage(chatId, answer, "bot");
+      }
+      
+      return { text: answer, sources: [], webSearchUsed: false };
+    }
 
     const sanitizeForAI = (text: string) =>
       (text || "")
@@ -139,10 +152,12 @@ export async function generateResponseWithSearch(
         .replace(/\[image:[^\]]+\]/gi, "[Image attached]")
         .trim();
 
+    const realtimeCtx = getRealtimeContext();
+
     const formattedHistory = [
       {
         role: "system",
-        content: "You are Study AI, created by Ajit Kumar. Smart, friendly AI teacher for Bihar Board and competitive exam students."
+        content: `You are Study AI, created by Ajit Kumar. Smart, friendly AI teacher for Bihar Board and competitive exam students.\n\n${realtimeCtx.contextPrompt}`
       },
       ...history.slice(-30).map((msg) => ({
         role: msg.role,
