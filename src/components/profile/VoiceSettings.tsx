@@ -35,8 +35,20 @@ const TOP_VOICES: VoiceInfo[] = [
   { id: 'shubh', label: 'Shubh', gender: 'Male', description_hi: 'डिफॉल्ट आवाज़ — बैलेंस्ड और सबके लिए उपयुक्त', description_en: 'Default voice — balanced & suitable for all', badge: '🔵 Default', color: 'from-slate-500 to-gray-400' },
 ];
 
-const DEMO_TEXT_HI = 'नमस्ते! मैं आपकी AI टीचर हूँ। आइए आज कुछ नया सीखते हैं!';
-const DEMO_TEXT_EN = 'Hello! I am your AI teacher. Let us learn something new today!';
+const DEMO_TEXTS_HI = [
+  'Study AI में आपका स्वागत है! चलो मिलकर कुछ नया सीखते हैं!',
+  'नमस्ते! मैं Study AI हूँ, आपका पढ़ाई का साथी। बताइए आज क्या पढ़ना है?',
+  'हेलो! मेरे साथ पढ़ाई करो, मज़ा भी आएगा और समझ भी!',
+  'Study AI में आइए! आज कौन सा टॉपिक क्लियर करना है?',
+  'स्वागत है दोस्त! चलो आज कुछ नया सीखते हैं, तैयार हो?',
+];
+const DEMO_TEXTS_EN = [
+  'Welcome to Study AI! Let us learn something amazing together!',
+  'Hello! I am Study AI, your study partner. What shall we learn today?',
+  'Hey there! Study with me, it will be fun and easy!',
+  'Welcome! Which topic should we crack today?',
+  'Hi friend! Ready to learn something new with Study AI?',
+];
 
 export interface VoicePreferences {
   voice: string;
@@ -95,7 +107,8 @@ const VoiceSettings: React.FC = () => {
     setPlayingVoiceId(voiceId);
 
     try {
-      const demoText = demoLang === 'hi' ? DEMO_TEXT_HI : DEMO_TEXT_EN;
+      const texts = demoLang === 'hi' ? DEMO_TEXTS_HI : DEMO_TEXTS_EN;
+      const demoText = texts[Math.floor(Math.random() * texts.length)];
       const langCode = demoLang === 'hi' ? 'hi-IN' : 'en-IN';
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: { text: demoText, language: langCode, voice: voiceId },
@@ -205,7 +218,7 @@ const VoiceSettings: React.FC = () => {
         <div className="flex items-center justify-center gap-2">
           <Volume2 className="h-6 w-6 text-primary" />
           <h2 className="text-xl font-bold text-foreground">
-            {language === 'hi' ? 'AI टीचर की आवाज़' : 'AI Teacher Voice'}
+            {language === 'hi' ? 'Study AI आवाज़ चुनें' : 'Choose Study AI Voice'}
           </h2>
         </div>
         <p className="text-sm text-muted-foreground">
