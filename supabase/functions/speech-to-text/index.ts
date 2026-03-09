@@ -52,7 +52,10 @@ serve(async (req) => {
       bytes[i] = binaryStr.charCodeAt(i);
     }
 
+    // Use 'unknown' for auto language detection by Sarvam AI
     const langCode = language === 'hi' ? 'hi-IN' : language === 'en' ? 'en-IN' : 'unknown';
+    // Always pass 'unknown' to let Sarvam auto-detect the actual spoken language
+    const detectLangCode = 'unknown';
 
     console.log(`🎤 STT request (${keys.length} keys in pool)`);
 
@@ -65,7 +68,7 @@ serve(async (req) => {
         const audioBlob = new Blob([bytes.buffer], { type: 'audio/webm' });
         formData.append('file', audioBlob, 'recording.webm');
         formData.append('model', 'saarika:v2.5');
-        formData.append('language_code', langCode);
+        formData.append('language_code', detectLangCode);
 
         const response = await fetch('https://api.sarvam.ai/speech-to-text', {
           method: 'POST',

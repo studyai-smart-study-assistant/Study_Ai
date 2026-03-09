@@ -5,13 +5,15 @@ import { supabase } from '@/integrations/supabase/client';
 interface UseSarvamSTTOptions {
   language: string;
   onTranscript?: (text: string) => void;
+  onAutoSend?: (text: string) => void; // Called when silence auto-stops and text is ready
   silenceThreshold?: number; // ms of silence before auto-stop
 }
 
 export function useSarvamSTT({ 
   language, 
   onTranscript,
-  silenceThreshold = 3000 // 3 seconds silence = auto stop
+  onAutoSend,
+  silenceThreshold = 25000 // 25 seconds silence = auto stop
 }: UseSarvamSTTOptions) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -178,6 +180,7 @@ export function useSarvamSTT({
         console.log('✅ Transcript:', data.transcript);
         setTranscript(data.transcript);
         onTranscript?.(data.transcript);
+        onAutoSend?.(data.transcript);
         toast.success(language === 'hi' ? '✅ टेक्स्ट तैयार!' : '✅ Transcription ready!');
       } else {
         toast.warning(language === 'hi' ? 'कोई बोली नहीं मिली' : 'No speech detected');

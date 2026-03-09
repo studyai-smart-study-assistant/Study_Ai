@@ -24,7 +24,14 @@ const StudentQuestion: React.FC<StudentQuestionProps> = ({
         inputRef.current.value = text;
       }
     },
-    silenceThreshold: 2500 // 2.5 seconds silence = auto stop
+    onAutoSend: (text) => {
+      if (inputRef.current) {
+        inputRef.current.value = text;
+      }
+      // Auto-send after silence detection
+      sendStudentQuestion();
+    },
+    silenceThreshold: 25000 // 25 seconds silence = auto stop
   });
   
   return (
