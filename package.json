@@ -15,8 +15,6 @@
     "node": ">=20.18.1"
   },
   "dependencies": {
-    "@capacitor/core": "^8.2.0",
-    "@capacitor/filesystem": "^8.1.2",
     "@hookform/resolvers": "^3.10.0",
     "@lovable.dev/cloud-auth-js": "^0.0.3",
     "@radix-ui/react-accordion": "^1.2.0",
