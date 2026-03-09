@@ -45,6 +45,12 @@ const TeacherChats = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-green-50 dark:from-gray-800 dark:to-gray-900 p-4">
+      <PageMeta 
+        title="AI Teacher Chat - Learn from Virtual AI Teachers | StudyAI"
+        description="Chat with AI teachers for personalized learning. Get explanations in Hindi or English. Perfect for Bihar Board, competitive exams preparation."
+        canonicalPath="/teacher-chats"
+        keywords="AI Teacher, Virtual Teacher, Online Tutor, Learn with AI, Hindi Teacher"
+      />
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center">
