@@ -18,6 +18,7 @@ const EmptyChatState: React.FC<EmptyChatStateProps> = ({ onSendMessage }) => {
         onAnalyzeImages={() => onSendMessage("Give me a study plan for IELTS exam")}
         onSummarizeText={() => onSendMessage("Summarize the key concepts of organic chemistry")}
         onMore={() => {}}
+        onDeepThinking={(topic) => onSendMessage(`🔬 [DEEP RESEARCH] ${topic} - इस विषय पर गहन इंटरनेट रिसर्च करो और एडवांस लेवल की जानकारी दो। सभी पहलुओं को कवर करो - इतिहास, वर्तमान स्थिति, भविष्य की संभावनाएं, और एक्सपर्ट opinions।`)}
       />
       
       {/* Enhanced Study Tools Section */}
