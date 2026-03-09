@@ -68,7 +68,7 @@ serve(async (req) => {
         const audioBlob = new Blob([bytes.buffer], { type: 'audio/webm' });
         formData.append('file', audioBlob, 'recording.webm');
         formData.append('model', 'saarika:v2.5');
-        formData.append('language_code', langCode);
+        formData.append('language_code', detectLangCode);
 
         const response = await fetch('https://api.sarvam.ai/speech-to-text', {
           method: 'POST',
