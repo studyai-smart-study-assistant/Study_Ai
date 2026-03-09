@@ -3,63 +3,38 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Volume2, Play, Square, Check, Loader2 } from 'lucide-react';
+import { Volume2, Play, Square, Check, Loader2, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-const SARVAM_VOICES = [
-  { id: 'priya', label: 'Priya', gender: 'Female' },
-  { id: 'neha', label: 'Neha', gender: 'Female' },
-  { id: 'ritu', label: 'Ritu', gender: 'Female' },
-  { id: 'pooja', label: 'Pooja', gender: 'Female' },
-  { id: 'simran', label: 'Simran', gender: 'Female' },
-  { id: 'kavya', label: 'Kavya', gender: 'Female' },
-  { id: 'ishita', label: 'Ishita', gender: 'Female' },
-  { id: 'shreya', label: 'Shreya', gender: 'Female' },
-  { id: 'tanya', label: 'Tanya', gender: 'Female' },
-  { id: 'shruti', label: 'Shruti', gender: 'Female' },
-  { id: 'suhani', label: 'Suhani', gender: 'Female' },
-  { id: 'kavitha', label: 'Kavitha', gender: 'Female' },
-  { id: 'rupali', label: 'Rupali', gender: 'Female' },
-  { id: 'roopa', label: 'Roopa', gender: 'Female' },
-  { id: 'amelia', label: 'Amelia', gender: 'Female' },
-  { id: 'sophia', label: 'Sophia', gender: 'Female' },
-  { id: 'anushka', label: 'Anushka', gender: 'Female' },
-  { id: 'manisha', label: 'Manisha', gender: 'Female' },
-  { id: 'vidya', label: 'Vidya', gender: 'Female' },
-  { id: 'arya', label: 'Arya', gender: 'Female' },
-  { id: 'aditya', label: 'Aditya', gender: 'Male' },
-  { id: 'ashutosh', label: 'Ashutosh', gender: 'Male' },
-  { id: 'rahul', label: 'Rahul', gender: 'Male' },
-  { id: 'rohan', label: 'Rohan', gender: 'Male' },
-  { id: 'amit', label: 'Amit', gender: 'Male' },
-  { id: 'dev', label: 'Dev', gender: 'Male' },
-  { id: 'ratan', label: 'Ratan', gender: 'Male' },
-  { id: 'varun', label: 'Varun', gender: 'Male' },
-  { id: 'manan', label: 'Manan', gender: 'Male' },
-  { id: 'sumit', label: 'Sumit', gender: 'Male' },
-  { id: 'kabir', label: 'Kabir', gender: 'Male' },
-  { id: 'anand', label: 'Anand', gender: 'Male' },
-  { id: 'tarun', label: 'Tarun', gender: 'Male' },
-  { id: 'sunny', label: 'Sunny', gender: 'Male' },
-  { id: 'vijay', label: 'Vijay', gender: 'Male' },
-  { id: 'mohit', label: 'Mohit', gender: 'Male' },
-  { id: 'rehan', label: 'Rehan', gender: 'Male' },
-  { id: 'soham', label: 'Soham', gender: 'Male' },
-  { id: 'shubh', label: 'Shubh', gender: 'Male' },
-  { id: 'abhilash', label: 'Abhilash', gender: 'Male' },
-  { id: 'karun', label: 'Karun', gender: 'Male' },
-  { id: 'hitesh', label: 'Hitesh', gender: 'Male' },
-  { id: 'aayan', label: 'Aayan', gender: 'Male' },
-  { id: 'advait', label: 'Advait', gender: 'Male' },
-  { id: 'mani', label: 'Mani', gender: 'Male' },
-  { id: 'gokul', label: 'Gokul', gender: 'Male' },
+interface VoiceInfo {
+  id: string;
+  label: string;
+  gender: 'Female' | 'Male';
+  description_hi: string;
+  description_en: string;
+  badge: string;
+}
+
+const TOP_VOICES: VoiceInfo[] = [
+  // Female voices
+  { id: 'simran', label: 'Saumya', gender: 'Female', description_hi: 'शांत, स्पष्ट और प्रोफेशनल — मुश्किल टॉपिक्स समझाने के लिए', description_en: 'Calm, clear & professional — for explaining tough topics', badge: '⭐ Best' },
+  { id: 'kavya', label: 'Kavya', gender: 'Female', description_hi: 'मधुर और लयबद्ध — कहानी से इतिहास समझाने के लिए', description_en: 'Sweet & expressive — for storytelling & history', badge: '📖' },
+  { id: 'ishita', label: 'Ishani', gender: 'Female', description_hi: 'सॉफ्ट और धैर्यवान — छोटे बच्चों व बेसिक कॉन्सेप्ट्स के लिए', description_en: 'Soft & patient — for kids & basic concepts', badge: '🧸' },
+  { id: 'priya', label: 'Meera', gender: 'Female', description_hi: 'ममतामयी आवाज़ — मोटिवेशन और प्रेरणा के लिए', description_en: 'Warm & motherly — for motivation & inspiration', badge: '💖' },
+  { id: 'arya', label: 'Zara', gender: 'Female', description_hi: 'कॉन्फिडेंट और स्मार्ट — क्विज़ और गेमिफिकेशन के लिए', description_en: 'Confident & smart — for quizzes & gamification', badge: '🎯' },
+  // Male voices
+  { id: 'ashutosh', label: 'Aman', gender: 'Male', description_hi: 'गहरी, गंभीर और भरोसेमंद — प्रतियोगी परीक्षा लेक्चर के लिए', description_en: 'Deep & trustworthy — for competitive exam lectures', badge: '🎓' },
+  { id: 'rohan', label: 'Rohan', gender: 'Male', description_hi: 'उत्साही और तेज़ — कोडिंग और टेक टॉपिक्स, दोस्त जैसा', description_en: 'Energetic & fast — coding & tech, like a friend', badge: '💻' },
+  { id: 'amit', label: 'Arjun', gender: 'Male', description_hi: 'कमांडिंग और स्पष्ट — लाइव टेस्ट और निर्देशों के लिए', description_en: 'Commanding & clear — for live tests & instructions', badge: '📢' },
+  { id: 'dev', label: 'Vihaan', gender: 'Male', description_hi: 'मॉडर्न और अर्बन — CS और लेटेस्ट न्यूज़ के लिए', description_en: 'Modern & urban — for CS & latest news', badge: '🌐' },
+  { id: 'kabir', label: 'Kabir', gender: 'Male', description_hi: 'क्लासिक और शुद्ध हिंदी — साहित्य व व्याकरण के लिए', description_en: 'Classic & pure Hindi — for literature & grammar', badge: '📜' },
+  { id: 'shubh', label: 'Shubh', gender: 'Male', description_hi: 'डिफॉल्ट आवाज़ — बैलेंस्ड और सबके लिए उपयुक्त', description_en: 'Default voice — balanced & suitable for all', badge: '🔵 Default' },
 ];
 
-const DEMO_TEXT_HI = 'नमस्ते! यह एक टेस्ट ऑडियो है। इस आवाज़ को सुनकर अपनी पसंदीदा आवाज़ चुनें।';
-const DEMO_TEXT_EN = 'Hello! This is a test audio. Listen to this voice and choose your favorite.';
+const DEMO_TEXT_HI = 'नमस्ते! मैं आपकी AI टीचर हूँ। आइए आज कुछ नया सीखते हैं!';
+const DEMO_TEXT_EN = 'Hello! I am your AI teacher. Let us learn something new today!';
 
 export interface VoicePreferences {
   voice: string;
@@ -155,141 +130,155 @@ const VoiceSettings: React.FC = () => {
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const femaleVoices = SARVAM_VOICES.filter(v => v.gender === 'Female');
-  const maleVoices = SARVAM_VOICES.filter(v => v.gender === 'Male');
+  const femaleVoices = TOP_VOICES.filter(v => v.gender === 'Female');
+  const maleVoices = TOP_VOICES.filter(v => v.gender === 'Male');
+
+  const VoiceCard = ({ voice }: { voice: VoiceInfo }) => {
+    const isSelected = selectedVoice === voice.id;
+    const isCurrentPlaying = playingVoiceId === voice.id;
+    const isCurrentGenerating = isGenerating && isCurrentPlaying;
+    const isCurrentlyPlaying = isPlaying && isCurrentPlaying;
+
+    return (
+      <button
+        onClick={() => {
+          setSelectedVoice(voice.id);
+          if (isCurrentlyPlaying) {
+            stopAudio();
+          } else {
+            playDemo(voice.id);
+          }
+        }}
+        disabled={isGenerating && !isCurrentPlaying}
+        className={`relative w-full text-left p-3 rounded-xl border-2 transition-all duration-200 ${
+          isSelected
+            ? 'border-primary bg-primary/5 shadow-md ring-2 ring-primary/20'
+            : 'border-border hover:border-primary/40 hover:bg-accent/50'
+        } ${isGenerating && !isCurrentPlaying ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+      >
+        {/* Selected indicator */}
+        {isSelected && (
+          <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground rounded-full p-1">
+            <Check className="h-3 w-3" />
+          </div>
+        )}
+
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-semibold text-sm text-foreground">{voice.label}</span>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+                {voice.badge}
+              </Badge>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-tight line-clamp-2">
+              {language === 'hi' ? voice.description_hi : voice.description_en}
+            </p>
+          </div>
+          <div className="shrink-0 mt-1">
+            {isCurrentGenerating ? (
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            ) : isCurrentlyPlaying ? (
+              <Volume2 className="h-4 w-4 animate-pulse text-primary" />
+            ) : (
+              <Play className="h-4 w-4 text-muted-foreground" />
+            )}
+          </div>
+        </div>
+      </button>
+    );
+  };
 
   return (
     <div className="space-y-6">
+      {/* Header Card */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Volume2 className="h-5 w-5 text-primary" />
-            {language === 'hi' ? 'आवाज़ चुनें' : 'Select Voice'}
+            {language === 'hi' ? 'AI टीचर की आवाज़ चुनें' : 'Choose AI Teacher Voice'}
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            {language === 'hi' 
-              ? 'यहां आवाज़ चुनें। स्पीड कंट्रोल ऑडियो प्लेयर में मिलेगा।' 
-              : 'Select your voice here. Speed controls appear in the audio player.'}
+            {language === 'hi'
+              ? 'अपनी पसंदीदा आवाज़ पर टैप करें — सुनें और चुनें!'
+              : 'Tap any voice to preview — listen and choose!'}
           </p>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Voice Selector */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">
-              {language === 'hi' ? 'वर्तमान आवाज़' : 'Current Voice'}
-            </label>
-            <Select value={selectedVoice} onValueChange={setSelectedVoice}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="max-h-60">
-                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">
-                  {language === 'hi' ? '👩 महिला आवाज़ें' : '👩 Female Voices'}
-                </div>
-                {femaleVoices.map(v => (
-                  <SelectItem key={v.id} value={v.id}>{v.label}</SelectItem>
-                ))}
-                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground mt-1">
-                  {language === 'hi' ? '👨 पुरुष आवाज़ें' : '👨 Male Voices'}
-                </div>
-                {maleVoices.map(v => (
-                  <SelectItem key={v.id} value={v.id}>{v.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
+        <CardContent className="space-y-4">
           {/* Demo Language Toggle */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">
-              {language === 'hi' ? 'डेमो भाषा' : 'Demo Language'}
-            </label>
-            <div className="flex gap-2">
-              <Button
-                variant={demoLang === 'hi' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setDemoLang('hi')}
-              >
-                हिन्दी
-              </Button>
-              <Button
-                variant={demoLang === 'en' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setDemoLang('en')}
-              >
-                English
-              </Button>
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {language === 'hi' ? 'डेमो भाषा:' : 'Demo:'}
+            </span>
+            <Button
+              variant={demoLang === 'hi' ? 'default' : 'outline'}
+              size="sm"
+              className="h-7 text-xs px-3"
+              onClick={() => setDemoLang('hi')}
+            >
+              हिन्दी
+            </Button>
+            <Button
+              variant={demoLang === 'en' ? 'default' : 'outline'}
+              size="sm"
+              className="h-7 text-xs px-3"
+              onClick={() => setDemoLang('en')}
+            >
+              English
+            </Button>
           </div>
 
-          {/* Demo button */}
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => playingVoiceId === selectedVoice && isPlaying ? stopAudio() : playDemo(selectedVoice)}
-              disabled={isGenerating && playingVoiceId === selectedVoice}
-            >
-              {isGenerating && playingVoiceId === selectedVoice ? (
-                <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> {language === 'hi' ? 'लोड हो रहा...' : 'Loading...'}</>
-              ) : isPlaying && playingVoiceId === selectedVoice ? (
-                <><Square className="h-4 w-4 mr-1" /> {language === 'hi' ? 'रोकें' : 'Stop'}</>
-              ) : (
-                <><Play className="h-4 w-4 mr-1" /> {language === 'hi' ? 'डेमो सुनें' : 'Play Demo'}</>
-              )}
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              {demoLang === 'hi' ? 'हिन्दी में टेस्ट करें' : 'Test in English'}
+          {/* Current Selection */}
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/20">
+            <Sparkles className="h-4 w-4 text-primary shrink-0" />
+            <span className="text-xs text-foreground">
+              {language === 'hi' ? 'चुनी हुई आवाज़:' : 'Selected:'}{' '}
+              <strong>{TOP_VOICES.find(v => v.id === selectedVoice)?.label || selectedVoice}</strong>
             </span>
           </div>
-
-          {/* Save */}
-          <Button onClick={handleSave} className="w-full">
-            {saved ? (
-              <><Check className="h-4 w-4 mr-1" /> {language === 'hi' ? 'सेव हो गया!' : 'Saved!'}</>
-            ) : (
-              language === 'hi' ? 'सेटिंग्स सेव करें' : 'Save Settings'
-            )}
-          </Button>
         </CardContent>
       </Card>
 
-      {/* Voice Gallery */}
+      {/* Female Voices */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">
-            {language === 'hi' ? '🎧 सभी आवाज़ें आज़माएं' : '🎧 Try All Voices'}
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            👩 {language === 'hi' ? 'महिला आवाज़ें' : 'Female Voices'}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {SARVAM_VOICES.map(v => (
-              <Button
-                key={v.id}
-                variant={selectedVoice === v.id ? 'default' : 'outline'}
-                size="sm"
-                className="justify-between text-xs"
-                onClick={() => {
-                  setSelectedVoice(v.id);
-                  playDemo(v.id);
-                }}
-                disabled={isGenerating && playingVoiceId !== v.id}
-              >
-                <span>{v.label}</span>
-                {isGenerating && playingVoiceId === v.id ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : isPlaying && playingVoiceId === v.id ? (
-                  <Volume2 className="h-3 w-3 animate-pulse" />
-                ) : (
-                  <Badge variant="outline" className="text-[10px] px-1 py-0">
-                    {v.gender === 'Female' ? '👩' : '👨'}
-                  </Badge>
-                )}
-              </Button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {femaleVoices.map(v => (
+              <VoiceCard key={v.id} voice={v} />
             ))}
           </div>
         </CardContent>
       </Card>
+
+      {/* Male Voices */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            👨 {language === 'hi' ? 'पुरुष आवाज़ें' : 'Male Voices'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {maleVoices.map(v => (
+              <VoiceCard key={v.id} voice={v} />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Save Button */}
+      <Button onClick={handleSave} className="w-full" size="lg">
+        {saved ? (
+          <><Check className="h-4 w-4 mr-2" /> {language === 'hi' ? 'सेव हो गया!' : 'Saved!'}</>
+        ) : (
+          language === 'hi' ? '✅ सेटिंग्स सेव करें' : '✅ Save Settings'
+        )}
+      </Button>
     </div>
   );
 };
