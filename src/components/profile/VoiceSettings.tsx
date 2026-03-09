@@ -23,7 +23,7 @@ const TOP_VOICES: VoiceInfo[] = [
   { id: 'kavya', label: 'Kavya', gender: 'Female', description_hi: 'मधुर और लयबद्ध — कहानी से इतिहास समझाने के लिए', description_en: 'Sweet & expressive — for storytelling & history', badge: '📖' },
   { id: 'ishita', label: 'Ishani', gender: 'Female', description_hi: 'सॉफ्ट और धैर्यवान — छोटे बच्चों व बेसिक कॉन्सेप्ट्स के लिए', description_en: 'Soft & patient — for kids & basic concepts', badge: '🧸' },
   { id: 'priya', label: 'Meera', gender: 'Female', description_hi: 'ममतामयी आवाज़ — मोटिवेशन और प्रेरणा के लिए', description_en: 'Warm & motherly — for motivation & inspiration', badge: '💖' },
-  { id: 'arya', label: 'Zara', gender: 'Female', description_hi: 'कॉन्फिडेंट और स्मार्ट — क्विज़ और गेमिफिकेशन के लिए', description_en: 'Confident & smart — for quizzes & gamification', badge: '🎯' },
+  { id: 'shreya', label: 'Zara', gender: 'Female', description_hi: 'कॉन्फिडेंट और स्मार्ट — क्विज़ और गेमिफिकेशन के लिए', description_en: 'Confident & smart — for quizzes & gamification', badge: '🎯' },
   // Male voices
   { id: 'ashutosh', label: 'Aman', gender: 'Male', description_hi: 'गहरी, गंभीर और भरोसेमंद — प्रतियोगी परीक्षा लेक्चर के लिए', description_en: 'Deep & trustworthy — for competitive exam lectures', badge: '🎓' },
   { id: 'rohan', label: 'Rohan', gender: 'Male', description_hi: 'उत्साही और तेज़ — कोडिंग और टेक टॉपिक्स, दोस्त जैसा', description_en: 'Energetic & fast — coding & tech, like a friend', badge: '💻' },
