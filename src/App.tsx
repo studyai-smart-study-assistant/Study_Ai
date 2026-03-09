@@ -15,6 +15,7 @@ import AppShell from '@/components/layout/AppShell';
 import PageSkeleton from '@/components/common/PageSkeleton';
 
 import { Suspense, lazy } from 'react';
+import { useAppPermissions } from '@/hooks/useAppPermissions';
 
 // Lazy load pages for better performance
 const Index = lazy(() => import('@/pages/Index'));
@@ -55,6 +56,7 @@ const PageWrapper = ({ children, variant = 'default' }: { children: React.ReactN
 );
 
 function App() {
+  useAppPermissions();
   return (
     <Router>
       <ErrorBoundary>
