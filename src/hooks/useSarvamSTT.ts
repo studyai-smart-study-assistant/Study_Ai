@@ -122,7 +122,7 @@ export function useSarvamSTT({
       // Start silence detection
       detectSilence();
       
-      toast.success(language === 'hi' ? '🎤 बोलना शुरू करें...' : '🎤 Start speaking...');
+      // No toast here - UI already shows recording state visually
       
     } catch (error: any) {
       console.error('Failed to start recording:', error);
@@ -190,9 +190,10 @@ export function useSarvamSTT({
         setTranscript(data.transcript);
         onTranscript?.(data.transcript);
         onAutoSend?.(data.transcript);
-        toast.success(language === 'hi' ? '✅ टेक्स्ट तैयार!' : '✅ Transcription ready!');
+        // No toast - user can see the text appear in the input field
       } else {
-        toast.warning(language === 'hi' ? 'कोई बोली नहीं मिली' : 'No speech detected');
+        // Only show warning when genuinely no speech was detected
+        toast.warning(language === 'hi' ? 'कोई बोली नहीं मिली, फिर से बोलें' : 'No speech detected, try again');
       }
       
     } catch (error: any) {

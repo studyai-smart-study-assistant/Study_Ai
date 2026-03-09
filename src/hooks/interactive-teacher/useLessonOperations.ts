@@ -84,7 +84,7 @@ export const useLessonOperations = ({
         setIsWaitingForStudent(true);
       }
 
-      toast.success(language === 'hi' ? 'Live Teaching शुरू हुआ!' : 'Live Teaching started!');
+      // No toast needed - lesson content appearing is self-evident
     } catch (error) {
       console.error('Error starting lesson:', error);
       toast.error(language === 'hi' ? 'पाठ शुरू करने में त्रुटि' : 'Error starting lesson');

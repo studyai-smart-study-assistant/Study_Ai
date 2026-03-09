@@ -57,10 +57,7 @@ const TeacherMessageDisplay: React.FC<TeacherMessageDisplayProps> = ({
     const newLiked = !currentState.liked;
     updateMessageState(messageId, { liked: newLiked });
     
-    toast.success(newLiked 
-      ? (language === 'hi' ? 'मैसेज को लाइक किया गया' : 'Message liked')
-      : (language === 'hi' ? 'लाइक हटाया गया' : 'Like removed')
-    );
+    // No toast - visual icon change is enough feedback
   };
 
   const handleBookmark = (messageId: string) => {
@@ -68,18 +65,11 @@ const TeacherMessageDisplay: React.FC<TeacherMessageDisplayProps> = ({
     const newBookmarked = !currentState.bookmarked;
     updateMessageState(messageId, { bookmarked: newBookmarked });
     
-    toast.success(newBookmarked 
-      ? (language === 'hi' ? 'मैसेज बुकमार्क किया गया' : 'Message bookmarked')
-      : (language === 'hi' ? 'बुकमार्क हटाया गया' : 'Bookmark removed')
-    );
+    // No toast - visual icon change is enough feedback
   };
 
   const handleDelete = (messageId: string) => {
-    // Since these are live teaching messages, we'll show a warning
-    toast.info(language === 'hi' 
-      ? 'Live Teaching के दौरान मैसेज डिलीट नहीं कर सकते' 
-      : 'Cannot delete messages during Live Teaching session'
-    );
+    // No action needed - live teaching messages can't be deleted
   };
 
   return (
