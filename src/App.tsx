@@ -55,7 +55,7 @@ const PageWrapper = ({ children, variant = 'default' }: { children: React.ReactN
   </Suspense>
 );
 
-function AppContent() {
+function App() {
   useAppPermissions();
   return (
     <Router>
