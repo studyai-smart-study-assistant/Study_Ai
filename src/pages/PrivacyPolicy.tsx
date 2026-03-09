@@ -41,7 +41,8 @@ const PrivacyPolicy = () => {
                 </h2>
                 <p className="mb-3">
                   Study AI is an AI-powered educational learning assistant designed for students.
-                  The app helps users ask questions, generate explanations, notes, quizzes, and learning-related content using artificial intelligence.
+                  The app helps users ask questions, generate explanations, notes, quizzes, homework solutions, and learning-related content using artificial intelligence.
+                  It also provides features like Campus Talk (student chat), Digital Library, Study Planner, Interactive Teacher, Leaderboard, and Points/Credits system.
                 </p>
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border-l-4 border-blue-500">
                   <p className="font-medium text-blue-800 dark:text-blue-300">
