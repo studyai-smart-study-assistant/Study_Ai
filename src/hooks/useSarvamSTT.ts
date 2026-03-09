@@ -180,6 +180,7 @@ export function useSarvamSTT({
         console.log('✅ Transcript:', data.transcript);
         setTranscript(data.transcript);
         onTranscript?.(data.transcript);
+        onAutoSend?.(data.transcript);
         toast.success(language === 'hi' ? '✅ टेक्स्ट तैयार!' : '✅ Transcription ready!');
       } else {
         toast.warning(language === 'hi' ? 'कोई बोली नहीं मिली' : 'No speech detected');
