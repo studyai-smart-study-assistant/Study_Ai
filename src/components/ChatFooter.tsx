@@ -383,6 +383,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     <div className="fixed bottom-0 left-0 right-0 z-10">
       {/* Hidden file inputs */}
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileInputChange} />
+      <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={handlePdfInputChange} />
       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCameraInputChange} />
 
       {/* Fade overlay */}
@@ -433,12 +434,22 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
           transition-all duration-200
           ${isDisabled ? 'opacity-60' : ''}
         `}>
-          {/* Uploaded image preview */}
+          {/* Uploaded file preview */}
           {uploadedImage && (
             <div className="px-4 pt-3">
-              <div className="relative inline-block">
-                <img src={uploadedImage} alt="Uploaded" className="h-16 w-auto object-cover rounded-lg border border-border" />
-                <button onClick={() => setUploadedImage(null)} className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1">
+              <div className="relative inline-flex items-center gap-2">
+                {uploadedFileType === 'pdf' ? (
+                  <div className="h-16 px-4 flex items-center gap-2 bg-muted rounded-lg border border-border">
+                    <FileText className="h-8 w-8 text-destructive" />
+                    <div className="text-xs">
+                      <p className="font-medium text-foreground truncate max-w-[120px]">{uploadedFileName || 'PDF'}</p>
+                      <p className="text-muted-foreground">PDF Document</p>
+                    </div>
+                  </div>
+                ) : (
+                  <img src={uploadedImage} alt="Uploaded" className="h-16 w-auto object-cover rounded-lg border border-border" />
+                )}
+                <button onClick={() => { setUploadedImage(null); setUploadedFileName(null); setUploadedFileType(null); }} className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1">
                   <X className="h-3 w-3" />
                 </button>
               </div>
