@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// ─── Sarvam Key Pool (Round-Robin) ──────────────────────────
+// ─── Sarvam Key Pool ──────────────────────────
 function getSarvamApiKeys(): string[] {
   const keys: string[] = [];
   for (let i = 1; i <= 10; i++) {
@@ -19,18 +19,25 @@ function getSarvamApiKeys(): string[] {
 }
 
 let _sarvamKeyIndex = 0;
-function getNextSarvamKey(): string {
+function getNextSarvamKey(): { key: string; label: string; index: number } {
   const keys = getSarvamApiKeys();
   if (keys.length === 0) throw new Error('No Sarvam API keys configured');
-  const key = keys[_sarvamKeyIndex % keys.length];
+  const index = _sarvamKeyIndex % keys.length;
+  const key = keys[index];
   _sarvamKeyIndex = (_sarvamKeyIndex + 1) % keys.length;
-  return key;
+  return { key, label: `SARVAM_TTS_${index + 1}`, index };
 }
 
 async function logUsage(keyId: string, status: string, errorCode?: string, ms?: number) {
   try {
     const c = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    await c.from('api_key_usage').insert({ service: 'sarvam-tts', key_identifier: keyId, status, error_code: errorCode || null, response_time_ms: ms || null });
+    await c.from('api_key_usage').insert({ 
+      service: 'sarvam-tts', 
+      key_identifier: keyId, 
+      status, 
+      error_code: errorCode || null, 
+      response_time_ms: ms || null 
+    });
   } catch {}
 }
 
@@ -52,7 +59,7 @@ function stripMarkdown(text: string): string {
 }
 
 // Fetch with timeout
-async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 15000): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 25000): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -63,6 +70,9 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 1
   }
 }
 
+// Delay helper
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -70,7 +80,12 @@ serve(async (req) => {
 
   try {
     const { text, language, voice } = await req.json();
-    if (!text) throw new Error('Text is required');
+    if (!text) {
+      return new Response(JSON.stringify({ error: 'Text is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const keys = getSarvamApiKeys();
     if (keys.length === 0) {
@@ -88,14 +103,19 @@ serve(async (req) => {
       });
     }
 
-    console.log(`🔊 TTS request: ${cleanText.substring(0, 80)}... (${cleanText.length} chars, ${keys.length} keys, voice=${voice || 'shubh'})`);
+    const selectedVoice = voice || 'shubh';
+    const selectedLang = language || 'hi-IN';
+    
+    console.log(`🔊 TTS request: "${cleanText.substring(0, 60)}..." (${cleanText.length} chars, ${keys.length} keys, voice=${selectedVoice})`);
 
-    // Try each key with retries
-    const maxAttempts = Math.min(keys.length * 2, 6); // retry up to 6 times across keys
+    // Try each key with exponential backoff
+    const maxAttempts = Math.min(keys.length * 2, 8);
+    let lastError: Error | null = null;
+
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const apiKey = getNextSarvamKey();
-      const keyLabel = `SARVAM_KEY_${(_sarvamKeyIndex) % keys.length}`;
+      const { key: apiKey, label: keyLabel } = getNextSarvamKey();
       const start = Date.now();
+      
       try {
         const response = await fetchWithTimeout('https://api.sarvam.ai/text-to-speech', {
           method: 'POST',
@@ -105,26 +125,30 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             text: cleanText,
-            target_language_code: language || 'hi-IN',
-            speaker: voice || 'shubh',
+            target_language_code: selectedLang,
+            speaker: selectedVoice,
             model: 'bulbul:v3',
             enable_preprocessing: true,
           }),
-        }, 20000);
+        }, 25000);
 
-        if (response.status === 429 || response.status === 403) {
-          logUsage(keyLabel, 'rate_limited', String(response.status), Date.now() - start);
-          console.warn(`⚠️ TTS ${keyLabel} rate limited (${response.status}), trying next...`);
+        // Handle rate limits and quota exhausted
+        if (response.status === 429 || response.status === 403 || response.status === 402) {
+          const errorType = response.status === 402 ? 'quota_exhausted' : 'rate_limited';
+          logUsage(keyLabel, errorType, String(response.status), Date.now() - start);
+          console.warn(`⚠️ TTS ${keyLabel} ${errorType} (${response.status}), trying next key...`);
           try { await response.text(); } catch {}
+          // Exponential backoff
+          await delay(Math.min(500 * Math.pow(2, attempt), 4000));
           continue;
         }
 
-        if (response.status === 500 || response.status === 502 || response.status === 503) {
+        // Handle server errors
+        if (response.status >= 500) {
           logUsage(keyLabel, 'server_error', String(response.status), Date.now() - start);
           console.warn(`⚠️ TTS ${keyLabel} server error (${response.status}), retrying...`);
           try { await response.text(); } catch {}
-          // Brief delay before retry on server errors
-          await new Promise(r => setTimeout(r, 500));
+          await delay(1000);
           continue;
         }
 
@@ -132,10 +156,12 @@ serve(async (req) => {
           const errorText = await response.text();
           logUsage(keyLabel, 'error', String(response.status), Date.now() - start);
           console.error(`❌ TTS ${keyLabel} error: ${response.status} - ${errorText}`);
-          throw new Error(`Sarvam API error: ${response.status}`);
+          lastError = new Error(`Sarvam TTS error: ${response.status}`);
+          continue;
         }
 
         const data = await response.json();
+        
         if (data.audios && data.audios[0]) {
           logUsage(keyLabel, 'success', undefined, Date.now() - start);
           console.log(`✅ TTS success (${keyLabel}, ${Date.now() - start}ms)`);
@@ -143,23 +169,41 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
+        
+        // No audio in response
+        logUsage(keyLabel, 'empty_response', 'NO_AUDIO', Date.now() - start);
         console.warn(`⚠️ TTS ${keyLabel}: No audio in response, retrying...`);
         continue;
-      } catch (err: any) {
-        if (err.name === 'AbortError') {
+
+      } catch (err: unknown) {
+        const error = err as Error;
+        
+        if (error.name === 'AbortError') {
           logUsage(keyLabel, 'timeout', 'TIMEOUT', Date.now() - start);
-          console.warn(`⚠️ TTS ${keyLabel} timed out, trying next...`);
+          console.warn(`⚠️ TTS ${keyLabel} timed out, trying next key...`);
           continue;
         }
-        if (attempt === maxAttempts - 1) throw err;
-        console.warn(`⚠️ TTS attempt ${attempt + 1} failed: ${err.message}`);
+        
+        lastError = error;
+        console.warn(`⚠️ TTS attempt ${attempt + 1}/${maxAttempts} failed (${keyLabel}): ${error.message}`);
+        
+        if (attempt < maxAttempts - 1) {
+          await delay(500 * (attempt + 1));
+        }
       }
     }
-    throw new Error('All Sarvam TTS attempts exhausted');
+
+    // All attempts failed
+    const errorMsg = lastError?.message || 'All TTS keys exhausted';
+    console.error('❌ TTS failed after all attempts:', errorMsg);
+    return new Response(JSON.stringify({ error: errorMsg }), {
+      status: 503,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('❌ TTS error:', message);
+    console.error('❌ TTS Error:', message);
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
