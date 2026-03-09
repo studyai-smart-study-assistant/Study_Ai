@@ -27,7 +27,7 @@ const PrivacyPolicy = () => {
               Study AI – Smart Learning Assistant
             </p>
             <p className="text-sm text-muted-foreground mt-2">
-              Last updated: January 2026
+              Last updated: March 9, 2026
             </p>
           </div>
           
