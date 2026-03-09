@@ -23,6 +23,7 @@ interface ChatFooterProps {
   isDisabled?: boolean;
   webSearchEnabled?: boolean;
   onWebSearchToggle?: (enabled: boolean) => void;
+  onDeepThinking?: (topic: string) => Promise<void>;
 }
 
 const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled = false, webSearchEnabled = false, onWebSearchToggle }) => {
