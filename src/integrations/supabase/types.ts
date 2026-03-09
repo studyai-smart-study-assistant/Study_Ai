@@ -588,6 +588,78 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_reports: {
+        Row: {
+          average_accuracy: number | null
+          chapters_read: number | null
+          consistency_score: number | null
+          created_at: string | null
+          daily_breakdown: Json | null
+          engagement_score: number | null
+          id: string
+          interactive_sessions: number | null
+          notes_created: number | null
+          overview_summary: string | null
+          quizzes_taken: number | null
+          report_type: string
+          strong_areas: string[] | null
+          subject_breakdown: Json | null
+          top_subjects: string[] | null
+          total_activities: number | null
+          total_study_minutes: number | null
+          user_id: string
+          weak_areas: string[] | null
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          average_accuracy?: number | null
+          chapters_read?: number | null
+          consistency_score?: number | null
+          created_at?: string | null
+          daily_breakdown?: Json | null
+          engagement_score?: number | null
+          id?: string
+          interactive_sessions?: number | null
+          notes_created?: number | null
+          overview_summary?: string | null
+          quizzes_taken?: number | null
+          report_type?: string
+          strong_areas?: string[] | null
+          subject_breakdown?: Json | null
+          top_subjects?: string[] | null
+          total_activities?: number | null
+          total_study_minutes?: number | null
+          user_id: string
+          weak_areas?: string[] | null
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          average_accuracy?: number | null
+          chapters_read?: number | null
+          consistency_score?: number | null
+          created_at?: string | null
+          daily_breakdown?: Json | null
+          engagement_score?: number | null
+          id?: string
+          interactive_sessions?: number | null
+          notes_created?: number | null
+          overview_summary?: string | null
+          quizzes_taken?: number | null
+          report_type?: string
+          strong_areas?: string[] | null
+          subject_breakdown?: Json | null
+          top_subjects?: string[] | null
+          total_activities?: number | null
+          total_study_minutes?: number | null
+          user_id?: string
+          weak_areas?: string[] | null
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
