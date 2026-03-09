@@ -26,6 +26,8 @@ export function useSarvamSTT({
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const stopRecordingRef = useRef<() => void>(() => {});
+  const hasSpeechStartedRef = useRef(false);
 
   // Detect silence using audio levels
   const detectSilence = useCallback(() => {
