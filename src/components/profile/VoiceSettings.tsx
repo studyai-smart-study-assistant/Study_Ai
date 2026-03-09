@@ -107,7 +107,8 @@ const VoiceSettings: React.FC = () => {
     setPlayingVoiceId(voiceId);
 
     try {
-      const demoText = demoLang === 'hi' ? DEMO_TEXT_HI : DEMO_TEXT_EN;
+      const texts = demoLang === 'hi' ? DEMO_TEXTS_HI : DEMO_TEXTS_EN;
+      const demoText = texts[Math.floor(Math.random() * texts.length)];
       const langCode = demoLang === 'hi' ? 'hi-IN' : 'en-IN';
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: { text: demoText, language: langCode, voice: voiceId },
