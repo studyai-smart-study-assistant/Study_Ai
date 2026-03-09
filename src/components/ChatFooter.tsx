@@ -347,7 +347,19 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
           </div>
         )}
 
-        {/* Main container - Gemini style */}
+        {/* Deep Thinking active badge */}
+        {isDeepThinking && (
+          <div className="mb-2 flex justify-center">
+            <div className="bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-amber-500/20">
+              <Telescope className="h-3 w-3" />
+              <span>Deep Thinking ON</span>
+              <button onClick={() => setIsDeepThinking(false)} className="ml-1 hover:bg-amber-500/10 rounded-full p-0.5">
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className={`
           bg-card border border-border rounded-2xl shadow-lg
           transition-all duration-200
