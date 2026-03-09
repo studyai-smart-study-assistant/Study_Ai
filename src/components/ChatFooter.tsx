@@ -463,13 +463,26 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
                       <p className="text-[11px] text-muted-foreground">{language === 'hi' ? 'बनाई गई images देखें' : 'View generated images'}</p>
                     </div>
                   </button>
+                  {/* Deep Thinking button */}
+                  <button
+                    onClick={() => { setIsDeepThinking(!isDeepThinking); setIsImageMode(false); setIsToolsOpen(false); textareaRef.current?.focus(); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+                  >
+                    <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${isDeepThinking ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-muted'}`}>
+                      <Telescope className={`h-4 w-4 ${isDeepThinking ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`} />
+                    </div>
+                    <div>
+                      <p className="text-sm text-foreground">Deep Thinking</p>
+                      <p className="text-[11px] text-muted-foreground">{isDeepThinking ? 'ON — गहन रिसर्च mode' : 'Advanced research करें'}</p>
+                    </div>
+                  </button>
                   {/* Live Talking button */}
                   <button
                     onClick={() => { setIsLiveMode(true); setIsToolsOpen(false); }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
                   >
-                    <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-red-500/10">
-                      <Radio className="h-4 w-4 text-red-500" />
+                    <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-destructive/10">
+                      <Radio className="h-4 w-4 text-destructive" />
                     </div>
                     <div>
                       <p className="text-sm text-foreground">Live Talking</p>
