@@ -15,6 +15,7 @@ interface EmptyChatUIProps {
   onAnalyzeImages: () => void;
   onSummarizeText: () => void;
   onMore: () => void;
+  onDeepThinking?: (topic: string) => void;
 }
 
 const EmptyChatUI: React.FC<EmptyChatUIProps> = ({
