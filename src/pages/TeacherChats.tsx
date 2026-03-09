@@ -7,6 +7,7 @@ import TeacherChatList from '@/components/teacher/TeacherChatList';
 import TeacherChatSearch from '@/components/teacher/TeacherChatSearch';
 import EmptySearch from '@/components/teacher/EmptySearch';
 import { useTeacherChats } from '@/hooks/useTeacherChats';
+import PageMeta from '@/components/seo/PageMeta';
 
 const TeacherChats = () => {
   const navigate = useNavigate();

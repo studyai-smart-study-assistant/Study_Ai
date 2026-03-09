@@ -4,12 +4,19 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import HomeworkAssistantWrapper from '@/components/study/HomeworkAssistantWrapper';
+import PageMeta from '@/components/seo/PageMeta';
 
 const HomeworkHelperPage = () => {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background">
+      <PageMeta 
+        title="AI Homework Helper - Get Instant Assignment Help | StudyAI"
+        description="Get step-by-step homework solutions with AI. Solve math problems, science questions, and assignments. Perfect for students of all levels."
+        canonicalPath="/homework-helper"
+        keywords="AI Homework Helper, Homework Solver, Math Helper, Science Helper, Assignment Help"
+      />
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center gap-3 px-4 py-3 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <Button 

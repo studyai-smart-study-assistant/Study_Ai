@@ -4,12 +4,19 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import StudyPlannerWrapper from '@/components/study/StudyPlannerWrapper';
+import PageMeta from '@/components/seo/PageMeta';
 
 const StudyPlannerPage = () => {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background">
+      <PageMeta 
+        title="AI Study Planner - Create Personalized Study Schedules | StudyAI"
+        description="Plan your studies efficiently with AI-powered study planner. Create personalized schedules for exams, competitive tests. Track progress daily."
+        canonicalPath="/study-planner"
+        keywords="AI Study Planner, Study Schedule Maker, Exam Preparation, Study Timetable, Bihar Board Preparation"
+      />
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center gap-3 px-4 py-3 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <Button 
