@@ -714,7 +714,7 @@ serve(async (req) => {
       systemContent += `\n\n🌐 **वेब सर्च से मिली ताज़ा जानकारी:**\n${webSearchContext}\n\n**निर्देश:** ऊपर दी गई जानकारी का उपयोग करके पर्सनलाइज्ड, अप-टू-डेट जवाब दो। सोर्स लिंक जवाब में शामिल मत करो।`;
     }
 
-    // Build user message content
+    // Build user message content (supports images and PDFs)
     let userContent: any;
     if (imageBase64) {
       let mimeType = 'image/jpeg';
@@ -723,8 +723,12 @@ serve(async (req) => {
         const match = imageBase64.match(/^data:([^;]+);base64,(.+)$/);
         if (match) { mimeType = match[1]; cleanedBase64 = match[2]; }
       }
+      
+      const isPdf = mimeType === 'application/pdf';
+      const defaultPrompt = isPdf ? 'इस PDF document को analyze करो और इसकी जानकारी दो' : 'इस image के बारे में बताओ';
+      
       userContent = [
-        { type: 'text', text: prompt || 'इस image के बारे में बताओ' },
+        { type: 'text', text: prompt || defaultPrompt },
         { type: 'image_url', image_url: { url: `data:${mimeType};base64,${cleanedBase64}` } }
       ];
     } else {

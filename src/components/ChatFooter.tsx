@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal, X, Plus, Upload, Sparkles, Globe, SlidersHorizontal, Camera, ImageIcon, Download, Mic, MicOff, Radio, Telescope } from "lucide-react";
+import { SendHorizonal, X, Plus, Upload, Sparkles, Globe, SlidersHorizontal, Camera, ImageIcon, Download, Mic, MicOff, Radio, Telescope, FileText } from "lucide-react";
 import LiveTalkingMode from '@/components/chat/LiveTalkingMode';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -26,9 +26,48 @@ interface ChatFooterProps {
   onDeepThinking?: (topic: string) => Promise<void>;
 }
 
+// Compress image to reduce base64 size for API payload
+const compressImage = (file: File, maxWidth = 1024, quality = 0.7): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+// Read PDF as base64 data URI
+const readFileAsBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
 const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled = false, webSearchEnabled = false, onWebSearchToggle, onDeepThinking }) => {
   const [input, setInput] = useState('');
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [uploadedFileType, setUploadedFileType] = useState<'image' | 'pdf' | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isImageMode, setIsImageMode] = useState(false);
   const [isAttachOpen, setIsAttachOpen] = useState(false);
@@ -40,6 +79,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   const [isTranscribing, setIsTranscribing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -230,6 +270,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
         );
         setInput('');
         setUploadedImage(null);
+        setUploadedFileName(null);
+        setUploadedFileType(null);
         setIsImageMode(false);
       } catch (error: any) {
         console.error('Error generating image:', error);
@@ -250,6 +292,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     onSend(input.trim(), uploadedImage || undefined);
     setInput('');
     setUploadedImage(null);
+    setUploadedFileName(null);
+    setUploadedFileType(null);
     if (isListening) { stopRecording(); }
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
   };
@@ -259,22 +303,36 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
       setIsUploading(true);
       setIsAttachOpen(false);
       
-      // Convert to base64 locally - no Supabase upload needed
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
+      // Check file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(language === 'hi' ? 'फ़ाइल 10MB से छोटी होनी चाहिए' : 'File must be under 10MB');
+        setIsUploading(false);
+        return;
+      }
+
+      if (file.type === 'application/pdf') {
+        // Handle PDF
+        const base64 = await readFileAsBase64(file);
         setUploadedImage(base64);
+        setUploadedFileName(file.name);
+        setUploadedFileType('pdf');
+        setIsUploading(false);
+        toast.success(language === 'hi' ? `📄 PDF ready: ${file.name}` : `📄 PDF ready: ${file.name}`);
+      } else if (file.type.startsWith('image/')) {
+        // Compress image to reduce payload size
+        const compressed = await compressImage(file);
+        setUploadedImage(compressed);
+        setUploadedFileName(file.name);
+        setUploadedFileType('image');
         setIsUploading(false);
         toast.success(language === 'hi' ? 'Image ready!' : 'Image ready!');
-      };
-      reader.onerror = () => {
+      } else {
+        toast.error(language === 'hi' ? 'सिर्फ Image या PDF अपलोड करें' : 'Only Image or PDF allowed');
         setIsUploading(false);
-        toast.error(language === 'hi' ? 'Image पढ़ने में समस्या' : 'Failed to read image');
-      };
-      reader.readAsDataURL(file);
+      }
     } catch (error) {
-      console.error('Error reading image:', error);
-      toast.error(language === 'hi' ? 'Image में समस्या हुई' : 'Image error');
+      console.error('Error reading file:', error);
+      toast.error(language === 'hi' ? 'फ़ाइल पढ़ने में समस्या' : 'Failed to read file');
       setIsUploading(false);
     }
   };
@@ -283,6 +341,12 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     const file = e.target.files?.[0];
     if (file) handleImageSelect(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handlePdfInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImageSelect(file);
+    if (pdfInputRef.current) pdfInputRef.current.value = '';
   };
 
   const handleCameraInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -321,6 +385,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     <div className="fixed bottom-0 left-0 right-0 z-10">
       {/* Hidden file inputs */}
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileInputChange} />
+      <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={handlePdfInputChange} />
       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCameraInputChange} />
 
       {/* Fade overlay */}
@@ -371,12 +436,22 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
           transition-all duration-200
           ${isDisabled ? 'opacity-60' : ''}
         `}>
-          {/* Uploaded image preview */}
+          {/* Uploaded file preview */}
           {uploadedImage && (
             <div className="px-4 pt-3">
-              <div className="relative inline-block">
-                <img src={uploadedImage} alt="Uploaded" className="h-16 w-auto object-cover rounded-lg border border-border" />
-                <button onClick={() => setUploadedImage(null)} className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1">
+              <div className="relative inline-flex items-center gap-2">
+                {uploadedFileType === 'pdf' ? (
+                  <div className="h-16 px-4 flex items-center gap-2 bg-muted rounded-lg border border-border">
+                    <FileText className="h-8 w-8 text-destructive" />
+                    <div className="text-xs">
+                      <p className="font-medium text-foreground truncate max-w-[120px]">{uploadedFileName || 'PDF'}</p>
+                      <p className="text-muted-foreground">PDF Document</p>
+                    </div>
+                  </div>
+                ) : (
+                  <img src={uploadedImage} alt="Uploaded" className="h-16 w-auto object-cover rounded-lg border border-border" />
+                )}
+                <button onClick={() => { setUploadedImage(null); setUploadedFileName(null); setUploadedFileType(null); }} className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1">
                   <X className="h-3 w-3" />
                 </button>
               </div>
@@ -426,6 +501,13 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
                   >
                     <Camera className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm text-foreground">Camera</span>
+                  </button>
+                  <button
+                    onClick={() => { pdfInputRef.current?.click(); setIsAttachOpen(false); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+                  >
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-foreground">Upload PDF</span>
                   </button>
                 </PopoverContent>
               </Popover>
