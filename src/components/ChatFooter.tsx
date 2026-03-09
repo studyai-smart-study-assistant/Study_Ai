@@ -306,30 +306,11 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   };
 
   const handleDeepThinkingSend = async (text: string) => {
-    // Show user message immediately
-    const userMsg = `🔭 Deep Thinking: ${text}`;
-    onSend(userMsg, undefined, true); // skipAIResponse=true, we handle it ourselves
     setIsDeepThinking(false);
-
-    toast.info(language === 'hi'
-      ? `🔭 "${text}" पर गहन रिसर्च हो रही है... कृपया प्रतीक्षा करें`
-      : `🔭 Deep research on "${text}"... please wait`
-    );
-
-    try {
-      const { data, error } = await supabase.functions.invoke('deep-thinking', {
-        body: { topic: text },
-      });
-
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Deep thinking failed');
-
-      // Send the AI response as a bot message
-      onSend(`__DEEP_THINKING_RESULT__${JSON.stringify({ response: data.response, sources: data.sources, searchCount: data.searchCount, topic: text })}`, undefined, false);
-    } catch (err: any) {
-      console.error('Deep Thinking error:', err);
-      toast.error(language === 'hi' ? 'गहन रिसर्च में समस्या हुई, फिर कोशिश करें' : 'Deep research failed, please try again');
-      // Fallback: send as normal message with deep prompt
+    if (onDeepThinking) {
+      await onDeepThinking(text);
+    } else {
+      // Fallback if no handler provided
       onSend(`🔬 [DEEP RESEARCH] ${text} — इस विषय पर गहन जानकारी दो: इतिहास, वर्तमान स्थिति, भविष्य, और expert opinions।`);
     }
   };
