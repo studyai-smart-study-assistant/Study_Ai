@@ -231,6 +231,13 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     if (!input.trim() && !uploadedImage) return;
     if (isLoading || isDisabled) return;
 
+    if (isNewsMode && input.trim()) {
+      handleNewsSend(input.trim());
+      setInput('');
+      setIsNewsMode(false);
+      return;
+    }
+
     if (isDeepThinking && input.trim()) {
       handleDeepThinkingSend(input.trim());
       setInput('');
@@ -368,6 +375,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     if (isDisabled) return language === 'hi' ? "AI जवाब दे रहा है..." : "Waiting for AI...";
     if (isImageMode) return language === 'hi' ? "Image का description लिखें..." : "Describe the image...";
     if (isDeepThinking) return language === 'hi' ? "कोई भी टॉपिक लिखें — गहन रिसर्च होगी..." : "Enter topic for deep research...";
+    if (isNewsMode) return language === 'hi' ? "SSC, UPSC, या कोई भी topic लिखें..." : "Enter exam or topic for news...";
     return language === 'hi' ? "कुछ भी पूछें..." : "Ask anything...";
   };
 
@@ -378,6 +386,15 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     } else {
       // Fallback if no handler provided
       onSend(`🔬 [DEEP RESEARCH] ${text} — इस विषय पर गहन जानकारी दो: इतिहास, वर्तमान स्थिति, भविष्य, और expert opinions।`);
+    }
+  };
+
+  const handleNewsSend = async (text: string) => {
+    setIsNewsMode(false);
+    if (onNewsSearch) {
+      await onNewsSearch(text);
+    } else {
+      onSend(`📰 [NEWS] ${text} — इस विषय से जुड़ी आज की ताज़ा खबरें बताओ।`);
     }
   };
 
