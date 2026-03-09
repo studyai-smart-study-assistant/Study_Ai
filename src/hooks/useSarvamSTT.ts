@@ -68,6 +68,7 @@ export function useSarvamSTT({
     try {
       // Reset state
       audioChunksRef.current = [];
+      hasSpeechStartedRef.current = false;
       setTranscript('');
       
       // Get microphone access
@@ -148,6 +149,9 @@ export function useSarvamSTT({
     
     setIsRecording(false);
   }, []);
+
+  // Keep ref in sync so detectSilence can call it without stale closure
+  stopRecordingRef.current = stopRecording;
 
   const processAudio = useCallback(async () => {
     if (audioChunksRef.current.length === 0) {
