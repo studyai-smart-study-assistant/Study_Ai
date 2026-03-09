@@ -66,6 +66,58 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({
     setEditImageState(null);
   }, [enhancedSendMessage]);
 
+  // ── News Search handler ──
+  const handleNewsSearch = useCallback(async (query: string) => {
+    toast.info(language === 'hi'
+      ? `📰 "${query}" की ताज़ा खबरें खोज रहे हैं...`
+      : `📰 Fetching news for "${query}"...`,
+      { duration: 5000 }
+    );
+
+    const userMsg = await chatDB.addMessage(chatId, `📰 News: ${query}`, 'user');
+    if (onChatUpdated) onChatUpdated();
+    await loadMessages();
+    scrollToBottom();
+
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-news', {
+        body: { query },
+      });
+
+      if (error) throw error;
+      if (!data?.success || !data.articles?.length) {
+        throw new Error('No news found');
+      }
+
+      // Build formatted news response
+      const articles = data.articles.slice(0, 8);
+      let newsContent = `📰 **"${query}" — ताज़ा खबरें**\n\n`;
+      articles.forEach((a: any, i: number) => {
+        newsContent += `**${i + 1}. ${a.title}**\n`;
+        if (a.description) newsContent += `${a.description.slice(0, 150)}...\n`;
+        newsContent += `🔗 [${a.source}](${a.url}) • ${a.pubDate ? new Date(a.pubDate).toLocaleDateString('hi-IN') : 'आज'}\n\n`;
+      });
+
+      // Save sources for display
+      const newsSources = articles.map((a: any) => ({ title: a.title, url: a.url }));
+      setDeepThinkingSources(newsSources);
+
+      await chatDB.addMessage(chatId, newsContent, 'bot');
+      await loadMessages();
+      scrollToBottom();
+      if (onChatUpdated) onChatUpdated();
+
+      toast.success(language === 'hi'
+        ? `✅ ${articles.length} खबरें मिलीं`
+        : `✅ ${articles.length} news articles found`
+      );
+    } catch (err: any) {
+      console.error('News fetch error:', err);
+      toast.error(language === 'hi' ? 'खबरें लाने में समस्या हुई' : 'Failed to fetch news');
+      enhancedSendMessage(`📰 [NEWS] ${query} — इस विषय की आज की ताज़ा खबरें बताओ।`);
+    }
+  }, [chatId, onChatUpdated, loadMessages, scrollToBottom, enhancedSendMessage, language]);
+
   // ── Deep Thinking: calls edge function with Tavily multi-search ──
   const handleDeepThinking = useCallback(async (topic: string) => {
     toast.info(language === 'hi'
@@ -74,7 +126,6 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({
       { duration: 8000 }
     );
 
-    // Save user message to chat
     const userMsg = await chatDB.addMessage(chatId, `🔭 Deep Thinking: ${topic}`, 'user');
     if (onChatUpdated) onChatUpdated();
     await loadMessages();
@@ -88,10 +139,8 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Deep thinking failed');
 
-      // Save sources for display
       if (data.sources?.length > 0) setDeepThinkingSources(data.sources);
 
-      // Format response with search count info
       const botContent = `🔭 **Deep Research: ${topic}**\n\n*${data.searchCount || 0} web sources से रिसर्च की गई*\n\n---\n\n${data.response}`;
       await chatDB.addMessage(chatId, botContent, 'bot');
       await loadMessages();
@@ -105,7 +154,6 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({
     } catch (err: any) {
       console.error('Deep Thinking error:', err);
       toast.error(language === 'hi' ? 'गहन रिसर्च में समस्या हुई' : 'Deep research failed');
-      // Fallback to normal AI
       enhancedSendMessage(`🔬 [DEEP RESEARCH] ${topic} — इस विषय पर गहन जानकारी दो: इतिहास, वर्तमान स्थिति, भविष्य, expert opinions।`);
     }
   }, [chatId, onChatUpdated, loadMessages, scrollToBottom, enhancedSendMessage, language]);
@@ -153,6 +201,7 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({
         webSearchEnabled={webSearchEnabled}
         onWebSearchToggle={setWebSearchEnabled}
         onDeepThinking={handleDeepThinking}
+        onNewsSearch={handleNewsSearch}
       />
 
       {/* Image Edit Dialog */}
