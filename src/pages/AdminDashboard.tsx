@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Shield, Activity, AlertTriangle, Clock, Key, RefreshCw, ArrowLeft, Zap, XCircle, CheckCircle, Users, Megaphone } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import AdminUsersTab from '@/components/admin/AdminUsersTab';
@@ -129,204 +130,200 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="container mx-auto p-4 md:p-6 space-y-6 max-w-7xl">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-            <ArrowLeft className="h-5 w-5" />
+    <div className="mx-auto p-3 md:p-6 space-y-4 md:space-y-6 max-w-7xl">
+      {/* Header - stacked on mobile */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => navigate('/')}>
+            <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-2">
-              <Shield className="h-7 w-7 text-primary" /> API Usage Dashboard
+          <div className="min-w-0">
+            <h1 className="text-lg md:text-3xl font-bold text-foreground flex items-center gap-2 truncate">
+              <Shield className="h-5 w-5 md:h-7 md:w-7 text-primary shrink-0" />
+              <span className="truncate">Admin Dashboard</span>
             </h1>
-            <p className="text-sm text-muted-foreground">Last {days} days • {totalLogs} total logs</p>
+            <p className="text-xs md:text-sm text-muted-foreground">Last {days}d • {totalLogs} logs</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {[1, 7, 30].map((d) => (
-            <Button
-              key={d}
-              size="sm"
-              variant={days === d ? 'default' : 'outline'}
-              onClick={() => setDays(d)}
-            >
+            <Button key={d} size="sm" variant={days === d ? 'default' : 'outline'} className="h-7 px-2.5 text-xs" onClick={() => setDays(d)}>
               {d}D
             </Button>
           ))}
-          <Button size="sm" variant="outline" onClick={fetchStats} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <Button size="sm" variant="outline" className="h-7 w-7 p-0 ml-auto" onClick={fetchStats} disabled={loading}>
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <Activity className="h-4 w-4" /> Total Requests
+          <CardContent className="p-3 md:p-4">
+            <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+              <Activity className="h-3.5 w-3.5" /> Requests
             </div>
-            <p className="text-3xl font-bold text-foreground mt-1">{totalRequests}</p>
+            <p className="text-xl md:text-3xl font-bold text-foreground mt-0.5">{totalRequests}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <CheckCircle className="h-4 w-4 text-green-500" /> Success Rate
+          <CardContent className="p-3 md:p-4">
+            <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+              <CheckCircle className="h-3.5 w-3.5 text-green-500" /> Success
             </div>
-            <p className="text-3xl font-bold text-green-500 mt-1">
+            <p className="text-xl md:text-3xl font-bold text-green-500 mt-0.5">
               {totalRequests > 0 ? Math.round(((totalRequests - totalErrors - totalRateLimits) / totalRequests) * 100) : 0}%
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <AlertTriangle className="h-4 w-4 text-yellow-500" /> Rate Limits
+          <CardContent className="p-3 md:p-4">
+            <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+              <AlertTriangle className="h-3.5 w-3.5 text-yellow-500" /> Rate Limit
             </div>
-            <p className="text-3xl font-bold text-yellow-500 mt-1">{totalRateLimits}</p>
+            <p className="text-xl md:text-3xl font-bold text-yellow-500 mt-0.5">{totalRateLimits}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <Clock className="h-4 w-4" /> Avg Response
+          <CardContent className="p-3 md:p-4">
+            <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+              <Clock className="h-3.5 w-3.5" /> Avg Time
             </div>
-            <p className="text-3xl font-bold text-foreground mt-1">{avgTime}ms</p>
+            <p className="text-xl md:text-3xl font-bold text-foreground mt-0.5">{avgTime}ms</p>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="overview">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> Users</TabsTrigger>
-          <TabsTrigger value="ads" className="flex items-center gap-1"><Megaphone className="h-3.5 w-3.5" /> Ads</TabsTrigger>
-          <TabsTrigger value="keys">Key Usage</TabsTrigger>
-          <TabsTrigger value="logs">Recent Logs</TabsTrigger>
-        </TabsList>
+        {/* Scrollable tabs on mobile */}
+        <ScrollArea className="w-full">
+          <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-5 h-9">
+            <TabsTrigger value="overview" className="text-xs px-3">Overview</TabsTrigger>
+            <TabsTrigger value="users" className="text-xs px-3 flex items-center gap-1"><Users className="h-3 w-3" /> Users</TabsTrigger>
+            <TabsTrigger value="ads" className="text-xs px-3 flex items-center gap-1"><Megaphone className="h-3 w-3" /> Ads</TabsTrigger>
+            <TabsTrigger value="keys" className="text-xs px-3">Keys</TabsTrigger>
+            <TabsTrigger value="logs" className="text-xs px-3">Logs</TabsTrigger>
+          </TabsList>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
 
-        <TabsContent value="overview" className="space-y-6 mt-4">
-          {/* Service Bar Chart */}
+        <TabsContent value="overview" className="space-y-4 md:space-y-6 mt-3">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Requests by Service</CardTitle>
+            <CardHeader className="p-3 md:p-6">
+              <CardTitle className="text-sm md:text-lg">Requests by Service</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-2 md:p-6 pt-0">
               {serviceChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={serviceChartData}>
-                    <XAxis dataKey="name" fontSize={12} />
-                    <YAxis fontSize={12} />
+                    <XAxis dataKey="name" fontSize={10} tick={{ fontSize: 9 }} />
+                    <YAxis fontSize={10} width={30} />
                     <Tooltip />
-                    <Legend />
+                    <Legend wrapperStyle={{ fontSize: 10 }} />
                     <Bar dataKey="success" fill="#22c55e" name="Success" />
                     <Bar dataKey="rateLimits" fill="#f59e0b" name="Rate Limited" />
                     <Bar dataKey="errors" fill="#ef4444" name="Errors" />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="text-center text-muted-foreground py-12">No data yet. Usage will appear here as API calls are made.</p>
+                <p className="text-center text-muted-foreground py-8 text-sm">No data yet</p>
               )}
             </CardContent>
           </Card>
 
-          {/* Distribution + Hourly */}
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Service Distribution</CardTitle>
+              <CardHeader className="p-3 md:p-6">
+                <CardTitle className="text-sm md:text-lg">Distribution</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-2 md:p-6 pt-0">
                 {pieData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={250}>
+                  <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
-                      <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
+                      <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={9}>
                         {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>
                       <Tooltip />
-                      <Legend />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <p className="text-center text-muted-foreground py-12">No data</p>
+                  <p className="text-center text-muted-foreground py-8 text-sm">No data</p>
                 )}
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Hourly Traffic</CardTitle>
+              <CardHeader className="p-3 md:p-6">
+                <CardTitle className="text-sm md:text-lg">Hourly Traffic</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-2 md:p-6 pt-0">
                 {hourlyChartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={250}>
+                  <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={hourlyChartData}>
-                      <XAxis dataKey="hour" fontSize={10} />
-                      <YAxis fontSize={12} />
+                      <XAxis dataKey="hour" fontSize={8} interval="preserveStartEnd" />
+                      <YAxis fontSize={10} width={25} />
                       <Tooltip />
                       <Bar dataKey="requests" fill="#3b82f6" />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <p className="text-center text-muted-foreground py-12">No data</p>
+                  <p className="text-center text-muted-foreground py-8 text-sm">No data</p>
                 )}
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
-        <TabsContent value="users" className="mt-4">
+        <TabsContent value="users" className="mt-3">
           <AdminUsersTab />
         </TabsContent>
 
-        <TabsContent value="ads" className="mt-4">
+        <TabsContent value="ads" className="mt-3">
           <AdminAdsTab />
         </TabsContent>
 
-        <TabsContent value="keys" className="mt-4 space-y-4">
+        <TabsContent value="keys" className="mt-3 space-y-3">
           {Object.entries(stats).map(([service, s]) => (
             <Card key={service}>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Key className="h-5 w-5 text-primary" /> {service}
-                  <Badge variant="secondary">{s.total} calls</Badge>
+              <CardHeader className="p-3 md:p-6">
+                <CardTitle className="text-sm md:text-lg flex items-center gap-2 flex-wrap">
+                  <Key className="h-4 w-4 text-primary" /> {service}
+                  <Badge variant="secondary" className="text-xs">{s.total} calls</Badge>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 md:p-6 pt-0">
                 <div className="grid gap-2">
                   {Object.entries(s.keys).sort(([, a], [, b]) => b - a).map(([key, count]) => (
-                    <div key={key} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-                      <span className="font-mono text-sm text-foreground">{key}</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-primary rounded-full"
-                            style={{ width: `${(count / s.total) * 100}%` }}
-                          />
+                    <div key={key} className="flex items-center justify-between p-2 rounded-lg bg-muted/50 gap-2">
+                      <span className="font-mono text-xs text-foreground truncate min-w-0">{key}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="w-16 md:w-24 h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-primary rounded-full" style={{ width: `${(count / s.total) * 100}%` }} />
                         </div>
-                        <span className="text-sm text-muted-foreground w-12 text-right">{count}</span>
+                        <span className="text-xs text-muted-foreground w-8 text-right">{count}</span>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-4 mt-4 text-sm">
-                  <span className="flex items-center gap-1 text-green-500"><CheckCircle className="h-3 w-3" /> {s.success} success</span>
-                  <span className="flex items-center gap-1 text-yellow-500"><AlertTriangle className="h-3 w-3" /> {s.rateLimits} rate limited</span>
-                  <span className="flex items-center gap-1 text-red-500"><XCircle className="h-3 w-3" /> {s.errors} errors</span>
-                  <span className="flex items-center gap-1 text-muted-foreground"><Zap className="h-3 w-3" /> {s.avgResponseTime}ms avg</span>
+                <div className="flex flex-wrap gap-2 md:gap-4 mt-3 text-xs">
+                  <span className="flex items-center gap-1 text-green-500"><CheckCircle className="h-3 w-3" /> {s.success}</span>
+                  <span className="flex items-center gap-1 text-yellow-500"><AlertTriangle className="h-3 w-3" /> {s.rateLimits}</span>
+                  <span className="flex items-center gap-1 text-red-500"><XCircle className="h-3 w-3" /> {s.errors}</span>
+                  <span className="flex items-center gap-1 text-muted-foreground"><Zap className="h-3 w-3" /> {s.avgResponseTime}ms</span>
                 </div>
               </CardContent>
             </Card>
           ))}
           {Object.keys(stats).length === 0 && (
-            <p className="text-center text-muted-foreground py-12">No key usage data yet</p>
+            <p className="text-center text-muted-foreground py-12 text-sm">No key usage data yet</p>
           )}
         </TabsContent>
 
-        <TabsContent value="logs" className="mt-4">
-          <Card>
+        {/* Logs - card view on mobile, table on desktop */}
+        <TabsContent value="logs" className="mt-3">
+          {/* Desktop table */}
+          <Card className="hidden md:block">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -348,23 +345,42 @@ const AdminDashboard = () => {
                         <td className="p-3 font-medium text-foreground">{log.service}</td>
                         <td className="p-3 font-mono text-xs text-muted-foreground">{log.key_identifier}</td>
                         <td className="p-3">
-                          <Badge className={statusColor(log.status)} variant="secondary">
-                            {log.status}
-                          </Badge>
+                          <Badge className={statusColor(log.status)} variant="secondary">{log.status}</Badge>
                         </td>
                         <td className="p-3 text-right text-muted-foreground">{log.response_time_ms || '-'}</td>
                       </tr>
                     ))}
                     {recentLogs.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="p-8 text-center text-muted-foreground">No logs yet</td>
-                      </tr>
+                      <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No logs yet</td></tr>
                     )}
                   </tbody>
                 </table>
               </div>
             </CardContent>
           </Card>
+
+          {/* Mobile card view */}
+          <div className="md:hidden space-y-2">
+            {recentLogs.length === 0 ? (
+              <p className="text-center text-muted-foreground py-12 text-sm">No logs yet</p>
+            ) : recentLogs.map((log, i) => (
+              <Card key={i}>
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-sm text-foreground">{log.service}</span>
+                    <Badge className={statusColor(log.status)} variant="secondary" className2="text-xs">{log.status}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="font-mono truncate max-w-[40%]">{log.key_identifier}</span>
+                    <span>{log.response_time_ms ? `${log.response_time_ms}ms` : '-'}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {new Date(log.created_at).toLocaleString('en-IN', { hour12: true, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </TabsContent>
       </Tabs>
     </div>
