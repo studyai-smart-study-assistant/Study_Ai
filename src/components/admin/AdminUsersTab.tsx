@@ -266,14 +266,24 @@ const AdminUsersTab = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        size="sm"
-                        variant={user.is_blocked ? 'outline' : 'destructive'}
-                        className="h-7 text-xs"
-                        onClick={() => toggleBlock(user.user_id, user.is_blocked)}
-                      >
-                        {user.is_blocked ? 'Unblock' : 'Block'}
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => viewMemories(user)}
+                        >
+                          <Brain className="h-3 w-3 mr-1" /> Memories
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={user.is_blocked ? 'outline' : 'destructive'}
+                          className="h-7 text-xs"
+                          onClick={() => toggleBlock(user.user_id, user.is_blocked)}
+                        >
+                          {user.is_blocked ? 'Unblock' : 'Block'}
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
