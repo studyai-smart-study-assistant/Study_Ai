@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Shield, Ban, CheckCircle, Search, Users, Crown, RefreshCw, Edit2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Shield, Ban, CheckCircle, Search, Users, Crown, RefreshCw, Edit2, Brain, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface EnrichedUser {
@@ -40,6 +42,9 @@ const AdminUsersTab = () => {
   const [search, setSearch] = useState('');
   const [editingPoints, setEditingPoints] = useState<string | null>(null);
   const [newPoints, setNewPoints] = useState('');
+  const [memoriesUser, setMemoriesUser] = useState<EnrichedUser | null>(null);
+  const [memories, setMemories] = useState<any[]>([]);
+  const [memoriesLoading, setMemoriesLoading] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -85,6 +90,22 @@ const AdminUsersTab = () => {
       toast.success('Points updated');
     } catch {
       toast.error('Update failed');
+    }
+  };
+
+  const viewMemories = async (user: EnrichedUser) => {
+    setMemoriesUser(user);
+    setMemoriesLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-users', {
+        body: { action: 'get_memories', userId: user.user_id },
+      });
+      if (error) throw error;
+      setMemories(data.memories || []);
+    } catch {
+      toast.error('Memories load नहीं हुई');
+    } finally {
+      setMemoriesLoading(false);
     }
   };
 
@@ -245,14 +266,24 @@ const AdminUsersTab = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        size="sm"
-                        variant={user.is_blocked ? 'outline' : 'destructive'}
-                        className="h-7 text-xs"
-                        onClick={() => toggleBlock(user.user_id, user.is_blocked)}
-                      >
-                        {user.is_blocked ? 'Unblock' : 'Block'}
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => viewMemories(user)}
+                        >
+                          <Brain className="h-3 w-3 mr-1" /> Memories
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={user.is_blocked ? 'outline' : 'destructive'}
+                          className="h-7 text-xs"
+                          onClick={() => toggleBlock(user.user_id, user.is_blocked)}
+                        >
+                          {user.is_blocked ? 'Unblock' : 'Block'}
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -261,6 +292,47 @@ const AdminUsersTab = () => {
           </div>
         </CardContent>
       </Card>
+      {/* Memories Dialog */}
+      <Dialog open={!!memoriesUser} onOpenChange={(open) => !open && setMemoriesUser(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-primary" />
+              {memoriesUser?.display_name || 'User'} की Memories
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            {memoriesLoading ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+              </div>
+            ) : memories.length === 0 ? (
+              <p className="text-center text-muted-foreground py-12">कोई memory store नहीं है</p>
+            ) : (
+              <div className="space-y-3 pr-4">
+                {memories.map((m) => (
+                  <div key={m.id} className="p-3 rounded-lg border border-border bg-muted/30">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="text-xs">{m.category}</Badge>
+                          <Badge variant="secondary" className="text-xs">importance: {m.importance}</Badge>
+                          <Badge variant="secondary" className="text-xs">{m.source}</Badge>
+                        </div>
+                        <p className="text-sm font-medium text-foreground">{m.memory_key}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{m.memory_value}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Updated: {new Date(m.updated_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
