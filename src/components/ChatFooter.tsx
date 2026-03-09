@@ -500,7 +500,13 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
                     <Camera className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm text-foreground">Camera</span>
                   </button>
-                </PopoverContent>
+                  <button
+                    onClick={() => { pdfInputRef.current?.click(); setIsAttachOpen(false); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+                  >
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-foreground">Upload PDF</span>
+                  </button>
               </Popover>
 
               {/* Tools button (web search, image create) */}
