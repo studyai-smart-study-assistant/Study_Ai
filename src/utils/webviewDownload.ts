@@ -48,11 +48,19 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([u8arr], { type: mime });
 }
 
+/** Lazy import helper so web builds don't fail when native modules aren't installed */
+async function safeDynamicImport<T = any>(moduleName: string): Promise<T> {
+  // Avoid static analysis by bundlers for optional native-only packages
+  return new Function('m', 'return import(m)')(moduleName) as Promise<T>;
+}
+
 /** Try saving via Capacitor Filesystem (native app) */
 async function tryCapacitorDownload(blob: Blob, filename: string): Promise<boolean> {
   try {
-    const { Filesystem, Directory } = await import('@capacitor/filesystem');
-    const { Capacitor } = await import('@capacitor/core');
+    const [{ Filesystem, Directory }, { Capacitor }] = await Promise.all([
+      safeDynamicImport<{ Filesystem: any; Directory: any }>('@capacitor/filesystem'),
+      safeDynamicImport<{ Capacitor: { isNativePlatform: () => boolean } }>('@capacitor/core'),
+    ]);
 
     // Only works in native app context
     if (!Capacitor.isNativePlatform()) {
