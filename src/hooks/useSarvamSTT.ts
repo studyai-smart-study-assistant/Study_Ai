@@ -11,7 +11,7 @@ interface UseSarvamSTTOptions {
 export function useSarvamSTT({ 
   language, 
   onTranscript,
-  silenceThreshold = 3000 // 3 seconds silence = auto stop
+  silenceThreshold = 25000 // 25 seconds silence = auto stop
 }: UseSarvamSTTOptions) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
