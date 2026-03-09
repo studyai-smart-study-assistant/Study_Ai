@@ -80,13 +80,23 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({
     scrollToBottom();
 
     try {
-      const { data, error } = await supabase.functions.invoke('fetch-news', {
+      // First try with original query
+      let { data, error } = await supabase.functions.invoke('fetch-news', {
         body: { query },
       });
 
       if (error) throw error;
+      
+      // If no articles with query, retry without query (general news)
       if (!data?.success || !data.articles?.length) {
-        throw new Error('No news found');
+        const fallback = await supabase.functions.invoke('fetch-news', {
+          body: { category: 'education' },
+        });
+        if (fallback.data?.success && fallback.data?.articles?.length) {
+          data = fallback.data;
+        } else {
+          throw new Error('No news found');
+        }
       }
 
       // Build formatted news response
