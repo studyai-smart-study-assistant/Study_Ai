@@ -115,7 +115,7 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({
   }, [messages, scrollToBottom]);
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-white to-purple-50 dark:from-gray-800 dark:to-gray-900 w-full overflow-hidden relative">
+    <div className="flex flex-col h-full bg-gradient-to-b from-background to-muted/30 w-full overflow-hidden relative">
       <AlertHandler 
         showLimitAlert={showLimitAlert} 
         onClose={() => setShowLimitAlert(false)} 
