@@ -23,9 +23,10 @@ interface ChatFooterProps {
   isDisabled?: boolean;
   webSearchEnabled?: boolean;
   onWebSearchToggle?: (enabled: boolean) => void;
+  onDeepThinking?: (topic: string) => Promise<void>;
 }
 
-const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled = false, webSearchEnabled = false, onWebSearchToggle }) => {
+const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled = false, webSearchEnabled = false, onWebSearchToggle, onDeepThinking }) => {
   const [input, setInput] = useState('');
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -304,9 +305,14 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     return language === 'hi' ? "कुछ भी पूछें..." : "Ask anything...";
   };
 
-  const handleDeepThinkingSend = (text: string) => {
-    const deepPrompt = `🔬 [DEEP RESEARCH] ${text} — इस विषय पर गहन इंटरनेट रिसर्च करो और एडवांस लेवल की जानकारी दो। सभी पहलुओं को कवर करो — इतिहास, वर्तमान स्थिति, भविष्य की संभावनाएं, और expert opinions। हिंदी और English दोनों में समझाओ।`;
-    onSend(deepPrompt);
+  const handleDeepThinkingSend = async (text: string) => {
+    setIsDeepThinking(false);
+    if (onDeepThinking) {
+      await onDeepThinking(text);
+    } else {
+      // Fallback if no handler provided
+      onSend(`🔬 [DEEP RESEARCH] ${text} — इस विषय पर गहन जानकारी दो: इतिहास, वर्तमान स्थिति, भविष्य, और expert opinions।`);
+    }
   };
 
   const hasContent = input.trim() || uploadedImage;
