@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Shield, Ban, CheckCircle, Search, Users, Crown, RefreshCw, Edit2, Brain, X } from 'lucide-react';
+import { Shield, Ban, CheckCircle, Search, Users, Crown, RefreshCw, Edit2, Brain } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface EnrichedUser {
@@ -119,32 +119,37 @@ const AdminUsersTab = () => {
     return new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true });
   };
 
+  const formatDateShort = (d: string | null) => {
+    if (!d) return '-';
+    return new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
         <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs"><Users className="h-3 w-3" /> Total Users</div>
-            <p className="text-2xl font-bold text-foreground">{users.length}</p>
+          <CardContent className="p-2.5 md:p-3">
+            <div className="flex items-center gap-1.5 text-muted-foreground text-xs"><Users className="h-3 w-3" /> Total</div>
+            <p className="text-xl md:text-2xl font-bold text-foreground">{users.length}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs"><CheckCircle className="h-3 w-3 text-green-500" /> Active</div>
-            <p className="text-2xl font-bold text-green-500">{users.filter(u => !u.is_blocked).length}</p>
+          <CardContent className="p-2.5 md:p-3">
+            <div className="flex items-center gap-1.5 text-muted-foreground text-xs"><CheckCircle className="h-3 w-3 text-green-500" /> Active</div>
+            <p className="text-xl md:text-2xl font-bold text-green-500">{users.filter(u => !u.is_blocked).length}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs"><Ban className="h-3 w-3 text-red-500" /> Blocked</div>
-            <p className="text-2xl font-bold text-red-500">{users.filter(u => u.is_blocked).length}</p>
+          <CardContent className="p-2.5 md:p-3">
+            <div className="flex items-center gap-1.5 text-muted-foreground text-xs"><Ban className="h-3 w-3 text-red-500" /> Blocked</div>
+            <p className="text-xl md:text-2xl font-bold text-red-500">{users.filter(u => u.is_blocked).length}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs"><Crown className="h-3 w-3 text-yellow-500" /> Admins</div>
-            <p className="text-2xl font-bold text-yellow-500">{users.filter(u => u.roles.includes('admin')).length}</p>
+          <CardContent className="p-2.5 md:p-3">
+            <div className="flex items-center gap-1.5 text-muted-foreground text-xs"><Crown className="h-3 w-3 text-yellow-500" /> Admins</div>
+            <p className="text-xl md:text-2xl font-bold text-yellow-500">{users.filter(u => u.roles.includes('admin')).length}</p>
           </CardContent>
         </Card>
       </div>
@@ -154,19 +159,19 @@ const AdminUsersTab = () => {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name, email, or ID..."
+            placeholder="Search name, email..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-9 h-9 text-sm"
           />
         </div>
-        <Button size="sm" variant="outline" onClick={fetchUsers} disabled={loading}>
+        <Button size="sm" variant="outline" className="h-9 w-9 p-0" onClick={fetchUsers} disabled={loading}>
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
         </Button>
       </div>
 
-      {/* Users Table */}
-      <Card>
+      {/* Desktop Table */}
+      <Card className="hidden md:block">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
@@ -192,21 +197,17 @@ const AdminUsersTab = () => {
                   </TableRow>
                 ) : filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
-                      No users found
-                    </TableCell>
+                    <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">No users found</TableCell>
                   </TableRow>
                 ) : filtered.map(user => (
                   <TableRow key={user.user_id} className={user.is_blocked ? 'opacity-60' : ''}>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+                        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
                           {(user.photo_url || user.avatar_url) ? (
                             <img src={user.photo_url || user.avatar_url!} className="h-full w-full object-cover" alt="" />
                           ) : (
-                            <span className="text-xs font-bold text-muted-foreground">
-                              {(user.display_name || '?')[0].toUpperCase()}
-                            </span>
+                            <span className="text-xs font-bold text-muted-foreground">{(user.display_name || '?')[0].toUpperCase()}</span>
                           )}
                         </div>
                         <div>
@@ -217,21 +218,14 @@ const AdminUsersTab = () => {
                     </TableCell>
                     <TableCell>
                       <p className="text-sm text-foreground">{user.email || '-'}</p>
-                      <Badge variant="outline" className="text-xs mt-0.5">
-                        {user.auth_provider || user.provider || 'email'}
-                      </Badge>
+                      <Badge variant="outline" className="text-xs mt-0.5">{user.auth_provider || user.provider || 'email'}</Badge>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{formatDate(user.created_at)}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{formatDate(user.last_sign_in || user.last_login)}</TableCell>
                     <TableCell>
                       {editingPoints === user.user_id ? (
                         <div className="flex items-center gap-1">
-                          <Input
-                            type="number"
-                            value={newPoints}
-                            onChange={e => setNewPoints(e.target.value)}
-                            className="w-20 h-7 text-xs"
-                          />
+                          <Input type="number" value={newPoints} onChange={e => setNewPoints(e.target.value)} className="w-20 h-7 text-xs" />
                           <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => updatePoints(user.user_id)}>✓</Button>
                           <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setEditingPoints(null)}>✕</Button>
                         </div>
@@ -239,23 +233,14 @@ const AdminUsersTab = () => {
                         <div className="flex items-center gap-1">
                           <span className="text-sm font-medium text-foreground">{user.balance}</span>
                           <span className="text-xs text-muted-foreground">/ {user.xp} XP</span>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 w-6 p-0"
-                            onClick={() => { setEditingPoints(user.user_id); setNewPoints(user.balance.toString()); }}
-                          >
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => { setEditingPoints(user.user_id); setNewPoints(user.balance.toString()); }}>
                             <Edit2 className="h-3 w-3" />
                           </Button>
                         </div>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="text-xs">Lv.{user.level_pts}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-foreground">{user.current_streak || 0}🔥</span>
-                    </TableCell>
+                    <TableCell><Badge variant="secondary" className="text-xs">Lv.{user.level_pts}</Badge></TableCell>
+                    <TableCell><span className="text-sm text-foreground">{user.current_streak || 0}🔥</span></TableCell>
                     <TableCell>
                       {user.is_blocked ? (
                         <Badge variant="destructive" className="text-xs">Blocked</Badge>
@@ -267,20 +252,10 @@ const AdminUsersTab = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs"
-                          onClick={() => viewMemories(user)}
-                        >
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => viewMemories(user)}>
                           <Brain className="h-3 w-3 mr-1" /> Memories
                         </Button>
-                        <Button
-                          size="sm"
-                          variant={user.is_blocked ? 'outline' : 'destructive'}
-                          className="h-7 text-xs"
-                          onClick={() => toggleBlock(user.user_id, user.is_blocked)}
-                        >
+                        <Button size="sm" variant={user.is_blocked ? 'outline' : 'destructive'} className="h-7 text-xs" onClick={() => toggleBlock(user.user_id, user.is_blocked)}>
                           {user.is_blocked ? 'Unblock' : 'Block'}
                         </Button>
                       </div>
@@ -292,39 +267,121 @@ const AdminUsersTab = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-2">
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+          </div>
+        ) : filtered.length === 0 ? (
+          <p className="text-center text-muted-foreground py-12 text-sm">No users found</p>
+        ) : filtered.map(user => (
+          <Card key={user.user_id} className={user.is_blocked ? 'opacity-60' : ''}>
+            <CardContent className="p-3">
+              {/* User header */}
+              <div className="flex items-center gap-2.5 mb-2.5">
+                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
+                  {(user.photo_url || user.avatar_url) ? (
+                    <img src={user.photo_url || user.avatar_url!} className="h-full w-full object-cover" alt="" />
+                  ) : (
+                    <span className="text-sm font-bold text-muted-foreground">{(user.display_name || '?')[0].toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-semibold text-sm text-foreground truncate">{user.display_name || 'Unknown'}</p>
+                    {user.is_blocked ? (
+                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Blocked</Badge>
+                    ) : user.roles.includes('admin') ? (
+                      <Badge className="bg-yellow-500/10 text-yellow-500 text-[10px] px-1.5 py-0">Admin</Badge>
+                    ) : null}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">{user.email || '-'}</p>
+                </div>
+              </div>
+
+              {/* Stats row */}
+              <div className="grid grid-cols-4 gap-1.5 mb-2.5">
+                <div className="text-center p-1.5 rounded bg-muted/50">
+                  <p className="text-xs text-muted-foreground">Points</p>
+                  <p className="text-sm font-bold text-foreground">{user.balance}</p>
+                </div>
+                <div className="text-center p-1.5 rounded bg-muted/50">
+                  <p className="text-xs text-muted-foreground">XP</p>
+                  <p className="text-sm font-bold text-foreground">{user.xp}</p>
+                </div>
+                <div className="text-center p-1.5 rounded bg-muted/50">
+                  <p className="text-xs text-muted-foreground">Level</p>
+                  <p className="text-sm font-bold text-foreground">{user.level_pts}</p>
+                </div>
+                <div className="text-center p-1.5 rounded bg-muted/50">
+                  <p className="text-xs text-muted-foreground">Streak</p>
+                  <p className="text-sm font-bold text-foreground">{user.current_streak || 0}🔥</p>
+                </div>
+              </div>
+
+              {/* Meta info */}
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-2.5">
+                <span>Joined: {formatDateShort(user.created_at)}</span>
+                <Badge variant="outline" className="text-[10px]">{user.auth_provider || user.provider || 'email'}</Badge>
+              </div>
+
+              {/* Points editing */}
+              {editingPoints === user.user_id && (
+                <div className="flex items-center gap-1.5 mb-2.5">
+                  <Input type="number" value={newPoints} onChange={e => setNewPoints(e.target.value)} className="h-8 text-xs flex-1" placeholder="New points" />
+                  <Button size="sm" className="h-8 px-3 text-xs" onClick={() => updatePoints(user.user_id)}>Save</Button>
+                  <Button size="sm" variant="outline" className="h-8 px-2 text-xs" onClick={() => setEditingPoints(null)}>✕</Button>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center gap-1.5">
+                <Button size="sm" variant="outline" className="h-7 text-xs flex-1" onClick={() => viewMemories(user)}>
+                  <Brain className="h-3 w-3 mr-1" /> Memories
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs flex-1" onClick={() => { setEditingPoints(user.user_id); setNewPoints(user.balance.toString()); }}>
+                  <Edit2 className="h-3 w-3 mr-1" /> Points
+                </Button>
+                <Button size="sm" variant={user.is_blocked ? 'outline' : 'destructive'} className="h-7 text-xs" onClick={() => toggleBlock(user.user_id, user.is_blocked)}>
+                  {user.is_blocked ? 'Unblock' : 'Block'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
       {/* Memories Dialog */}
       <Dialog open={!!memoriesUser} onOpenChange={(open) => !open && setMemoriesUser(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh]">
+        <DialogContent className="max-w-[95vw] md:max-w-2xl max-h-[85vh]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Brain className="h-5 w-5 text-primary" />
+            <DialogTitle className="flex items-center gap-2 text-sm md:text-base">
+              <Brain className="h-4 w-4 md:h-5 md:w-5 text-primary" />
               {memoriesUser?.display_name || 'User'} की Memories
             </DialogTitle>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh]">
+          <ScrollArea className="max-h-[65vh]">
             {memoriesLoading ? (
               <div className="flex justify-center py-12">
                 <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
               </div>
             ) : memories.length === 0 ? (
-              <p className="text-center text-muted-foreground py-12">कोई memory store नहीं है</p>
+              <p className="text-center text-muted-foreground py-12 text-sm">कोई memory store नहीं है</p>
             ) : (
-              <div className="space-y-3 pr-4">
+              <div className="space-y-2.5 pr-2 md:pr-4">
                 {memories.map((m) => (
-                  <div key={m.id} className="p-3 rounded-lg border border-border bg-muted/30">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="text-xs">{m.category}</Badge>
-                          <Badge variant="secondary" className="text-xs">importance: {m.importance}</Badge>
-                          <Badge variant="secondary" className="text-xs">{m.source}</Badge>
-                        </div>
-                        <p className="text-sm font-medium text-foreground">{m.memory_key}</p>
-                        <p className="text-sm text-muted-foreground mt-1">{m.memory_value}</p>
-                      </div>
+                  <div key={m.id} className="p-2.5 md:p-3 rounded-lg border border-border bg-muted/30">
+                    <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                      <Badge variant="outline" className="text-[10px] md:text-xs">{m.category}</Badge>
+                      <Badge variant="secondary" className="text-[10px] md:text-xs">imp: {m.importance}</Badge>
+                      <Badge variant="secondary" className="text-[10px] md:text-xs">{m.source}</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Updated: {new Date(m.updated_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
+                    <p className="text-xs md:text-sm font-medium text-foreground">{m.memory_key}</p>
+                    <p className="text-xs md:text-sm text-muted-foreground mt-0.5">{m.memory_value}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground mt-1.5">
+                      {new Date(m.updated_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
                     </p>
                   </div>
                 ))}
