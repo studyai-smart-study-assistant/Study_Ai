@@ -270,6 +270,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
         );
         setInput('');
         setUploadedImage(null);
+        setUploadedFileName(null);
+        setUploadedFileType(null);
         setIsImageMode(false);
       } catch (error: any) {
         console.error('Error generating image:', error);
