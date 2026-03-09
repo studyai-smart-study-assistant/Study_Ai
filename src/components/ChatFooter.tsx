@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal, X, Plus, Upload, Sparkles, Globe, SlidersHorizontal, Camera, ImageIcon, Download, Mic, MicOff, Radio, Telescope, FileText } from "lucide-react";
+import { SendHorizonal, X, Plus, Upload, Sparkles, Globe, SlidersHorizontal, Camera, ImageIcon, Download, Mic, MicOff, Radio, Telescope, FileText, Newspaper } from "lucide-react";
 import LiveTalkingMode from '@/components/chat/LiveTalkingMode';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -24,6 +24,7 @@ interface ChatFooterProps {
   webSearchEnabled?: boolean;
   onWebSearchToggle?: (enabled: boolean) => void;
   onDeepThinking?: (topic: string) => Promise<void>;
+  onNewsSearch?: (query: string) => Promise<void>;
 }
 
 // Compress image to reduce base64 size for API payload
@@ -63,7 +64,7 @@ const readFileAsBase64 = (file: File): Promise<string> => {
   });
 };
 
-const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled = false, webSearchEnabled = false, onWebSearchToggle, onDeepThinking }) => {
+const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled = false, webSearchEnabled = false, onWebSearchToggle, onDeepThinking, onNewsSearch }) => {
   const [input, setInput] = useState('');
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
@@ -75,6 +76,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [isDeepThinking, setIsDeepThinking] = useState(false);
+  const [isNewsMode, setIsNewsMode] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
