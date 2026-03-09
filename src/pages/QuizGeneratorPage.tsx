@@ -6,12 +6,19 @@ import { ArrowLeft, Home } from 'lucide-react';
 import QuizGeneratorWrapper from '@/components/study/QuizGeneratorWrapper';
 import AdsterraBanner from '@/components/ads/AdsterraBanner';
 import MonetagInterstitial from '@/components/ads/MonetagInterstitial';
+import PageMeta from '@/components/seo/PageMeta';
 
 const QuizGenerator = () => {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background">
+      <PageMeta 
+        title="AI Quiz Generator - Create Practice Tests Instantly | StudyAI"
+        description="Generate interactive quizzes on any topic with AI. Practice for Bihar Board, SSC CGL, competitive exams. Earn XP and compete on leaderboard."
+        canonicalPath="/quiz-generator"
+        keywords="AI Quiz Generator, Online Quiz Maker, Practice Tests, Bihar Board Quiz, SSC CGL Quiz"
+      />
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center gap-3 px-4 py-3 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <Button 
