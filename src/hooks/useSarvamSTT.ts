@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface UseSarvamSTTOptions {
   language: string;
   onTranscript?: (text: string) => void;
-  onAutoSend?: (text: string) => void; // Called when silence auto-stops and text is ready
+  onAutoSend?: (text: string) => void;
   silenceThreshold?: number; // ms of silence before auto-stop
 }
 
@@ -28,6 +28,7 @@ export function useSarvamSTT({
   const animationFrameRef = useRef<number | null>(null);
   const stopRecordingRef = useRef<() => void>(() => {});
   const hasSpeechStartedRef = useRef(false);
+  const retryCountRef = useRef(0);
 
   // Detect silence using audio levels
   const detectSilence = useCallback(() => {
@@ -36,42 +37,121 @@ export function useSarvamSTT({
     const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
     analyserRef.current.getByteFrequencyData(dataArray);
     
-    // Calculate average volume
     const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
     
-    // If user has spoken and now silent, start silence timer
     if (average < 10) {
       if (hasSpeechStartedRef.current && !silenceTimerRef.current) {
         console.log('🔇 Silence detected, starting timer...');
         silenceTimerRef.current = setTimeout(() => {
-          console.log('🔇 Silence threshold reached, auto-stopping recording...');
+          console.log('🔇 Silence threshold reached, auto-stopping...');
           stopRecordingRef.current();
         }, silenceThreshold);
       }
     } else {
-      // Sound detected - mark that speech has started
       hasSpeechStartedRef.current = true;
-      // Reset silence timer
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = null;
       }
     }
     
-    // Continue monitoring if still recording
     if (mediaRecorderRef.current?.state === 'recording') {
       animationFrameRef.current = requestAnimationFrame(detectSilence);
     }
   }, [silenceThreshold]);
 
+  const processAudioWithRetry = useCallback(async (audioBlob: Blob, attempt = 0): Promise<string | null> => {
+    const maxRetries = 2;
+    
+    try {
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const base64Audio = btoa(
+        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
+      
+      console.log(`📤 STT attempt ${attempt + 1}: Sending ${(audioBlob.size / 1024).toFixed(1)}KB audio...`);
+      
+      const { data, error } = await supabase.functions.invoke('speech-to-text', {
+        body: { 
+          audio: base64Audio, 
+          language: language === 'hi' ? 'hi' : 'en' 
+        }
+      });
+      
+      if (error) {
+        throw new Error(error.message || 'STT API error');
+      }
+      
+      if (data?.transcript) {
+        return data.transcript;
+      }
+      
+      // No transcript but no error - likely no speech detected
+      return '';
+      
+    } catch (err: any) {
+      console.error(`STT attempt ${attempt + 1} failed:`, err.message);
+      
+      // Retry on network/server errors
+      if (attempt < maxRetries && (err.message.includes('503') || err.message.includes('timeout') || err.message.includes('network'))) {
+        console.log(`🔄 Retrying STT (${attempt + 2}/${maxRetries + 1})...`);
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        return processAudioWithRetry(audioBlob, attempt + 1);
+      }
+      
+      throw err;
+    }
+  }, [language]);
+
+  const processAudio = useCallback(async () => {
+    if (audioChunksRef.current.length === 0) {
+      toast.error(language === 'hi' ? 'कोई ऑडियो रिकॉर्ड नहीं हुआ' : 'No audio recorded');
+      return;
+    }
+    
+    setIsProcessing(true);
+    
+    try {
+      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+      
+      // Minimum audio size check
+      if (audioBlob.size < 1000) {
+        toast.warning(language === 'hi' ? 'ऑडियो बहुत छोटा है' : 'Audio too short');
+        return;
+      }
+      
+      const result = await processAudioWithRetry(audioBlob);
+      
+      if (result && result.trim()) {
+        console.log('✅ Transcript:', result);
+        setTranscript(result);
+        onTranscript?.(result);
+        onAutoSend?.(result);
+        retryCountRef.current = 0;
+      } else {
+        toast.warning(language === 'hi' ? 'कोई बोली नहीं मिली, फिर से बोलें' : 'No speech detected, try again');
+      }
+      
+    } catch (error: any) {
+      console.error('STT Error:', error);
+      
+      // Show appropriate error message
+      if (error.message.includes('503') || error.message.includes('exhausted')) {
+        toast.error(language === 'hi' ? 'सर्वर व्यस्त है, कुछ देर बाद प्रयास करें' : 'Server busy, try again later');
+      } else {
+        toast.error(language === 'hi' ? 'वाक् पहचान विफल' : 'Speech recognition failed');
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [language, onTranscript, onAutoSend, processAudioWithRetry]);
+
   const startRecording = useCallback(async () => {
     try {
-      // Reset state
       audioChunksRef.current = [];
       hasSpeechStartedRef.current = false;
       setTranscript('');
       
-      // Get microphone access
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
@@ -81,7 +161,7 @@ export function useSarvamSTT({
       });
       streamRef.current = stream;
       
-      // Setup audio analysis for silence detection
+      // Setup audio analysis
       audioContextRef.current = new AudioContext();
       const source = audioContextRef.current.createMediaStreamSource(stream);
       analyserRef.current = audioContextRef.current.createAnalyser();
@@ -103,45 +183,40 @@ export function useSarvamSTT({
       };
       
       mediaRecorder.onstop = async () => {
-        // Stop silence detection
         if (animationFrameRef.current) {
           cancelAnimationFrame(animationFrameRef.current);
         }
         if (silenceTimerRef.current) {
           clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
         }
-        
-        // Process audio
         await processAudio();
       };
       
-      // Start recording
-      mediaRecorder.start(100); // Collect data every 100ms
+      mediaRecorder.start(100);
       setIsRecording(true);
-      
-      // Start silence detection
       detectSilence();
-      
-      // No toast here - UI already shows recording state visually
       
     } catch (error: any) {
       console.error('Failed to start recording:', error);
-      toast.error(language === 'hi' ? 'माइक्रोफ़ोन एक्सेस नहीं मिला' : 'Microphone access denied');
+      if (error.name === 'NotAllowedError') {
+        toast.error(language === 'hi' ? 'माइक्रोफ़ोन की अनुमति दें' : 'Please allow microphone access');
+      } else {
+        toast.error(language === 'hi' ? 'माइक्रोफ़ोन एक्सेस नहीं मिला' : 'Microphone access failed');
+      }
     }
-  }, [language, detectSilence]);
+  }, [language, detectSilence, processAudio]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
     
-    // Stop media stream
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
     
-    // Close audio context
     if (audioContextRef.current) {
       audioContextRef.current.close();
       audioContextRef.current = null;
@@ -150,59 +225,7 @@ export function useSarvamSTT({
     setIsRecording(false);
   }, []);
 
-  // Keep ref in sync so detectSilence can call it without stale closure
   stopRecordingRef.current = stopRecording;
-
-  const processAudio = useCallback(async () => {
-    if (audioChunksRef.current.length === 0) {
-      toast.error(language === 'hi' ? 'कोई ऑडियो रिकॉर्ड नहीं हुआ' : 'No audio recorded');
-      return;
-    }
-    
-    setIsProcessing(true);
-    
-    try {
-      // Combine audio chunks
-      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-      
-      // Convert to base64
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const base64Audio = btoa(
-        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-      );
-      
-      console.log(`📤 Sending ${(audioBlob.size / 1024).toFixed(1)}KB audio to Sarvam STT...`);
-      
-      // Send to Sarvam STT edge function
-      const { data, error } = await supabase.functions.invoke('speech-to-text', {
-        body: { 
-          audio: base64Audio, 
-          language: language === 'hi' ? 'hi' : 'en' 
-        }
-      });
-      
-      if (error) {
-        throw new Error(error.message || 'STT API error');
-      }
-      
-      if (data?.transcript) {
-        console.log('✅ Transcript:', data.transcript);
-        setTranscript(data.transcript);
-        onTranscript?.(data.transcript);
-        onAutoSend?.(data.transcript);
-        // No toast - user can see the text appear in the input field
-      } else {
-        // Only show warning when genuinely no speech was detected
-        toast.warning(language === 'hi' ? 'कोई बोली नहीं मिली, फिर से बोलें' : 'No speech detected, try again');
-      }
-      
-    } catch (error: any) {
-      console.error('STT Error:', error);
-      toast.error(language === 'hi' ? 'वाक् पहचान विफल' : 'Speech recognition failed');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [language, onTranscript]);
 
   const toggleRecording = useCallback(() => {
     if (isRecording) {
