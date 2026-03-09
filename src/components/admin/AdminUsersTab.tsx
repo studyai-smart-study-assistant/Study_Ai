@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Shield, Ban, CheckCircle, Search, Users, Crown, RefreshCw, Edit2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Shield, Ban, CheckCircle, Search, Users, Crown, RefreshCw, Edit2, Brain, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface EnrichedUser {

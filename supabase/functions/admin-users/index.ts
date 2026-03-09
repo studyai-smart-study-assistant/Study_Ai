@@ -80,6 +80,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === 'get_memories' && userId) {
+      const { data: memories, error } = await adminClient
+        .from('user_memories')
+        .select('*')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false });
+      if (error) throw error;
+      return new Response(JSON.stringify({ memories: memories || [] }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (action === 'block' && userId) {
       const { error } = await adminClient
         .from('profiles')
