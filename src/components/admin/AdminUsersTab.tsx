@@ -93,6 +93,22 @@ const AdminUsersTab = () => {
     }
   };
 
+  const viewMemories = async (user: EnrichedUser) => {
+    setMemoriesUser(user);
+    setMemoriesLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-users', {
+        body: { action: 'get_memories', userId: user.user_id },
+      });
+      if (error) throw error;
+      setMemories(data.memories || []);
+    } catch {
+      toast.error('Memories load नहीं हुई');
+    } finally {
+      setMemoriesLoading(false);
+    }
+  };
+
   const filtered = users.filter(u => {
     const q = search.toLowerCase();
     return !q || (u.display_name?.toLowerCase().includes(q)) || (u.email?.toLowerCase().includes(q)) || u.user_id.toLowerCase().includes(q);
