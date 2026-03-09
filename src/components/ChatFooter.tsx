@@ -608,6 +608,19 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
                       <p className="text-[11px] text-muted-foreground">{isDeepThinking ? 'ON — गहन रिसर्च mode' : 'Advanced research करें'}</p>
                     </div>
                   </button>
+                  {/* News button */}
+                  <button
+                    onClick={() => { setIsNewsMode(!isNewsMode); setIsImageMode(false); setIsDeepThinking(false); setIsToolsOpen(false); textareaRef.current?.focus(); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+                  >
+                    <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${isNewsMode ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-muted'}`}>
+                      <Newspaper className={`h-4 w-4 ${isNewsMode ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`} />
+                    </div>
+                    <div>
+                      <p className="text-sm text-foreground">📰 News</p>
+                      <p className="text-[11px] text-muted-foreground">{isNewsMode ? 'ON — ताज़ा खबरें mode' : 'आज की ताज़ा खबरें लाएं'}</p>
+                    </div>
+                  </button>
                   {/* Live Talking button */}
                   <button
                     onClick={() => { setIsLiveMode(true); setIsToolsOpen(false); }}
