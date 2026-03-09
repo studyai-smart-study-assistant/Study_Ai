@@ -26,6 +26,8 @@ export function useSarvamSTT({
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const stopRecordingRef = useRef<() => void>(() => {});
+  const hasSpeechStartedRef = useRef(false);
 
   // Detect silence using audio levels
   const detectSilence = useCallback(() => {
@@ -37,16 +39,19 @@ export function useSarvamSTT({
     // Calculate average volume
     const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
     
-    // If volume is low (silence), start/continue silence timer
+    // If user has spoken and now silent, start silence timer
     if (average < 10) {
-      if (!silenceTimerRef.current) {
+      if (hasSpeechStartedRef.current && !silenceTimerRef.current) {
+        console.log('🔇 Silence detected, starting timer...');
         silenceTimerRef.current = setTimeout(() => {
-          console.log('🔇 Silence detected, stopping recording...');
-          stopRecording();
+          console.log('🔇 Silence threshold reached, auto-stopping recording...');
+          stopRecordingRef.current();
         }, silenceThreshold);
       }
     } else {
-      // Sound detected, reset silence timer
+      // Sound detected - mark that speech has started
+      hasSpeechStartedRef.current = true;
+      // Reset silence timer
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = null;
@@ -63,6 +68,7 @@ export function useSarvamSTT({
     try {
       // Reset state
       audioChunksRef.current = [];
+      hasSpeechStartedRef.current = false;
       setTranscript('');
       
       // Get microphone access
@@ -143,6 +149,9 @@ export function useSarvamSTT({
     
     setIsRecording(false);
   }, []);
+
+  // Keep ref in sync so detectSilence can call it without stale closure
+  stopRecordingRef.current = stopRecording;
 
   const processAudio = useCallback(async () => {
     if (audioChunksRef.current.length === 0) {
