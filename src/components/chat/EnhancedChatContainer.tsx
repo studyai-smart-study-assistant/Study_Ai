@@ -74,7 +74,7 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({
       { duration: 5000 }
     );
 
-    const userMsg = await chatDB.addMessage(chatId, `📰 News: ${query}`, 'user');
+    await chatDB.addMessage(chatId, `📰 News: ${query}`, 'user');
     if (onChatUpdated) onChatUpdated();
     await loadMessages();
     scrollToBottom();
@@ -126,7 +126,7 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({
       { duration: 8000 }
     );
 
-    const userMsg = await chatDB.addMessage(chatId, `🔭 Deep Thinking: ${topic}`, 'user');
+    await chatDB.addMessage(chatId, `🔭 Deep Thinking: ${topic}`, 'user');
     if (onChatUpdated) onChatUpdated();
     await loadMessages();
     scrollToBottom();

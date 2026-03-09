@@ -2,6 +2,7 @@ import { toast } from "sonner";
 import { Message } from "./db";
 import { chatDB } from "./db";
 import { supabase } from "@/integrations/supabase/client";
+import { getRealtimeContext, isDateTimeQuery, getDateTimeAnswer } from '../utils/realtimeContext';
 
 // Study AI - Core Chat & AI Gateway Service
 // Developed by Ajit Kumar
@@ -117,7 +118,6 @@ const result = await generateResponseWithSearch(prompt, history, chatId, model, 
   return result.text;
 }
 
-import { getRealtimeContext, isDateTimeQuery, getDateTimeAnswer } from '../utils/realtimeContext';
 
 /**
  * Enhanced generateResponse - Gemini auto-decides web search via tool calling
