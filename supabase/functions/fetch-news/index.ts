@@ -15,27 +15,38 @@ serve(async (req) => {
   try {
     const { query, category } = await req.json();
 
-    // Build URL
-    let url = `https://newsdata.io/api/1/news?apikey=${NEWS_API_KEY}&country=in&language=hi,en`;
-
+    // Build URL — try with query first, fallback to general if empty
+    const baseUrl = `https://newsdata.io/api/1/news?apikey=${NEWS_API_KEY}&country=in&language=hi,en`;
+    
+    let url = baseUrl;
     if (query && query.trim()) {
       url += `&q=${encodeURIComponent(query.trim())}`;
     }
-
     if (category && category.trim()) {
       url += `&category=${encodeURIComponent(category.trim())}`;
     }
 
     console.log('Fetching news from:', url);
+    let response = await fetch(url);
+    let data = await response.json();
 
-    const response = await fetch(url);
-    const data = await response.json();
+    // If query returned no results, retry without query (general news)
+    if (data.status === 'success' && (!data.results || data.results.length === 0) && query) {
+      console.log('No results with query, retrying general news...');
+      let fallbackUrl = baseUrl;
+      if (category && category.trim()) {
+        fallbackUrl += `&category=${encodeURIComponent(category.trim())}`;
+      } else {
+        fallbackUrl += `&category=education`;
+      }
+      response = await fetch(fallbackUrl);
+      data = await response.json();
+    }
 
     if (data.status !== 'success') {
       throw new Error(data.results?.message || 'News fetch failed');
     }
 
-    // Format results
     const articles = (data.results || []).slice(0, 10).map((article: any) => ({
       title: article.title || 'No title',
       description: article.description || article.content?.slice(0, 200) || '',
