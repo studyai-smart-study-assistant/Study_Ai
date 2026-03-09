@@ -437,6 +437,19 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
           </div>
         )}
 
+        {/* News mode badge */}
+        {isNewsMode && (
+          <div className="mb-2 flex justify-center">
+            <div className="bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-blue-500/20">
+              <Newspaper className="h-3 w-3" />
+              <span>News Mode ON</span>
+              <button onClick={() => setIsNewsMode(false)} className="ml-1 hover:bg-blue-500/10 rounded-full p-0.5">
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Deep Thinking active badge */}
         {isDeepThinking && (
           <div className="mb-2 flex justify-center">
