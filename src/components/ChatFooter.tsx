@@ -507,6 +507,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
                     <FileText className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm text-foreground">Upload PDF</span>
                   </button>
+                </PopoverContent>
               </Popover>
 
               {/* Tools button (web search, image create) */}
