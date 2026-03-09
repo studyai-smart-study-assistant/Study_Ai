@@ -23,7 +23,8 @@ const EmptyChatUI: React.FC<EmptyChatUIProps> = ({
   onSurpriseMe,
   onAnalyzeImages,
   onSummarizeText,
-  onMore
+  onMore,
+  onDeepThinking
 }) => {
   const greeting = getTimeBasedGreeting();
   const { currentUser } = useAuth();
