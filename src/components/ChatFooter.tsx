@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal, X, Plus, Upload, Sparkles, Globe, SlidersHorizontal, Camera, ImageIcon, Download, Mic, MicOff, Radio, Telescope, FileText } from "lucide-react";
+import { SendHorizonal, X, Plus, Upload, Sparkles, Globe, SlidersHorizontal, Camera, ImageIcon, Download, Mic, MicOff, Radio, Telescope, FileText, Newspaper } from "lucide-react";
 import LiveTalkingMode from '@/components/chat/LiveTalkingMode';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -24,6 +24,7 @@ interface ChatFooterProps {
   webSearchEnabled?: boolean;
   onWebSearchToggle?: (enabled: boolean) => void;
   onDeepThinking?: (topic: string) => Promise<void>;
+  onNewsSearch?: (query: string) => Promise<void>;
 }
 
 // Compress image to reduce base64 size for API payload
@@ -63,7 +64,7 @@ const readFileAsBase64 = (file: File): Promise<string> => {
   });
 };
 
-const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled = false, webSearchEnabled = false, onWebSearchToggle, onDeepThinking }) => {
+const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled = false, webSearchEnabled = false, onWebSearchToggle, onDeepThinking, onNewsSearch }) => {
   const [input, setInput] = useState('');
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
@@ -75,6 +76,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [isDeepThinking, setIsDeepThinking] = useState(false);
+  const [isNewsMode, setIsNewsMode] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -229,6 +231,13 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     if (!input.trim() && !uploadedImage) return;
     if (isLoading || isDisabled) return;
 
+    if (isNewsMode && input.trim()) {
+      handleNewsSend(input.trim());
+      setInput('');
+      setIsNewsMode(false);
+      return;
+    }
+
     if (isDeepThinking && input.trim()) {
       handleDeepThinkingSend(input.trim());
       setInput('');
@@ -366,6 +375,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     if (isDisabled) return language === 'hi' ? "AI जवाब दे रहा है..." : "Waiting for AI...";
     if (isImageMode) return language === 'hi' ? "Image का description लिखें..." : "Describe the image...";
     if (isDeepThinking) return language === 'hi' ? "कोई भी टॉपिक लिखें — गहन रिसर्च होगी..." : "Enter topic for deep research...";
+    if (isNewsMode) return language === 'hi' ? "SSC, UPSC, या कोई भी topic लिखें..." : "Enter exam or topic for news...";
     return language === 'hi' ? "कुछ भी पूछें..." : "Ask anything...";
   };
 
@@ -376,6 +386,15 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     } else {
       // Fallback if no handler provided
       onSend(`🔬 [DEEP RESEARCH] ${text} — इस विषय पर गहन जानकारी दो: इतिहास, वर्तमान स्थिति, भविष्य, और expert opinions।`);
+    }
+  };
+
+  const handleNewsSend = async (text: string) => {
+    setIsNewsMode(false);
+    if (onNewsSearch) {
+      await onNewsSearch(text);
+    } else {
+      onSend(`📰 [NEWS] ${text} — इस विषय से जुड़ी आज की ताज़ा खबरें बताओ।`);
     }
   };
 
@@ -412,6 +431,19 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
               <Globe className="h-3 w-3" />
               <span>Web Search ON</span>
               <button onClick={() => onWebSearchToggle?.(false)} className="ml-1 hover:bg-emerald-500/10 rounded-full p-0.5">
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* News mode badge */}
+        {isNewsMode && (
+          <div className="mb-2 flex justify-center">
+            <div className="bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-blue-500/20">
+              <Newspaper className="h-3 w-3" />
+              <span>News Mode ON</span>
+              <button onClick={() => setIsNewsMode(false)} className="ml-1 hover:bg-blue-500/10 rounded-full p-0.5">
                 <X className="h-3 w-3" />
               </button>
             </div>
@@ -574,6 +606,19 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
                     <div>
                       <p className="text-sm text-foreground">Deep Thinking</p>
                       <p className="text-[11px] text-muted-foreground">{isDeepThinking ? 'ON — गहन रिसर्च mode' : 'Advanced research करें'}</p>
+                    </div>
+                  </button>
+                  {/* News button */}
+                  <button
+                    onClick={() => { setIsNewsMode(!isNewsMode); setIsImageMode(false); setIsDeepThinking(false); setIsToolsOpen(false); textareaRef.current?.focus(); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+                  >
+                    <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${isNewsMode ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-muted'}`}>
+                      <Newspaper className={`h-4 w-4 ${isNewsMode ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`} />
+                    </div>
+                    <div>
+                      <p className="text-sm text-foreground">📰 News</p>
+                      <p className="text-[11px] text-muted-foreground">{isNewsMode ? 'ON — ताज़ा खबरें mode' : 'आज की ताज़ा खबरें लाएं'}</p>
                     </div>
                   </button>
                   {/* Live Talking button */}
