@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal, X, Plus, Upload, Sparkles, Globe, SlidersHorizontal, Camera, ImageIcon, Download, Mic, MicOff, Radio } from "lucide-react";
+import { SendHorizonal, X, Plus, Upload, Sparkles, Globe, SlidersHorizontal, Camera, ImageIcon, Download, Mic, MicOff, Radio, Telescope } from "lucide-react";
 import LiveTalkingMode from '@/components/chat/LiveTalkingMode';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -34,6 +34,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isLiveMode, setIsLiveMode] = useState(false);
+  const [isDeepThinking, setIsDeepThinking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -187,6 +188,13 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     if (!input.trim() && !uploadedImage) return;
     if (isLoading || isDisabled) return;
 
+    if (isDeepThinking && input.trim()) {
+      handleDeepThinkingSend(input.trim());
+      setInput('');
+      setIsDeepThinking(false);
+      return;
+    }
+
     if (isImageMode && input.trim()) {
       try {
         setIsUploading(true);
@@ -292,7 +300,13 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
   const getPlaceholder = () => {
     if (isDisabled) return language === 'hi' ? "AI जवाब दे रहा है..." : "Waiting for AI...";
     if (isImageMode) return language === 'hi' ? "Image का description लिखें..." : "Describe the image...";
+    if (isDeepThinking) return language === 'hi' ? "कोई भी टॉपिक लिखें — गहन रिसर्च होगी..." : "Enter topic for deep research...";
     return language === 'hi' ? "कुछ भी पूछें..." : "Ask anything...";
+  };
+
+  const handleDeepThinkingSend = (text: string) => {
+    const deepPrompt = `🔬 [DEEP RESEARCH] ${text} — इस विषय पर गहन इंटरनेट रिसर्च करो और एडवांस लेवल की जानकारी दो। सभी पहलुओं को कवर करो — इतिहास, वर्तमान स्थिति, भविष्य की संभावनाएं, और expert opinions। हिंदी और English दोनों में समझाओ।`;
+    onSend(deepPrompt);
   };
 
   const hasContent = input.trim() || uploadedImage;
@@ -333,7 +347,19 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
           </div>
         )}
 
-        {/* Main container - Gemini style */}
+        {/* Deep Thinking active badge */}
+        {isDeepThinking && (
+          <div className="mb-2 flex justify-center">
+            <div className="bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-amber-500/20">
+              <Telescope className="h-3 w-3" />
+              <span>Deep Thinking ON</span>
+              <button onClick={() => setIsDeepThinking(false)} className="ml-1 hover:bg-amber-500/10 rounded-full p-0.5">
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className={`
           bg-card border border-border rounded-2xl shadow-lg
           transition-all duration-200
@@ -449,13 +475,26 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
                       <p className="text-[11px] text-muted-foreground">{language === 'hi' ? 'बनाई गई images देखें' : 'View generated images'}</p>
                     </div>
                   </button>
+                  {/* Deep Thinking button */}
+                  <button
+                    onClick={() => { setIsDeepThinking(!isDeepThinking); setIsImageMode(false); setIsToolsOpen(false); textareaRef.current?.focus(); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+                  >
+                    <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${isDeepThinking ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-muted'}`}>
+                      <Telescope className={`h-4 w-4 ${isDeepThinking ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`} />
+                    </div>
+                    <div>
+                      <p className="text-sm text-foreground">Deep Thinking</p>
+                      <p className="text-[11px] text-muted-foreground">{isDeepThinking ? 'ON — गहन रिसर्च mode' : 'Advanced research करें'}</p>
+                    </div>
+                  </button>
                   {/* Live Talking button */}
                   <button
                     onClick={() => { setIsLiveMode(true); setIsToolsOpen(false); }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
                   >
-                    <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-red-500/10">
-                      <Radio className="h-4 w-4 text-red-500" />
+                    <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-destructive/10">
+                      <Radio className="h-4 w-4 text-destructive" />
                     </div>
                     <div>
                       <p className="text-sm text-foreground">Live Talking</p>
