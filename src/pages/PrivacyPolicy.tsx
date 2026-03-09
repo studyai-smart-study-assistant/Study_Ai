@@ -27,7 +27,7 @@ const PrivacyPolicy = () => {
               Study AI – Smart Learning Assistant
             </p>
             <p className="text-sm text-muted-foreground mt-2">
-              Last updated: January 2026
+              Last updated: March 9, 2026
             </p>
           </div>
           
@@ -41,7 +41,8 @@ const PrivacyPolicy = () => {
                 </h2>
                 <p className="mb-3">
                   Study AI is an AI-powered educational learning assistant designed for students.
-                  The app helps users ask questions, generate explanations, notes, quizzes, and learning-related content using artificial intelligence.
+                  The app helps users ask questions, generate explanations, notes, quizzes, homework solutions, and learning-related content using artificial intelligence.
+                  It also provides features like Campus Talk (student chat), Digital Library, Study Planner, Interactive Teacher, Leaderboard, and Points/Credits system.
                 </p>
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border-l-4 border-blue-500">
                   <p className="font-medium text-blue-800 dark:text-blue-300">
@@ -64,7 +65,8 @@ const PrivacyPolicy = () => {
                   <div>
                     <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">a) Personal Information</h3>
                     <ul className="list-disc pl-6 space-y-1">
-                      <li>Email address (only if the user chooses to log in)</li>
+                      <li>Email address (for login/signup)</li>
+                      <li>Display name and avatar (optional, for profile & Campus Talk)</li>
                     </ul>
                   </div>
                   
@@ -196,9 +198,10 @@ const PrivacyPolicy = () => {
                   9. Data Storage
                 </h2>
                 <ul className="list-disc pl-6 space-y-2">
-                  <li>Minimal data is stored for authentication and app functionality</li>
+                  <li>User profile data, chat history, and Campus Talk messages are stored securely in our cloud database</li>
                   <li>Generated notes or content may be stored locally on the user's device</li>
-                  <li>No unnecessary data retention</li>
+                  <li>Points, credits, and activity data are stored for leaderboard and gamification features</li>
+                  <li>No unnecessary data retention — users can delete their account and all associated data permanently</li>
                 </ul>
               </section>
 
