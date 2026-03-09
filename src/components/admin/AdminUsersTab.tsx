@@ -292,6 +292,47 @@ const AdminUsersTab = () => {
           </div>
         </CardContent>
       </Card>
+      {/* Memories Dialog */}
+      <Dialog open={!!memoriesUser} onOpenChange={(open) => !open && setMemoriesUser(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-primary" />
+              {memoriesUser?.display_name || 'User'} की Memories
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            {memoriesLoading ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+              </div>
+            ) : memories.length === 0 ? (
+              <p className="text-center text-muted-foreground py-12">कोई memory store नहीं है</p>
+            ) : (
+              <div className="space-y-3 pr-4">
+                {memories.map((m) => (
+                  <div key={m.id} className="p-3 rounded-lg border border-border bg-muted/30">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="text-xs">{m.category}</Badge>
+                          <Badge variant="secondary" className="text-xs">importance: {m.importance}</Badge>
+                          <Badge variant="secondary" className="text-xs">{m.source}</Badge>
+                        </div>
+                        <p className="text-sm font-medium text-foreground">{m.memory_key}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{m.memory_value}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Updated: {new Date(m.updated_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
