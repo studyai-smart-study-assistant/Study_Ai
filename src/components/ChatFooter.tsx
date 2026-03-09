@@ -26,7 +26,7 @@ interface ChatFooterProps {
   onDeepThinking?: (topic: string) => Promise<void>;
 }
 
-const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled = false, webSearchEnabled = false, onWebSearchToggle }) => {
+const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled = false, webSearchEnabled = false, onWebSearchToggle, onDeepThinking }) => {
   const [input, setInput] = useState('');
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
