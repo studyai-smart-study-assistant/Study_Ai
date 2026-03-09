@@ -108,7 +108,7 @@ const EmptyChatUI: React.FC<EmptyChatUIProps> = ({
         )}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full max-w-2xl px-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 w-full max-w-3xl px-4">
         <Button 
           variant="outline" 
           className="flex flex-col items-center gap-2 p-4 h-auto border-purple-100 dark:border-purple-900 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/30"
@@ -143,6 +143,20 @@ const EmptyChatUI: React.FC<EmptyChatUIProps> = ({
         >
           <Bell className="h-6 w-6 text-purple-600 dark:text-purple-400" />
           <span className="text-sm">Give Feedback</span>
+        </Button>
+
+        <Button 
+          variant="outline" 
+          className="flex flex-col items-center gap-2 p-4 h-auto border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30"
+          onClick={() => {
+            const topic = prompt("🔬 Deep Thinking - कोई भी टॉपिक लिखें:");
+            if (topic && topic.trim()) {
+              onDeepThinking?.(topic.trim());
+            }
+          }}
+        >
+          <Telescope className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+          <span className="text-sm font-semibold">Deep Thinking</span>
         </Button>
       </div>
 
