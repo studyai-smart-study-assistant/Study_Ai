@@ -65,7 +65,8 @@ const PrivacyPolicy = () => {
                   <div>
                     <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">a) Personal Information</h3>
                     <ul className="list-disc pl-6 space-y-1">
-                      <li>Email address (only if the user chooses to log in)</li>
+                      <li>Email address (for login/signup)</li>
+                      <li>Display name and avatar (optional, for profile & Campus Talk)</li>
                     </ul>
                   </div>
                   
