@@ -290,6 +290,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     onSend(input.trim(), uploadedImage || undefined);
     setInput('');
     setUploadedImage(null);
+    setUploadedFileName(null);
+    setUploadedFileType(null);
     if (isListening) { stopRecording(); }
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
   };
@@ -299,22 +301,36 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
       setIsUploading(true);
       setIsAttachOpen(false);
       
-      // Convert to base64 locally - no Supabase upload needed
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
+      // Check file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(language === 'hi' ? 'फ़ाइल 10MB से छोटी होनी चाहिए' : 'File must be under 10MB');
+        setIsUploading(false);
+        return;
+      }
+
+      if (file.type === 'application/pdf') {
+        // Handle PDF
+        const base64 = await readFileAsBase64(file);
         setUploadedImage(base64);
+        setUploadedFileName(file.name);
+        setUploadedFileType('pdf');
+        setIsUploading(false);
+        toast.success(language === 'hi' ? `📄 PDF ready: ${file.name}` : `📄 PDF ready: ${file.name}`);
+      } else if (file.type.startsWith('image/')) {
+        // Compress image to reduce payload size
+        const compressed = await compressImage(file);
+        setUploadedImage(compressed);
+        setUploadedFileName(file.name);
+        setUploadedFileType('image');
         setIsUploading(false);
         toast.success(language === 'hi' ? 'Image ready!' : 'Image ready!');
-      };
-      reader.onerror = () => {
+      } else {
+        toast.error(language === 'hi' ? 'सिर्फ Image या PDF अपलोड करें' : 'Only Image or PDF allowed');
         setIsUploading(false);
-        toast.error(language === 'hi' ? 'Image पढ़ने में समस्या' : 'Failed to read image');
-      };
-      reader.readAsDataURL(file);
+      }
     } catch (error) {
-      console.error('Error reading image:', error);
-      toast.error(language === 'hi' ? 'Image में समस्या हुई' : 'Image error');
+      console.error('Error reading file:', error);
+      toast.error(language === 'hi' ? 'फ़ाइल पढ़ने में समस्या' : 'Failed to read file');
       setIsUploading(false);
     }
   };
@@ -323,6 +339,12 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     const file = e.target.files?.[0];
     if (file) handleImageSelect(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handlePdfInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImageSelect(file);
+    if (pdfInputRef.current) pdfInputRef.current.value = '';
   };
 
   const handleCameraInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
