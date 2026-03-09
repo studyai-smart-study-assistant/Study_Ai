@@ -141,8 +141,17 @@ export const useLessonOperations = ({
         
         console.log('Using enhanced prompt with conversation history:', updatedHistory.length, 'messages');
 
-        // Use Lovable AI with Gemini Flash model for teacher mode
-        const response = await generateResponse(contextPrompt, [], undefined, 'google/gemini-3-flash-preview');
+        // Build proper message history for context-aware generation
+        const messageHistory = updatedHistory.map((entry, i) => ({
+          id: `hist_${i}`,
+          chatId: 'interactive-teacher',
+          role: entry.startsWith('Teacher:') ? 'bot' as const : 'user' as const,
+          content: entry.replace(/^(Teacher|Student): /, ''),
+          timestamp: Date.now() - (updatedHistory.length - i) * 1000
+        }));
+
+        // Use Lovable AI with proper conversation context to prevent repetition
+        const response = await generateResponse(contextPrompt, messageHistory, undefined, 'google/gemini-3-flash-preview');
         
         // Extract first segment until next question
         const { firstSegment, hasQuestion } = extractFirstSegment(response);
