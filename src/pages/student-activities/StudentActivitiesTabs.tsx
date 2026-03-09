@@ -12,7 +12,8 @@ import {
   Calendar,
   ShoppingBag,
   Share2,
-  Flame
+  Flame,
+  BarChart3
 } from 'lucide-react';
 import StudentGoals from '@/components/student/StudentGoals';
 import StudentLeaderboard from '@/components/student/StudentLeaderboard';
@@ -25,6 +26,7 @@ import PointsStore from '@/components/student/PointsStore';
 import EnhancedStreakDisplay from '@/components/student/EnhancedStreakDisplay';
 import UserConnectionsHub from '@/components/student/UserConnectionsHub';
 import { getCurrentStreakSync, getLongestStreakSync } from '@/utils/streakUtils';
+import WeeklyReport from '@/components/student/WeeklyReport';
 import { useState, useEffect } from 'react';
 
 interface StudentActivitiesTabsProps {
@@ -67,7 +69,11 @@ const StudentActivitiesTabs: React.FC<StudentActivitiesTabsProps> = ({
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-      <TabsList className={`grid w-full ${isMobile ? 'grid-cols-4' : 'grid-cols-8'} mb-6`}>
+      <TabsList className={`grid w-full ${isMobile ? 'grid-cols-5' : 'grid-cols-9'} mb-6`}>
+        <TabsTrigger value="report" className="flex items-center gap-2">
+          <BarChart3 className="h-4 w-4" />
+          {!isMobile && <span>रिपोर्ट</span>}
+        </TabsTrigger>
         <TabsTrigger value="goals" className="flex items-center gap-2">
           <Target className="h-4 w-4" />
           {!isMobile && <span>Goals</span>}
@@ -101,6 +107,10 @@ const StudentActivitiesTabs: React.FC<StudentActivitiesTabsProps> = ({
           {!isMobile && <span>Connect</span>}
         </TabsTrigger>
       </TabsList>
+
+      <TabsContent value="report">
+        <WeeklyReport userId={currentUser.uid} userName={currentUser.displayName} />
+      </TabsContent>
 
       <TabsContent value="goals">
         <StudentGoals
