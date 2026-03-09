@@ -188,6 +188,13 @@ const ChatFooter: React.FC<ChatFooterProps> = ({ onSend, isLoading, isDisabled =
     if (!input.trim() && !uploadedImage) return;
     if (isLoading || isDisabled) return;
 
+    if (isDeepThinking && input.trim()) {
+      handleDeepThinkingSend(input.trim());
+      setInput('');
+      setIsDeepThinking(false);
+      return;
+    }
+
     if (isImageMode && input.trim()) {
       try {
         setIsUploading(true);
