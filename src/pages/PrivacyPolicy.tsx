@@ -198,9 +198,10 @@ const PrivacyPolicy = () => {
                   9. Data Storage
                 </h2>
                 <ul className="list-disc pl-6 space-y-2">
-                  <li>Minimal data is stored for authentication and app functionality</li>
+                  <li>User profile data, chat history, and Campus Talk messages are stored securely in our cloud database</li>
                   <li>Generated notes or content may be stored locally on the user's device</li>
-                  <li>No unnecessary data retention</li>
+                  <li>Points, credits, and activity data are stored for leaderboard and gamification features</li>
+                  <li>No unnecessary data retention — users can delete their account and all associated data permanently</li>
                 </ul>
               </section>
 
