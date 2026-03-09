@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Search, Trophy, Medal, Award } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import PageMeta from '@/components/seo/PageMeta';
 
 
 const LeaderboardPage = () => {
@@ -32,6 +33,12 @@ const LeaderboardPage = () => {
   
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-purple-50 dark:from-gray-900 dark:to-purple-950 pb-16">
+      <PageMeta 
+        title="Student Leaderboard - Top Learners & XP Rankings | StudyAI"
+        description="See top students and their XP rankings. Compete with other learners, earn points, and climb the leaderboard. StudyAI gamified learning."
+        canonicalPath="/leaderboard"
+        keywords="Student Leaderboard, XP Rankings, Study Competition, Top Students, Learning Gamification"
+      />
       <div className="max-w-4xl mx-auto p-4">
         {/* Header */}
         <LeaderboardHeader />

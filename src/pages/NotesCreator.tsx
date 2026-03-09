@@ -6,12 +6,19 @@ import { ArrowLeft, Home } from 'lucide-react';
 import EnhancedNotesGeneratorWrapper from '@/components/study/EnhancedNotesGeneratorWrapper';
 import AdsterraBanner from '@/components/ads/AdsterraBanner';
 import MonetagInterstitial from '@/components/ads/MonetagInterstitial';
+import PageMeta from '@/components/seo/PageMeta';
 
 const NotesCreator = () => {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background">
+      <PageMeta 
+        title="AI Notes Creator - Generate Study Notes Instantly | StudyAI"
+        description="Create comprehensive study notes on any topic using AI. Generate exam-ready notes for Bihar Board, SSC CGL, UPSC and more. Free AI notes generator."
+        canonicalPath="/notes-creator"
+        keywords="AI Notes Generator, Study Notes Creator, Bihar Board Notes, SSC CGL Notes, Free AI Notes"
+      />
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center gap-3 px-4 py-3 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <Button 

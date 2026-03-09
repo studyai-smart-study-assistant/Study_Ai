@@ -11,6 +11,8 @@ import { useMiniPlayer } from '@/contexts/MiniPlayerContext';
 import { ArrowLeft, Youtube, Home } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import PageMeta from '@/components/seo/PageMeta';
+
 
 const StudyTube: React.FC = () => {
   const { language } = useLanguage();
@@ -103,6 +105,12 @@ const StudyTube: React.FC = () => {
 
   return (
     <PageLayout>
+      <PageMeta 
+        title="StudyTube - Educational Videos for Students | StudyAI"
+        description="Watch curated educational videos for exam preparation. Study with video lectures in Hindi and English. Perfect for Bihar Board, competitive exams."
+        canonicalPath="/study-tube"
+        keywords="Educational Videos, Study Videos, Video Lectures, Online Learning, Bihar Board Videos"
+      />
       <div className="min-h-screen bg-background">
         {/* Sticky header */}
         <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
