@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface UseSarvamSTTOptions {
   language: string;
   onTranscript?: (text: string) => void;
+  onAutoSend?: (text: string) => void; // Called when silence auto-stops and text is ready
   silenceThreshold?: number; // ms of silence before auto-stop
 }
 
