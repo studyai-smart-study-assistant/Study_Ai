@@ -309,14 +309,14 @@ async function searchTavily(query: string): Promise<{ context: string; sources: 
       if (response.status === 429 || response.status === 403) {
         logApiUsage('tavily', keyLabel, 'rate_limited', String(response.status), Date.now() - start);
         console.warn(`⚠️ Tavily ${keyLabel} rate limited, trying next...`);
-        try { await response.text(); } catch {}
+        try { await response.text(); } catch {}\
         continue;
       }
       if (!response.ok) return { context: '', sources: [] };
       const data = await response.json();
       logApiUsage('tavily', keyLabel, 'success', undefined, Date.now() - start);
       const results = data.results || [];
-      const context = results.map((r: any, i: number) => `[Source ${i+1}] ${r.title}\n${r.content?.substring(0, 500)}\nURL: ${r.url}`).join('\n\n');
+      const context = results.map((r: any, i: number) => `[Source ${i+1}] ${r.title}\\n${r.content?.substring(0, 500)}\\nURL: ${r.url}`).join('\\n\\n');
       const sources = results.map((r: any) => ({ title: r.title, url: r.url }));
       return { context, sources };
     } catch { continue; }
@@ -381,79 +381,12 @@ const agentTools = [
       description: "Generate interactive quiz. Use when user EXPLICITLY asks for quiz/test. If user hasn't specified topic, subject, class, difficulty, or number of questions — DO NOT call this tool. Instead, ask the user for these details first in a friendly conversational way. Only call this tool when you have enough info (at minimum: topic).",
       parameters: { type: "object", properties: { topic: { type: "string", description: "Specific topic for quiz" }, num_questions: { type: "number", description: "Number of questions (default 5)" }, difficulty: { type: "string", enum: ["easy", "medium", "hard"], description: "Difficulty level" }, class_level: { type: "string", description: "Student class like 10th, 12th etc." } }, required: ["topic"], additionalProperties: false }
     }
-  },
-  {
-    type: "function",
-    function: {
-      name: "extract_memory",
-      description: "Extract and save important personal info user shared — name, preferences, goals, struggles, exam details, favorite subjects. DO NOT use for general questions or study content. Only use when user reveals something personal/important about themselves.",
-      parameters: {
-        type: "object",
-        properties: {
-          memories: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                key: { type: "string", description: "Short label like 'नाम', 'पसंदीदा विषय', 'लक्ष्य'" },
-                value: { type: "string", description: "The info to remember" },
-                category: { type: "string", enum: ["personal", "academic", "preference", "goal", "struggle", "general"] }
-              },
-              required: ["key", "value", "category"]
-            }
-          }
-        },
-        required: ["memories"],
-        additionalProperties: false
-      }
-    }
   }
 ];
 
-// ─── Save Memories to DB ────────────────────────────────────
-function normalizeMemoryKey(rawKey: string): string {
-  const key = (rawKey || '').trim().toLowerCase();
-  if (!key) return 'general_info';
-  if (key.includes('नाम') || key.includes('name')) return 'name';
-  if (key.includes('class') || key.includes('grade') || key.includes('कक्षा')) return 'class';
-  if (key.includes('goal') || key.includes('लक्ष्य') || key.includes('target')) return 'goal';
-  if (key.includes('subject') || key.includes('विषय')) return 'subject_preference';
-  return key.replace(/\s+/g, '_').slice(0, 64);
-}
-
-async function saveMemories(
-  adminClient: ReturnType<typeof createClient>,
-  userId: string,
-  memories: Array<{key: string; value: string; category: string}>
-): Promise<void> {
-  try {
-    const validMemories = memories
-      .filter((m) => m?.key?.trim() && m?.value?.trim())
-      .map((m) => ({
-        user_id: userId,
-        memory_key: normalizeMemoryKey(m.key),
-        memory_value: m.value.trim().slice(0, 500),
-        category: m.category || 'general',
-        source: 'ai_detected',
-        importance: 8,
-      }));
-
-    if (!validMemories.length) return;
-
-    const { error } = await adminClient
-      .from('user_memories')
-      .upsert(validMemories, { onConflict: 'user_id,memory_key' });
-
-    if (error) throw error;
-    console.log(`🧠 Saved ${validMemories.length} memories for user ${userId.slice(0, 8)}...`);
-  } catch (e) {
-    console.warn('⚠️ Failed to save memories:', e);
-  }
-}
-
 // ─── Generate Notes Content ─────────────────────────────────
 async function generateNotesContent(topic: string, detailLevel: string, model: string): Promise<string> {
-  const notesPrompt = `आप एक expert study notes creator हैं। "${topic}" पर ${detailLevel === 'comprehensive' ? 'विस्तृत और गहरे' : detailLevel === 'detailed' ? 'अच्छे विस्तार से' : 'संक्षिप्त'} study notes बनाएं।
+  const notesPrompt = `आप एक expert study notes creator हैं। \"${topic}\" पर ${detailLevel === 'comprehensive' ? 'विस्तृत और गहरे' : detailLevel === 'detailed' ? 'अच्छे विस्तार से' : 'संक्षिप्त'} study notes बनाएं।
 
 **Notes Format Rules:**
 - शुरू में एक आकर्षक title (# emoji + Title) दें
@@ -479,7 +412,7 @@ async function generateNotesContent(topic: string, detailLevel: string, model: s
 
 // ─── Generate Quiz Content (Structured JSON) ───────────────
 async function generateQuizContent(topic: string, numQuestions: number, difficulty: string, model: string): Promise<string> {
-  const quizPrompt = `"${topic}" पर ${numQuestions} ${difficulty} level के MCQ quiz questions बनाएं।
+  const quizPrompt = `\"${topic}\" पर ${numQuestions} ${difficulty} level के MCQ quiz questions बनाएं।
 
 You MUST respond with ONLY valid JSON in this exact format, no extra text:
 {
@@ -518,7 +451,7 @@ Rules:
   
   // Try to parse as JSON and wrap in QUIZ_DATA tag
   try {
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    const jsonMatch = content.match(/\\{[\\s\\S]*\\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
       if (parsed.questions && Array.isArray(parsed.questions)) {
@@ -533,96 +466,28 @@ Rules:
   return content || 'Quiz generation failed';
 }
 
-// ─── Smart Background Memory Extraction (ChatGPT-level) ──
-async function backgroundExtractMemories(
-  adminClient: ReturnType<typeof createClient>,
-  userId: string,
-  userMessage: string,
-  conversationHistory: Array<{role: string; content: string}>,
-  model: string
-): Promise<void> {
+// ─── [NEW] Smart Background Memory Curation ──────────────────
+async function triggerMemoryCuration(userId: string, userMessage: string) {
   try {
-    // First fetch existing memories to avoid duplicates and enable updates
-    let existingMemories: Array<{memory_key: string; memory_value: string}> = [];
-    try {
-      const { data } = await adminClient
-        .from('user_memories')
-        .select('memory_key, memory_value')
-        .eq('user_id', userId);
-      if (data) existingMemories = data;
-    } catch {}
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    // We need to use the service role key to invoke edge functions
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    const existingContext = existingMemories.length > 0
-      ? `\n\nAlready stored memories:\n${existingMemories.map(m => `- ${m.memory_key}: ${m.memory_value}`).join('\n')}`
-      : '';
-
-    // Include recent conversation for better context understanding
-    const recentConvo = conversationHistory.slice(-6).map(m => `${m.role}: ${m.content}`).join('\n');
-
-    const extractPrompt = `You are an advanced personal memory extraction AI. Your job is to analyze conversations and extract MEANINGFUL personal information about the user that would help personalize future interactions.
-
-CURRENT CONVERSATION:
-${recentConvo}
-
-LATEST USER MESSAGE: "${userMessage}"
-${existingContext}
-
-EXTRACTION RULES:
-1. Extract ONLY genuinely personal/important info — name, age, class, school, city, exam target, weak/strong subjects, hobbies, learning style, study schedule, family details, career goals
-2. DO NOT extract: study questions, general knowledge, greetings, casual chat content
-3. If user CORRECTS or UPDATES previously stored info, extract the NEW value (it will overwrite)
-4. If user says "मेरा नाम X है" → extract name as X
-5. If user mentions struggling with a subject → extract as struggle
-6. If user mentions preparing for an exam → extract exam target
-7. Look for IMPLICIT info too: "12th ka exam hai" → class: 12th
-8. Detect emotional state and study patterns if mentioned repeatedly
-9. If NO personal info found, respond with: {"memories":[]}
-
-USE THESE STANDARDIZED KEYS:
-- name, age, class, school, city, state, board (CBSE/ICSE etc)
-- exam_target, career_goal, preparation_stage
-- strong_subjects, weak_subjects, favorite_subject
-- study_hours, preferred_time, learning_style
-- hobbies, interests
-- For other info use descriptive_snake_case keys
-
-Respond ONLY with valid JSON:
-{"memories":[{"key":"standardized_key","value":"extracted value in user's language","category":"personal|academic|preference|goal|struggle|general"}]}`;
-
-    const resp = await callAI({
-      model: 'google/gemini-2.5-flash-lite', // Use cheapest model for extraction
-      messages: [{ role: 'user', content: extractPrompt }],
-      temperature: 0.1,
-      max_tokens: 800,
+    const { data, error } = await adminClient.functions.invoke('curate-and-save-memory', {
+      body: { userId, statement: userMessage },
     });
 
-    const data = await resp.json();
-    const content = data?.choices?.[0]?.message?.content || '';
-
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return;
-
-    const parsed = JSON.parse(jsonMatch[0]);
-    const memories = parsed?.memories;
-
-    if (memories && Array.isArray(memories) && memories.length > 0) {
-      // Filter out duplicates — only save if value actually changed
-      const newMemories = memories.filter((m: any) => {
-        const existing = existingMemories.find(e => e.memory_key === normalizeMemoryKey(m.key));
-        return !existing || existing.memory_value.toLowerCase() !== m.value.trim().toLowerCase();
-      });
-
-      if (newMemories.length > 0) {
-        await saveMemories(adminClient, userId, newMemories);
-        console.log(`🧠 Smart extraction: saved ${newMemories.length} new/updated memories (skipped ${memories.length - newMemories.length} duplicates)`);
-      } else {
-        console.log('🧠 Smart extraction: no new info to save');
-      }
+    if (error) {
+      throw new Error(`Memory curation function invocation failed: ${error.message}`);
     }
+
+    console.log('🧠 Memory Curation Result:', data);
   } catch (e) {
-    console.warn('⚠️ Background memory extraction error:', e);
+    console.warn('⚠️ Background memory curation trigger failed:', e.message);
   }
 }
+
 
 // ─── Main Handler ───────────────────────────────────────────
 serve(async (req) => {
@@ -666,7 +531,7 @@ serve(async (req) => {
           .limit(20);
 
         if (memories?.length) {
-          memoriesContext = `\n\n🧠 **Mind Vault — इस यूजर के बारे में याद रखें:**\n${memories.map(m => `- ${m.memory_key}: ${m.memory_value}`).join('\n')}`;
+          memoriesContext = `\\n\\n🧠 **Mind Vault — इस यूजर के बारे में याद रखें:**\\n${memories.map(m => `- ${m.memory_key}: ${m.memory_value}`).join('\\n')}`;\
           console.log(`🧠 Loaded ${memories.length} memories for user`);
         }
       } catch (e) {
@@ -692,7 +557,6 @@ serve(async (req) => {
    - उनकी पसंद, लक्ष्य, और चुनौतियों को हर जवाब में ध्यान रखें
    - अगर यूजर किसी subject में struggle कर रहा है और वही topic पूछे, तो acknowledge करें: "पिछली बार भी यह topic आया था, चलो इसे और अच्छे से समझते हैं!"
    - Exam prep, study habits, और goals को personalized tips में weave करें
-   - अगर कोई नई important जानकारी मिले (नाम, goal, struggle, preference), तो extract_memory tool से Mind Vault में save करें
 
 **CRITICAL - Tool Usage Intelligence (STRICTLY FOLLOW):**
 - आप एक smart AI agent हैं जिसके पास कई tools हैं, लेकिन ज़्यादातर सवालों का जवाब DIRECTLY दो
@@ -704,14 +568,13 @@ serve(async (req) => {
 - **generate_image** ONLY when: यूजर EXPLICITLY कहे "diagram बनाओ", "image बनाओ"
 - **generate_quiz** ONLY when: यूजर EXPLICITLY कहे "quiz बनाओ", "test लो". BUT if user just says "quiz बनाओ" without specifying topic/subject/class, then FIRST ASK them: किस विषय (subject) पर? कौन सी class? कितने questions? कौन सा difficulty level? — THEN generate quiz when they provide details.
 - **web_search** ONLY when: Latest/current information ज़रूरी हो
-- **extract_memory** ONLY when: यूजर ने कोई important personal info share की हो (नाम, पसंद, लक्ष्य, चुनौती)
 - DEFAULT behavior: Direct answer without any tool call
 
 महत्वपूर्ण: 'मैं एक AI हूँ' जैसी बातें न कहें। एक मददगार इंसान की तरह समस्या सुलझाएं।${memoriesContext}`;
 
     // If force web search already provided context
     if (webSearchContext) {
-      systemContent += `\n\n🌐 **वेब सर्च से मिली ताज़ा जानकारी:**\n${webSearchContext}\n\n**निर्देश:** ऊपर दी गई जानकारी का उपयोग करके पर्सनलाइज्ड, अप-टू-डेट जवाब दो। सोर्स लिंक जवाब में शामिल मत करो।`;
+      systemContent += `\\n\\n🌐 **वेब सर्च से मिली ताज़ा जानकारी:**\\n${webSearchContext}\\n\\n**निर्देश:** ऊपर दी गई जानकारी का उपयोग करके पर्सनलाइज्ड, अप-टू-डेट जवाब दो। सोर्स लिंक जवाब में शामिल मत करो।`;
     }
 
     // Build user message content (supports images and PDFs)
@@ -753,8 +616,8 @@ serve(async (req) => {
     // ── Step 1: THINKING — Agent analyzes the query first ──
     console.log('🧠 Thinking Phase: Analyzing user query...');
     
-    const thinkingSystemContent = systemContent + `\n\n**THINKING MODE — STRICT RULES:**
-Before responding, carefully analyze the user's intent:
+    const thinkingSystemContent = systemContent + `\\n\\n**THINKING MODE — STRICT RULES:**
+Before responding, carefully analyze the user\'s intent:
 1. Is this a greeting, casual chat, or general question? → Reply directly, NO tools. Most queries fall here.
 2. Does user EXPLICITLY ask to create/draw/generate an image or diagram? (e.g., "diagram बनाओ", "image बनाओ") → generate_image
 3. Does user EXPLICITLY ask to create study notes? (e.g., "notes बना दो", "summarize करके notes दो") → generate_notes
@@ -790,12 +653,12 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
 
       // Generate thinking summary based on tool chosen
       const thinkingMap: Record<string, string> = {
-        'web_search': `🔍 यूजर को latest जानकारी चाहिए → Web Search कर रहा हूँ: "${args.search_query}"`,
-        'generate_image': `🎨 यूजर को visual/diagram चाहिए → Image generate कर रहा हूँ: "${args.image_prompt?.substring(0, 80)}..."`,
-        'generate_notes': `📝 यूजर को study notes चाहिए → "${args.topic}" पर ${args.detail_level || 'detailed'} notes बना रहा हूँ`,
-        'generate_quiz': `🎯 यूजर quiz/test चाहता है → "${args.topic}" पर ${args.num_questions || 5} questions का ${args.difficulty || 'medium'} quiz बना रहा हूँ`,
+        'web_search': `🔍 यूजर को latest जानकारी चाहिए → Web Search कर रहा हूँ: \"${args.search_query}\"`,
+        'generate_image': `🎨 यूजर को visual/diagram चाहिए → Image generate कर रहा हूँ: \"${args.image_prompt?.substring(0, 80)}...\"`,
+        'generate_notes': `📝 यूजर को study notes चाहिए → \"${args.topic}\" पर ${args.detail_level || 'detailed'} notes बना रहा हूँ`,
+        'generate_quiz': `🎯 यूजर quiz/test चाहता है → \"${args.topic}\" पर ${args.num_questions || 5} questions का ${args.difficulty || 'medium'} quiz बना रहा हूँ`,
       };
-      const thinking = thinkingMap[toolName] || `🔧 Tool: ${toolName}`;
+      const thinking = thinkingMap[toolName] || `🔧 Tool: ${toolName}`;\
 
       // ── Web Search ──
       if (toolName === 'web_search') {
@@ -846,28 +709,10 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
         
         // Save quiz topic to memory for knowledge tracking
         if (authenticatedUserId) {
-          const quizMemory = [
-            { key: `quiz_topic_${Date.now()}`, value: `${args.topic} (${args.difficulty || 'medium'}, ${args.num_questions || 5} questions)`, category: 'academic' }
-          ];
-          saveMemories(adminClient, authenticatedUserId, quizMemory).catch(() => {});
+            triggerMemoryCuration(authenticatedUserId, `User took a quiz on: ${args.topic}`).catch(e => console.warn(e));
         }
         
         return jsonResponse({ response: quizContent, model, toolUsed: 'generate_quiz', sources: [], webSearchUsed: false, thinking });
-      }
-
-      // ── Memory Extraction ──
-      if (toolName === 'extract_memory' && authenticatedUserId) {
-        await saveMemories(adminClient, authenticatedUserId, args.memories || []);
-        // Continue to generate a normal response after saving
-        const step2Messages = [
-          ...messages,
-          choice.message,
-          { role: 'tool', tool_call_id: toolCall.id, content: 'Memories saved successfully.' }
-        ];
-        const step2Response = await callAI({ model, messages: step2Messages, temperature: 0.8, max_tokens: 8000 });
-        const step2Data = await step2Response.json();
-        const finalText = step2Data?.choices?.[0]?.message?.content || 'जानकारी याद रख ली! 🧠';
-        return jsonResponse({ response: finalText, model, sources: [], webSearchUsed: false, toolUsed: 'extract_memory', thinking: `🧠 यूजर की ${args.memories?.length || 0} ज़रूरी जानकारी Mind Vault में save कर रहा हूँ` });
       }
     }
 
@@ -875,9 +720,10 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
     const directText = choice?.message?.content;
     if (!directText) throw new Error('Response content missing');
 
-    // ── Reliable Memory Extraction for logged-in users ──
+    // ── [NEW] Trigger memory curation for logged-in users ──
     if (authenticatedUserId && prompt) {
-      await backgroundExtractMemories(adminClient, authenticatedUserId, prompt, recentHistory, model);
+      // Don't wait for it, let it run in the background
+      triggerMemoryCuration(authenticatedUserId, prompt).catch(e => console.warn(e));
     }
     
     // Normal conversation — no thinking badge needed
