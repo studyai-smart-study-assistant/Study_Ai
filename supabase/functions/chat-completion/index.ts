@@ -43,6 +43,14 @@ class AiProviderError extends Error {
   }
 }
 
+// ─── Generic JSON Response Helper ───────────────────────────
+function jsonResponse(data: any, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 // ─── Usage Logger ───────────────────────────────────────────
 async function logApiUsage(service: string, keyId: string, status: string, errorCode?: string, responseTimeMs?: number) {
   try {
@@ -62,7 +70,6 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   const nativeModel = body.model?.replace('google/', '') || 'gemini-2.5-flash';
 
-  // ─── 1. Primary Provider: Lovable Gateway ───
   if (LOVABLE_API_KEY) {
     try {
       const payload = { ...body };
@@ -92,7 +99,6 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
     }
   }
 
-  // ─── 2. Fallback Provider: Google Native API with Shuffled Keys & Retries ───
   if (googleApiKeys.length === 0) {
     throw new AiProviderError(503, 'AI service configuration missing. No Google API keys found.');
   }
@@ -133,7 +139,6 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
 
   console.warn('⚠️ All Google API keys failed. Trying other fallbacks...');
 
-  // ─── 3. Final Fallback: OpenRouter ───
   const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
   if (OPENROUTER_API_KEY) {
     console.log('🔄 Trying OpenRouter fallback...');
@@ -164,7 +169,6 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
   throw new AiProviderError(429, 'AI अभी थोड़ी देर के लिए busy है. सारे API Providers में दिक्कत आ रही है. 1-2 मिनट बाद फिर try करें।');
 }
 
-// ─── [CORRECTED] Tavily Search with Shuffle & Retry ───
 async function searchTavily(query: string): Promise<{ context: string; sources: { title: string; url: string }[] }> {
   if (tavilyApiKeys.length === 0) {
     console.warn('⚠️ No Tavily API keys set');
@@ -197,14 +201,13 @@ async function searchTavily(query: string): Promise<{ context: string; sources: 
   return { context: '', sources: [] };
 }
 
-// ─── Image Generation via Gemini ────────────────────────────
 async function generateImage(prompt: string, editImageBase64?: string): Promise<string | null> {
   try {
-    const userContent: any = editImageBase64 
+    const userContent: any = editImageBase64
       ? [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: editImageBase64 } }]
       : prompt;
     const response = await callAI(
-      { model: 'google/gemini-3-pro-image-preview', messages: [{ role: 'user', content: userContent }] }, 
+      { model: 'google/gemini-3-pro-image-preview', messages: [{ role: 'user', content: userContent }] },
       { modalities: ['image', 'text'] }
     );
     const data = await response.json();
@@ -212,24 +215,22 @@ async function generateImage(prompt: string, editImageBase64?: string): Promise<
   } catch (err) { console.error('Image generation failed:', err); return null; }
 }
 
-// ─── Tool Definitions ───────────────────────────────────────
 const agentTools = [
   { type: "function", function: { name: "web_search", description: "Search the web for real-time, current, or latest information.", parameters: { type: "object", properties: { search_query: { type: "string", description: "Search query" } }, required: ["search_query"], additionalProperties: false } } },
-  { type: "function", function: { name: "generate_image", description: "Generate an image, diagram, or visual.", parameters: { type: "object", properties: { image_prompt: { type: "string", description: "Detailed image prompt" } }, required: ["image_prompt"], additionalProperties: false } } },
+  { type: "function", function: { name: "generate_image", description: "Generate an image, diagram, or visual. Use when user asks to create/draw visuals.", parameters: { type: "object", properties: { image_prompt: { type: "string", description: "Detailed image prompt" } }, required: ["image_prompt"], additionalProperties: false } } },
   { type: "function", function: { name: "generate_notes", description: "Generate study notes. Use ONLY when user EXPLICITLY says 'notes बनाओ'.", parameters: { type: "object", properties: { topic: { type: "string" }, detail_level: { type: "string", enum: ["brief", "detailed", "comprehensive"] } }, required: ["topic"], additionalProperties: false } } },
-  { type: "function", function: { name: "generate_quiz", description: "Generate interactive quiz. Use ONLY when user asks for quiz/test.", parameters: { type: "object", properties: { topic: { type: "string" }, num_questions: { type: "number" }, difficulty: { type: "string", enum: ["easy", "medium", "hard"] } }, required: ["topic"], additionalProperties: false } } }
+  { type: "function", function: { name: "generate_quiz", description: "Generate interactive quiz. Use when user EXPLICITLY asks for quiz/test. If user hasn't specified topic, subject, class, difficulty, or number of questions — DO NOT call this tool. Instead, ask the user for these details first.", parameters: { type: "object", properties: { topic: { type: "string" }, num_questions: { type: "number" }, difficulty: { type: "string", enum: ["easy", "medium", "hard"] }, class_level: { type: "string" } }, required: ["topic"], additionalProperties: false } } }
 ];
 
-// ─── Content Generators ────────────────────────────────────
 async function generateNotesContent(topic: string, detailLevel: string, model: string): Promise<string> {
-  const notesPrompt = `आप एक expert study notes creator हैं। "${topic}" पर ${detailLevel === 'comprehensive' ? 'विस्तृत' : 'संक्षिप्त'} study notes बनाएं। Format: Title, bold concepts, blockquotes, lists, headings, code blocks for formulas, and a quick revision section. Use Hindi-English mix.`;
+  const notesPrompt = `आप एक expert study notes creator हैं। \"${topic}\" पर ${detailLevel === 'comprehensive' ? 'विस्तृत' : 'संक्षिप्त'} study notes बनाएं। Format: Title, bold concepts, blockquotes, lists, headings, code blocks for formulas, and a quick revision section. Use Hindi-English mix.`;
   const resp = await callAI({ model, messages: [{ role: 'user', content: notesPrompt }], temperature: 0.7, max_tokens: 10000 });
   const data = await resp.json();
   return data?.choices?.[0]?.message?.content || 'Notes generation failed';
 }
 
 async function generateQuizContent(topic: string, numQuestions: number, difficulty: string, model: string): Promise<string> {
-  const quizPrompt = `"${topic}" पर ${numQuestions} ${difficulty} level के MCQ quiz questions बनाएं। Respond ONLY with valid JSON in the specified format: {title, topic, difficulty, questions: [{id, question, options, correctAnswer, explanation}]}. Use Hindi-English mix.`;
+  const quizPrompt = `\"${topic}\" पर ${numQuestions} ${difficulty} level के MCQ quiz questions बनाएं। Respond ONLY with valid JSON in the specified format: {title, topic, difficulty, questions: [{id, question, options, correctAnswer, explanation}]}. Use Hindi-English mix.`;
   const resp = await callAI({ model, messages: [{ role: 'user', content: quizPrompt }], temperature: 0.7, max_tokens: 10000 });
   const data = await resp.json();
   const content = data?.choices?.[0]?.message?.content || '';
@@ -243,15 +244,12 @@ async function generateQuizContent(topic: string, numQuestions: number, difficul
   return content || 'Quiz generation failed';
 }
 
-// ─── Smart Background Memory Curation ──────────────────
 async function triggerMemoryCuration(userId: string, userMessage: string) {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-    const { error } = await adminClient.functions.invoke('curate-and-save-memory', {
-      body: { userId, statement: userMessage },
-    });
+    const { error } = await adminClient.functions.invoke('curate-and-save-memory', { body: { userId, statement: userMessage } });
     if (error) console.warn(`⚠️ Memory curation invocation failed: ${error.message}`);
   } catch (e) { console.warn('⚠️ Background memory curation trigger failed:', e.message); }
 }
@@ -261,20 +259,19 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { prompt, history = [], model = 'google/gemini-3-flash-preview', webSearchContext, imageBase64 } = await req.json();
+    const { prompt, history = [], model = 'google/gemini-3-flash-preview', forceWebSearch = false, webSearchContext, webSearchSources, imageBase64 } = await req.json();
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const authHeader = req.headers.get('Authorization') ?? '';
     const userClient = createClient(supabaseUrl, supabaseAnonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: { user } } = await userClient.auth.getUser();
 
-    // ── Fetch user memories & construct system prompt ──
     let memoriesContext = '';
     if (user) {
       try {
-        const { data: memories } = await userClient.from('user_memories').select('memory_key,memory_value').eq('user_id', user.id).order('importance', { ascending: false }).limit(20);
+        const { data: memories } = await userClient.from('user_memories').select('memory_key,memory_value,category').eq('user_id', user.id).order('importance', { ascending: false }).limit(20);
         if (memories?.length) {
-          // [FIXED] Correctly use newline characters \n instead of escaped \\n
+          // [CORRECTED] Use proper newline character \n
           memoriesContext = `\n\n🧠 **Mind Vault — इस यूजर के बारे में याद रखें:**\n${memories.map(m => `- ${m.memory_key}: ${m.memory_value}`).join('\n')}`;
         }
       } catch (e) { console.warn('⚠️ Failed to load memories:', e); }
@@ -292,65 +289,66 @@ serve(async (req) => {
       { role: 'user', content: userContent }
     ];
 
-    // ── Handle Pre-fetched Web Context ──
     if (webSearchContext) {
       const response = await callAI({ model, messages, temperature: 0.8, max_tokens: 8000 });
       const data = await response.json();
-      return new Response(JSON.stringify({ response: data?.choices?.[0]?.message?.content }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      const text = data?.choices?.[0]?.message?.content;
+      return jsonResponse({ response: text, model, sources: webSearchSources || [], webSearchUsed: true, toolUsed: 'web_search' });
     }
 
-    // ── Main AI Call with Tool Logic ──
     const step1Response = await callAI({ model, messages, tools: agentTools, temperature: 0.7, max_tokens: 8000 });
     const step1Data = await step1Response.json();
     const choice = step1Data?.choices?.[0];
 
-    // ── Handle Tool Calls ──
     if (choice?.finish_reason === 'tool_calls' && choice.message.tool_calls) {
       const toolCall = choice.message.tool_calls[0];
       const toolName = toolCall.function.name;
       const args = JSON.parse(toolCall.function.arguments);
       console.log(`🔧 Agent decided: ${toolName}`, args);
 
-      let toolResult, thinkingText;
-      switch (toolName) {
-        case 'web_search':
-          thinkingText = `🔍 Web Search: "${args.search_query}"`;
-          toolResult = (await searchTavily(args.search_query)).context || 'No results found.';
-          break;
-        case 'generate_image':
-          thinkingText = `🎨 Image Generation: "${args.image_prompt.substring(0, 80)}..."`;
-          const imageUrl = await generateImage(args.image_prompt, imageBase64);
-          // Return intermediate response with image URL
-          return new Response(JSON.stringify({ response: '✨ Image बन गई है!', imageUrl, toolUsed: 'generate_image', thinking: thinkingText }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        case 'generate_notes':
-          thinkingText = `📝 Notes: "${args.topic}"`;
-          const notesContent = await generateNotesContent(args.topic, args.detail_level || 'detailed', model);
-          return new Response(JSON.stringify({ response: notesContent, toolUsed: 'generate_notes', thinking: thinkingText }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        case 'generate_quiz':
-          thinkingText = `🎯 Quiz: "${args.topic}"`;
-          const quizContent = await generateQuizContent(args.topic, args.num_questions || 5, args.difficulty || 'medium', model);
-          if (user) triggerMemoryCuration(user.id, `User took a quiz on: ${args.topic}`).catch(console.warn);
-          return new Response(JSON.stringify({ response: quizContent, toolUsed: 'generate_quiz', thinking: thinkingText }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        default:
-          toolResult = 'Unknown tool';
+      const thinkingMap: Record<string, string> = {
+        'web_search': `🔍 Web Search: "${args.search_query}"`,
+        'generate_image': `🎨 Image Generation: "${args.image_prompt?.substring(0, 80)}..."`,
+        'generate_notes': `📝 Notes: "${args.topic}"`,
+        'generate_quiz': `🎯 Quiz: "${args.topic}"`,
+      };
+      const thinking = thinkingMap[toolName] || `🔧 Tool: ${toolName}`;
+
+      if (toolName === 'web_search') {
+        const searchResult = await searchTavily(args.search_query);
+        const step2Messages = [...messages, choice.message, { role: 'tool', tool_call_id: toolCall.id, content: searchResult.context || 'No results found.' }];
+        const step2Response = await callAI({ model, messages: step2Messages, temperature: 0.8, max_tokens: 8000 });
+        const step2Data = await step2Response.json();
+        const finalText = step2Data?.choices?.[0]?.message?.content;
+        return jsonResponse({ response: finalText, model, sources: searchResult.sources, webSearchUsed: true, toolUsed: 'web_search', thinking });
       }
 
-      const step2Messages = [...messages, choice.message, { role: 'tool', tool_call_id: toolCall.id, content: toolResult }];
-      const step2Response = await callAI({ model, messages: step2Messages, temperature: 0.8, max_tokens: 8000 });
-      const step2Data = await step2Response.json();
-      const finalText = step2Data?.choices?.[0]?.message?.content;
-      return new Response(JSON.stringify({ response: finalText, toolUsed: toolName, thinking: thinkingText }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (toolName === 'generate_image') {
+        const imageUrl = await generateImage(args.image_prompt, imageBase64);
+        const explanationText = '✨ Image बन गई है!';
+        return jsonResponse({ response: explanationText, model, toolUsed: 'generate_image', imageUrl, sources: [], webSearchUsed: false, thinking });
+      }
+
+      if (toolName === 'generate_notes') {
+        const notesContent = await generateNotesContent(args.topic, args.detail_level || 'detailed', model);
+        return jsonResponse({ response: notesContent, model, toolUsed: 'generate_notes', sources: [], webSearchUsed: false, thinking });
+      }
+
+      if (toolName === 'generate_quiz') {
+        const quizContent = await generateQuizContent(args.topic, args.num_questions || 5, args.difficulty || 'medium', model);
+        if (user) triggerMemoryCuration(user.id, `User took a quiz on: ${args.topic}`).catch(console.warn);
+        return jsonResponse({ response: quizContent, model, toolUsed: 'generate_quiz', sources: [], webSearchUsed: false, thinking });
+      }
     }
 
-    // ── No tool call — Direct Answer ──
     const directText = choice?.message?.content;
     if (!directText) throw new Error('Response content missing');
     if (user && prompt) triggerMemoryCuration(user.id, prompt).catch(console.warn);
-    return new Response(JSON.stringify({ response: directText }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return jsonResponse({ response: directText, model, sources: [], webSearchUsed: false, toolUsed: null, thinking: null });
 
   } catch (error: unknown) {
     console.error('❌ Error in main handler:', error);
     const errorMessage = error instanceof AiProviderError ? error.message : 'माफ़ करना दोस्त, कुछ तकनीकी दिक्कत आ गई है। एक बार फिर कोशिश करो!';
-    return new Response(JSON.stringify({ error: errorMessage }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return jsonResponse({ error: errorMessage }, 500);
   }
 });
