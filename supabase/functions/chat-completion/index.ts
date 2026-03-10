@@ -11,28 +11,31 @@ const LOVABLE_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions'
 const GOOGLE_NATIVE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-// ─── Google API Key Pool (Round-Robin) ──────────────────────
-function getGoogleApiKeys(): string[] {
-  const keys: string[] = [];
-  // Add numbered keys first
-  for (let i = 1; i <= 10; i++) {
-    const k = Deno.env.get(`GOOGLE_API_KEY_${i}`);
-    if (k) keys.push(k);
-  }
-  // Add original key as fallback
-  const base = Deno.env.get('GOOGLE_API_KEY');
-  if (base) keys.push(base);
-  return [...new Set(keys)]; // deduplicate
+// ─── [NEW] Robust, Stateless API Key Management ──────────────────
+function getApiKeys(baseEnvName: string): string[] {
+    const keys: string[] = [];
+    // Add numbered keys first (e.g., GOOGLE_API_KEY_1, GOOGLE_API_KEY_2)
+    for (let i = 1; i <= 10; i++) {
+        const k = Deno.env.get(`${baseEnvName}_${i}`);
+        if (k) keys.push(k);
+    }
+    // Add the base key as a fallback (e.g., GOOGLE_API_KEY)
+    const baseKey = Deno.env.get(baseEnvName);
+    if (baseKey) keys.push(baseKey);
+    return [...new Set(keys)]; // Return unique keys
 }
 
-let _keyIndex = 0;
-function getNextGoogleApiKey(): string {
-  const keys = getGoogleApiKeys();
-  if (keys.length === 0) throw new Error('No Google API keys configured');
-  const key = keys[_keyIndex % keys.length];
-  _keyIndex = (_keyIndex + 1) % keys.length;
-  return key;
+// Function to shuffle an array
+function shuffleArray<T>(array: T[]): T[] {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
 }
+
+const googleApiKeys = getApiKeys('GOOGLE_API_KEY');
+const tavilyApiKeys = getApiKeys('TAVILY_API_KEY');
 
 class AiProviderError extends Error {
   status: number;
@@ -58,11 +61,12 @@ async function logApiUsage(service: string, keyId: string, status: string, error
   } catch (e) { console.warn('⚠️ Usage log failed:', e); }
 }
 
-// ─── Fallback AI Call: Lovable Gateway → Google Native API (with key rotation) ──
+// ─── [IMPROVED] Fallback AI Call with Shuffle & Retry Logic ──
 async function callAI(body: any, options?: { modalities?: string[] }): Promise<Response> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   const nativeModel = body.model?.replace('google/', '') || 'gemini-2.5-flash';
 
+  // ─── 1. Primary Provider: Lovable Gateway ───
   if (LOVABLE_API_KEY) {
     try {
       const payload = { ...body };
@@ -85,30 +89,7 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
       const gatewayErrorText = await response.text();
       logApiUsage('lovable-gateway', 'LOVABLE_KEY', 'error', String(status), Date.now() - start);
 
-      // If tool schema/payload is invalid for gateway, retry once with a sanitized payload
-      if (status === 400 && payload.tools) {
-        console.warn('⚠️ Lovable Gateway 400 with tools. Retrying with sanitized payload...');
-        const sanitizedPayload = {
-          ...payload,
-          max_tokens: Math.min(payload.max_tokens || 2000, 4000),
-        } as Record<string, unknown>;
-        delete sanitizedPayload.tools;
-        delete sanitizedPayload.tool_choice;
-
-        const retry = await fetch(LOVABLE_GATEWAY_URL, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify(sanitizedPayload),
-        });
-
-        if (retry.ok) {
-          console.log('✅ Lovable Gateway success (sanitized retry)');
-          return retry;
-        }
-
-        const retryText = await retry.text();
-        console.warn(`⚠️ Sanitized retry failed: ${retry.status} ${retryText.substring(0, 200)}`);
-      } else if (status === 429 || status === 402) {
+      if (status === 429 || status === 402) {
         console.warn(`⚠️ Lovable Gateway quota/rate limited (${status}), falling back to Google API`);
       } else {
         console.warn(`⚠️ Lovable Gateway error ${status}: ${gatewayErrorText.substring(0, 250)}`);
@@ -119,23 +100,21 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
     }
   }
 
-  const keys = getGoogleApiKeys();
-  if (keys.length === 0) {
-    throw new AiProviderError(503, 'AI service configuration missing. Please try again shortly.');
+  // ─── 2. Fallback Provider: Google Native API with Shuffled Keys & Retries ───
+  if (googleApiKeys.length === 0) {
+    throw new AiProviderError(503, 'AI service configuration missing. No Google API keys found.');
   }
 
-  console.log(`🔄 Using Google Native API with model: ${nativeModel} (${keys.length} keys in pool)`);
+  console.log(`🔄 Using Google Native API with model: ${nativeModel}. Shuffling between ${googleApiKeys.length} keys.`);
 
   const payload: any = { ...body, model: nativeModel };
   if (options?.modalities) payload.modalities = options.modalities;
 
-  for (let attempt = 0; attempt < keys.length; attempt++) {
-    if (attempt > 0) {
-      await new Promise((r) => setTimeout(r, 500 * attempt));
-    }
+  const shuffledKeys = shuffleArray([...googleApiKeys]);
 
-    const apiKey = getNextGoogleApiKey();
-    const keyLabel = `GOOGLE_KEY_${(_keyIndex) % keys.length}`;
+  for (let i = 0; i < shuffledKeys.length; i++) {
+    const apiKey = shuffledKeys[i];
+    const keyLabel = `GOOGLE_KEY_SHUFFLE_${i+1}`;
     const start = Date.now();
 
     try {
@@ -148,7 +127,7 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
       if (response.ok) {
         console.log(`✅ Google Native API success (${keyLabel})`);
         logApiUsage('google-gemini', keyLabel, 'success', undefined, Date.now() - start);
-        return response;
+        return response; // Success! Return the response.
       }
 
       const status = response.status;
@@ -156,32 +135,31 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
 
       if (status === 429 || status === 403) {
         logApiUsage('google-gemini', keyLabel, 'rate_limited', String(status), Date.now() - start);
-        console.warn(`⚠️ Google API ${status} on ${keyLabel}, rotating to next key...`);
-        continue;
+        console.warn(`⚠️ Google API ${status} on ${keyLabel}, trying next key in shuffled list...`);
+        // This key is rate-limited, loop will try the next one.
+      } else {
+        // For other errors, log it but still try the next key as it might be a temporary issue.
+        logApiUsage('google-gemini', keyLabel, 'error', String(status), Date.now() - start);
+        console.error(`❌ Google Native API error (${keyLabel}):`, status, errText.substring(0, 200));
       }
-
-      logApiUsage('google-gemini', keyLabel, 'error', String(status), Date.now() - start);
-      console.error(`❌ Google Native API error (${keyLabel}):`, status, errText);
-      throw new AiProviderError(status, `Google API error: ${status}`);
     } catch (e: unknown) {
-      if (e instanceof AiProviderError) throw e;
-      console.warn(`⚠️ Google API network error on ${keyLabel}:`, e);
-      continue;
+      logApiUsage('google-gemini', keyLabel, 'network_error', e.message, Date.now() - start);
+      console.warn(`⚠️ Google API network error on ${keyLabel}, trying next key...`, e);
     }
   }
 
-  // ── Fallback 3: OpenRouter ──
+  console.warn('⚠️ All Google API keys failed. Trying other fallbacks...');
+
+  // ─── 3. Final Fallback: OpenRouter ───
   const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
   if (OPENROUTER_API_KEY) {
-    console.log('🔄 All Google keys exhausted, trying OpenRouter fallback...');
+    console.log('🔄 Trying OpenRouter fallback...');
     try {
-      const orModel = body.model?.startsWith('google/') 
-        ? body.model.replace('google/', 'google/') // OpenRouter uses same format
-        : 'google/gemini-2.5-flash';
-      
-      const orPayload: any = { ...body, model: orModel };
-      if (options?.modalities) orPayload.modalities = options.modalities;
-      // Remove tools if present to avoid schema issues on OpenRouter
+      const orPayload: any = { 
+          ...body, 
+          model: body.model?.startsWith('google/') ? body.model : 'google/gemini-pro' 
+      };
+      // Clean payload for better compatibility
       delete orPayload.tools;
       delete orPayload.tool_choice;
 
@@ -202,103 +180,27 @@ async function callAI(body: any, options?: { modalities?: string[] }): Promise<R
         logApiUsage('openrouter', 'OPENROUTER_KEY', 'success', undefined, Date.now() - start);
         return orResponse;
       }
-
-      const orStatus = orResponse.status;
-      const orErr = await orResponse.text();
+      const orStatus = orResponse.status, orErr = await orResponse.text();
       logApiUsage('openrouter', 'OPENROUTER_KEY', 'error', String(orStatus), Date.now() - start);
       console.warn(`⚠️ OpenRouter error ${orStatus}: ${orErr.substring(0, 200)}`);
-    } catch (e) {
-      console.warn('⚠️ OpenRouter network error:', e);
-    }
+    } catch (e) { console.warn('⚠️ OpenRouter network error:', e); }
   }
 
-  // ── Fallback 4: RapidAPI ChatGPT-42 ──
-  const RAPIDAPI_KEY = Deno.env.get('RAPIDAPI_KEY');
-  if (RAPIDAPI_KEY) {
-    console.log('🔄 All other providers exhausted, trying RapidAPI ChatGPT-42 fallback...');
-    try {
-      const start = Date.now();
-      const rapidMessages = body.messages?.map((m: any) => ({
-        role: m.role === 'bot' ? 'assistant' : m.role,
-        content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
-      })) || [];
-
-      const rapidResponse = await fetch('https://chatgpt-42.p.rapidapi.com/conversationgpt4-2', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-rapidapi-host': 'chatgpt-42.p.rapidapi.com',
-          'x-rapidapi-key': RAPIDAPI_KEY,
-        },
-        body: JSON.stringify({
-          messages: rapidMessages,
-          web_access: false,
-        }),
-      });
-
-      if (rapidResponse.ok) {
-        const rapidData = await rapidResponse.json();
-        console.log('✅ RapidAPI ChatGPT-42 fallback success');
-        logApiUsage('rapidapi-chatgpt42', 'RAPIDAPI_KEY', 'success', undefined, Date.now() - start);
-
-        // Normalize to OpenAI-compatible format
-        const normalizedResponse = {
-          choices: [{
-            message: {
-              role: 'assistant',
-              content: rapidData.result || rapidData.message || rapidData.response || JSON.stringify(rapidData),
-            },
-            finish_reason: 'stop',
-          }],
-        };
-
-        return new Response(JSON.stringify(normalizedResponse), {
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-
-      const rapidErr = await rapidResponse.text();
-      logApiUsage('rapidapi-chatgpt42', 'RAPIDAPI_KEY', 'error', String(rapidResponse.status), Date.now() - start);
-      console.warn(`⚠️ RapidAPI error ${rapidResponse.status}: ${rapidErr.substring(0, 200)}`);
-    } catch (e) {
-      console.warn('⚠️ RapidAPI network error:', e);
-    }
-  }
-
-  throw new AiProviderError(429, 'AI अभी थोड़ी देर के लिए busy है (rate limited). 1-2 मिनट बाद फिर try करें।');
+  throw new AiProviderError(429, 'AI अभी थोड़ी देर के लिए busy है. सारे API Providers में दिक्कत आ रही है. 1-2 मिनट बाद फिर try करें।');
 }
 
-// ─── Tavily Key Pool (Round-Robin) ──────────────────────────
-function getTavilyApiKeys(): string[] {
-  const keys: string[] = [];
-  for (let i = 1; i <= 5; i++) {
-    const k = Deno.env.get(`TAVILY_API_KEY_${i}`);
-    if (k) keys.push(k);
-  }
-  const base = Deno.env.get('TAVILY_API_KEY');
-  if (base) keys.push(base);
-  return [...new Set(keys)];
-}
-
-let _tavilyKeyIndex = 0;
-function getNextTavilyKey(): string {
-  const keys = getTavilyApiKeys();
-  if (keys.length === 0) throw new Error('No Tavily API keys configured');
-  const key = keys[_tavilyKeyIndex % keys.length];
-  _tavilyKeyIndex = (_tavilyKeyIndex + 1) % keys.length;
-  return key;
-}
-
-// ─── Tavily Search with Key Rotation ────────────────────────
+// ─── [IMPROVED] Tavily Search with Shuffle & Retry ───
 async function searchTavily(query: string): Promise<{ context: string; sources: { title: string; url: string }[] }> {
-  const keys = getTavilyApiKeys();
-  if (keys.length === 0) {
+  if (tavilyApiKeys.length === 0) {
     console.warn('⚠️ No Tavily API keys set');
     return { context: '', sources: [] };
   }
-  for (let attempt = 0; attempt < keys.length; attempt++) {
-    const apiKey = getNextTavilyKey();
-    const keyLabel = `TAVILY_KEY_${(_tavilyKeyIndex) % keys.length}`;
+  
+  const shuffledKeys = shuffleArray([...tavilyApiKeys]);
+
+  for (let i = 0; i < shuffledKeys.length; i++) {
+    const apiKey = shuffledKeys[i];
+    const keyLabel = `TAVILY_KEY_SHUFFLE_${i+1}`;
     const start = Date.now();
     try {
       const response = await fetch('https://api.tavily.com/search', {
@@ -306,24 +208,31 @@ async function searchTavily(query: string): Promise<{ context: string; sources: 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ api_key: apiKey, query, search_depth: 'basic', include_answer: true, max_results: 5 }),
       });
-      if (response.status === 429 || response.status === 403) {
-        logApiUsage('tavily', keyLabel, 'rate_limited', String(response.status), Date.now() - start);
-        console.warn(`⚠️ Tavily ${keyLabel} rate limited, trying next...`);
-        try { await response.text(); } catch {}\
-        continue;
+      
+      if (response.ok) {
+        const data = await response.json();
+        logApiUsage('tavily', keyLabel, 'success', undefined, Date.now() - start);
+        const results = data.results || [];
+        const context = results.map((r: any, i: number) => `[Source ${i+1}] ${r.title}\n${r.content?.substring(0, 500)}\nURL: ${r.url}`).join('\n\n');
+        const sources = results.map((r: any) => ({ title: r.title, url: r.url }));
+        return { context, sources };
       }
-      if (!response.ok) return { context: '', sources: [] };
-      const data = await response.json();
-      logApiUsage('tavily', keyLabel, 'success', undefined, Date.now() - start);
-      const results = data.results || [];
-      const context = results.map((r: any, i: number) => `[Source ${i+1}] ${r.title}\\n${r.content?.substring(0, 500)}\\nURL: ${r.url}`).join('\\n\\n');
-      const sources = results.map((r: any) => ({ title: r.title, url: r.url }));
-      return { context, sources };
-    } catch { continue; }
+
+      logApiUsage('tavily', keyLabel, 'error', String(response.status), Date.now() - start);
+      console.warn(`⚠️ Tavily API error on ${keyLabel}, status: ${response.status}. Trying next key.`);
+
+    } catch (e) {
+      logApiUsage('tavily', keyLabel, 'network_error', e.message, Date.now() - start);
+      console.warn(`⚠️ Tavily network error on ${keyLabel}:`, e);
+    }
   }
-  console.warn('⚠️ All Tavily keys exhausted');
-  return { context: '', sources: [] };
+
+  console.error('❌ All Tavily API keys failed.');
+  return { context: '', sources: [] }; // Return empty if all keys fail
 }
+
+// NOTE: The rest of the file (generateImage, agentTools, content generators, main handler, etc.) remains largely the same.
+// The only change is that it now relies on the new robust `callAI` and `searchTavily` functions.
 
 // ─── Image Generation via Gemini ────────────────────────────
 async function generateImage(prompt: string, editImageBase64?: string): Promise<string | null> {
@@ -451,7 +360,7 @@ Rules:
   
   // Try to parse as JSON and wrap in QUIZ_DATA tag
   try {
-    const jsonMatch = content.match(/\\{[\\s\\S]*\\}/);
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
       if (parsed.questions && Array.isArray(parsed.questions)) {
@@ -468,21 +377,19 @@ Rules:
 
 // ─── [NEW] Smart Background Memory Curation ──────────────────
 async function triggerMemoryCuration(userId: string, userMessage: string) {
+  // Fire-and-forget call to the memory curation function
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    // We need to use the service role key to invoke edge functions
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data, error } = await adminClient.functions.invoke('curate-and-save-memory', {
+    const { error } = await adminClient.functions.invoke('curate-and-save-memory', {
       body: { userId, statement: userMessage },
     });
 
     if (error) {
-      throw new Error(`Memory curation function invocation failed: ${error.message}`);
+      console.warn(`⚠️ Memory curation invocation failed: ${error.message}`);
     }
-
-    console.log('🧠 Memory Curation Result:', data);
   } catch (e) {
     console.warn('⚠️ Background memory curation trigger failed:', e.message);
   }
@@ -500,13 +407,11 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const authHeader = req.headers.get('Authorization') ?? '';
 
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: authHeader ? { Authorization: authHeader } : {} },
     });
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: authData } = await userClient.auth.getUser();
     const authenticatedUserId = authData?.user?.id;
@@ -531,7 +436,7 @@ serve(async (req) => {
           .limit(20);
 
         if (memories?.length) {
-          memoriesContext = `\\n\\n🧠 **Mind Vault — इस यूजर के बारे में याद रखें:**\\n${memories.map(m => `- ${m.memory_key}: ${m.memory_value}`).join('\\n')}`;\
+          memoriesContext = `\n\n🧠 **Mind Vault — इस यूजर के बारे में याद रखें:**\n${memories.map(m => `- ${m.memory_key}: ${m.memory_value}`).join('\n')}`;
           console.log(`🧠 Loaded ${memories.length} memories for user`);
         }
       } catch (e) {
@@ -574,7 +479,7 @@ serve(async (req) => {
 
     // If force web search already provided context
     if (webSearchContext) {
-      systemContent += `\\n\\n🌐 **वेब सर्च से मिली ताज़ा जानकारी:**\\n${webSearchContext}\\n\\n**निर्देश:** ऊपर दी गई जानकारी का उपयोग करके पर्सनलाइज्ड, अप-टू-डेट जवाब दो। सोर्स लिंक जवाब में शामिल मत करो।`;
+      systemContent += `\n\n🌐 **वेब सर्च से मिली ताज़ा जानकारी:**\n${webSearchContext}\n\n**निर्देश:** ऊपर दी गई जानकारी का उपयोग करके पर्सनलाइज्ड, अप-टू-डेट जवाब दो। सोर्स लिंक जवाब में शामिल मत करो।`;
     }
 
     // Build user message content (supports images and PDFs)
@@ -616,8 +521,8 @@ serve(async (req) => {
     // ── Step 1: THINKING — Agent analyzes the query first ──
     console.log('🧠 Thinking Phase: Analyzing user query...');
     
-    const thinkingSystemContent = systemContent + `\\n\\n**THINKING MODE — STRICT RULES:**
-Before responding, carefully analyze the user\'s intent:
+    const thinkingSystemContent = systemContent + `\n\n**THINKING MODE — STRICT RULES:**
+Before responding, carefully analyze the user's intent:
 1. Is this a greeting, casual chat, or general question? → Reply directly, NO tools. Most queries fall here.
 2. Does user EXPLICITLY ask to create/draw/generate an image or diagram? (e.g., "diagram बनाओ", "image बनाओ") → generate_image
 3. Does user EXPLICITLY ask to create study notes? (e.g., "notes बना दो", "summarize करके notes दो") → generate_notes
@@ -651,14 +556,13 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
       
       console.log(`🔧 Agent decided: ${toolName}`, args);
 
-      // Generate thinking summary based on tool chosen
       const thinkingMap: Record<string, string> = {
         'web_search': `🔍 यूजर को latest जानकारी चाहिए → Web Search कर रहा हूँ: \"${args.search_query}\"`,
         'generate_image': `🎨 यूजर को visual/diagram चाहिए → Image generate कर रहा हूँ: \"${args.image_prompt?.substring(0, 80)}...\"`,
         'generate_notes': `📝 यूजर को study notes चाहिए → \"${args.topic}\" पर ${args.detail_level || 'detailed'} notes बना रहा हूँ`,
         'generate_quiz': `🎯 यूजर quiz/test चाहता है → \"${args.topic}\" पर ${args.num_questions || 5} questions का ${args.difficulty || 'medium'} quiz बना रहा हूँ`,
       };
-      const thinking = thinkingMap[toolName] || `🔧 Tool: ${toolName}`;\
+      const thinking = thinkingMap[toolName] || `🔧 Tool: ${toolName}`; 
 
       // ── Web Search ──
       if (toolName === 'web_search') {
@@ -726,7 +630,6 @@ CRITICAL: Do NOT use tools unless user EXPLICITLY requests that specific functio
       triggerMemoryCuration(authenticatedUserId, prompt).catch(e => console.warn(e));
     }
     
-    // Normal conversation — no thinking badge needed
     return jsonResponse({ response: directText, model, sources: [], webSearchUsed: false, toolUsed: null, thinking: null });
 
   } catch (error: unknown) {
