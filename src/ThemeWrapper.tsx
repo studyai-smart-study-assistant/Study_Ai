@@ -9,7 +9,7 @@ interface ThemeWrapperProps {
 
 export function ThemeWrapper({ children }: ThemeWrapperProps) {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+    <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
       <LanguageProvider>
         <QueryProvider>
           {children}
