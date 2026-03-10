@@ -78,9 +78,6 @@ export interface GenerateResponseWithSearchResult {
   thinking?: string | null;
 }
 
-/**
- * Perform web search via Tavily (only used when force/toggle is ON)
- */
 async function performWebSearch(query: string): Promise<{
   searchContext: string | null;
   sources: WebSearchSource[];
@@ -105,9 +102,6 @@ async function performWebSearch(query: string): Promise<{
   }
 }
 
-/**
- * Original generateResponse - backward compatible
- */
 export async function generateResponse(
   prompt: string,
   history: Message[] = [],
@@ -118,12 +112,6 @@ const result = await generateResponseWithSearch(prompt, history, chatId, model, 
   return result.text;
 }
 
-
-/**
- * Enhanced generateResponse - Gemini auto-decides web search via tool calling
- * When forceWebSearch=true (toggle ON), pre-fetches search and passes context
- * When forceWebSearch=false (toggle OFF), Gemini decides via tool calling
- */
 export async function generateResponseWithSearch(
   prompt: string,
   history: Message[] = [],
@@ -135,14 +123,11 @@ export async function generateResponseWithSearch(
   try {
     console.log(`🚀 Study AI: model=${model}, forceWebSearch=${forceWebSearch}`);
     
-    // Quick interception for exact date/time queries to avoid unnecessary AI processing and latency
     if (!imageBase64 && !forceWebSearch && isDateTimeQuery(prompt)) {
       const answer = getDateTimeAnswer(prompt);
-      
       if (chatId) {
         await chatDB.addMessage(chatId, answer, "bot");
       }
-      
       return { text: answer, sources: [], webSearchUsed: false };
     }
 
@@ -152,12 +137,36 @@ export async function generateResponseWithSearch(
         .replace(/\[image:[^\]]+\]/gi, "[Image attached]")
         .trim();
 
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+
+    let mindVaultContext = '';
+    if (userId) {
+      try {
+        const { data: memories, error } = await supabase
+          .from('user_memories')
+          .select('memory_key, memory_value')
+          .eq('user_id', userId)
+          .order('importance', { ascending: false })
+          .limit(15);
+
+        if (error) {
+          console.warn("Mind Vault fetch error:", error);
+        } else if (memories && memories.length > 0) {
+          const memoryStrings = memories.map(m => `- ${m.memory_key}: ${m.memory_value}`);
+          mindVaultContext = `\n\n🧠 Remember these facts about the user from their Mind Vault:\n${memoryStrings.join('\n')}`;
+        }
+      } catch (e) {
+        console.error("Mind Vault exception:", e);
+      }
+    }
+    
     const realtimeCtx = getRealtimeContext();
 
     const formattedHistory = [
       {
         role: "system",
-        content: `You are Study AI, created by Ajit Kumar. Smart, friendly AI teacher for Bihar Board and competitive exam students.\n\n${realtimeCtx.contextPrompt}`
+        content: `You are Study AI, created by Ajit Kumar. Smart, friendly AI teacher for Bihar Board and competitive exam students.\n\n${realtimeCtx.contextPrompt}${mindVaultContext}`
       },
       ...history.slice(-30).map((msg) => ({
         role: msg.role,
@@ -174,10 +183,6 @@ export async function generateResponseWithSearch(
       webSearchContext = searchResult.searchContext;
       webSearchSources = searchResult.sources;
     }
-
-    // Get current user ID for Mind Vault
-    const { data: { session } } = await supabase.auth.getSession();
-    const userId = session?.user?.id || undefined;
 
     const data = await invokeChatCompletion({
       prompt: sanitizeForAI(prompt),
@@ -201,7 +206,6 @@ export async function generateResponseWithSearch(
     const imageUrl = data.imageUrl || null;
     const thinking = data.thinking || null;
 
-    // Show appropriate toast based on tool used
     if (toolUsed === 'generate_image') {
       toast.success(`🎨 Image बन गई!`, { duration: 2000 });
     } else if (toolUsed === 'generate_notes') {
@@ -214,7 +218,6 @@ export async function generateResponseWithSearch(
       toast.success(`✨ Study AI: जवाब तैयार है`, { duration: 2000 });
     }
 
-    // Prepend thinking + image to response for storage
     let finalResponseText = responseText;
     if (thinking && toolUsed) {
       finalResponseText = `[THINKING:${thinking}]${finalResponseText}`;
