@@ -145,7 +145,7 @@ serve(async (req) => {
     let memoriesContext = '';
     if (user) {
         try {
-            const { data: memories } = await userClient.from('user_memies').select('memory_key,memory_value').eq('user_id', user.id).order('importance', { ascending: false }).limit(15);
+            const { data: memories } = await userClient.from('user_memories').select('memory_key,memory_value').eq('user_id', user.id).order('importance', { ascending: false }).limit(15);
             if (memories?.length) memoriesContext = `\n\n🧠 **Mind Vault — इस यूजर के बारे में याद रखें:**\n${memories.map((m:any) => `- ${m.memory_key}: ${m.memory_value}`).join('\n')}`;
         } catch (e) { console.warn('⚠️ Failed to load memories:', e); }
     }
