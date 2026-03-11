@@ -58,7 +58,7 @@ serve(async (req) => {
           headers: {
             Authorization: `Bearer ${OPENROUTER_API_KEY}`,
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://study-ai-001-41.lovable.app",
+            "HTTP-Referer": "https://mystudyai.online",
             "X-Title": "Study AI",
           },
           body: JSON.stringify({
