@@ -5,10 +5,9 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 
 // ─── Configuration ──────────────────────────────────────────
 const CORS_HEADERS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
-const API_CALL_TIMEOUT_MS = 8000; // Increased timeout to 8 seconds for larger payloads
+const API_CALL_TIMEOUT_MS = 15000; // Total timeout for a single provider call
 const FAILURE_THRESHOLD = 3;
-const COOL_OFF_PERIOD_MS = 5 * 60 * 1000; // 5 minutes
-const PROVIDER_RACE_COUNT = 2; // Race the top 2 providers
+const PRIMARY_CALL_GRACE_PERIOD_MS = 2000; // How long to wait for the primary before starting the secondary
 
 interface ApiProvider {
   name: string;
@@ -55,9 +54,15 @@ async function getLiveProviderStatus(supabase: SupabaseClient): Promise<ApiProvi
         if (!status) {
             status = { name: p.name, health_score: 100, consecutive_failures: 0, circuit_state: 'CLOSED', last_failure_at: null };
             providersToUpsert.push(status);
-        } else if (status.circuit_state === 'OPEN' && new Date().getTime() - new Date(status.last_failure_at).getTime() > COOL_OFF_PERIOD_MS) {
-            status.circuit_state = 'HALF_OPEN';
-            providersToUpsert.push({ name: status.name, circuit_state: 'HALF_OPEN' });
+        } else if (status.circuit_state === 'OPEN') {
+            // NEW: Exponential Backoff Logic
+            const backoffMinutes = Math.pow(2, Math.min(status.consecutive_failures, 5)); // Cap at 2^5 = 32 mins
+            const coolOffMs = backoffMinutes * 60 * 1000;
+            if (new Date().getTime() - new Date(status.last_failure_at).getTime() > coolOffMs) {
+                status.circuit_state = 'HALF_OPEN';
+                providersToUpsert.push({ name: status.name, circuit_state: 'HALF_OPEN' });
+                console.log(`CIRCUIT HALF-OPEN for ${status.name} after ${backoffMinutes} mins`);
+            }
         }
         liveProviders.push({ ...p, ...status } as ApiProvider);
     }
@@ -78,7 +83,7 @@ async function updateProviderHealth(supabase: SupabaseClient, providerName: stri
         } else {
             const newFailures = data.consecutive_failures + 1;
             update = {
-                health_score: Math.max(0, data.health_score - 20),
+                health_score: Math.max(0, data.health_score - 25),
                 consecutive_failures: newFailures,
                 last_failure_at: new Date().toISOString(),
                 circuit_state: newFailures >= FAILURE_THRESHOLD ? 'OPEN' : 'CLOSED'
@@ -88,6 +93,42 @@ async function updateProviderHealth(supabase: SupabaseClient, providerName: stri
         await supabase.from('api_provider_health').update(update).eq('name', providerName);
     } catch (dbError) { console.error(`DB Error updating health for ${providerName}:`, dbError); }
 }
+
+const callProvider = (provider: ApiProvider, controller: AbortController, messages: any[]): Promise<{ stream: ReadableStream; provider: ApiProvider }> => {
+    return new Promise(async (resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+            controller.abort();
+            // Don't reject here, let the fetch's catch block handle it as an AbortError
+        }, API_CALL_TIMEOUT_MS);
+
+        try {
+            const response = await fetch(provider.url, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${provider.apiKey}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: provider.model || 'gemini-1.5-flash', messages, temperature: 0.7, max_tokens: 8000, stream: true }),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                const errorBody = await response.text();
+                return reject({ error: new Error(`API error ${response.status}: ${errorBody.substring(0, 200)}`), provider });
+            }
+            
+            // NEW: Response Validation
+            if (!response.body) {
+                return reject({ error: new Error('Empty response body from provider'), provider });
+            }
+            
+            resolve({ stream: response.body, provider });
+
+        } catch (error) {
+            clearTimeout(timeoutId);
+            reject({ error, provider });
+        }
+    });
+};
+
 
 // ─── Main Handler ───────────────────────────────────────────
 
@@ -99,13 +140,12 @@ serve(async (req) => {
   try {
     const { prompt, history = [], imageBase64 } = await req.json();
 
-    // --- Build Messages (common for all providers) ---
     const userClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: req.headers.get('Authorization')! } } });
     const { data: { user } } = await userClient.auth.getUser();
     let memoriesContext = '';
     if (user) {
         try {
-            const { data: memories } = await userClient.from('user_memories').select('memory_key,memory_value').eq('user_id', user.id).order('importance', { ascending: false }).limit(15);
+            const { data: memories } = await userClient.from('user_memies').select('memory_key,memory_value').eq('user_id', user.id).order('importance', { ascending: false }).limit(15);
             if (memories?.length) memoriesContext = `\n\n🧠 **Mind Vault — इस यूजर के बारे में याद रखें:**\n${memories.map((m:any) => `- ${m.memory_key}: ${m.memory_value}`).join('\n')}`;
         } catch (e) { console.warn('⚠️ Failed to load memories:', e); }
     }
@@ -114,63 +154,71 @@ serve(async (req) => {
     const userContent: any = imageBase64 ? [{ type: 'text', text: prompt || 'Image analyze करो' }, { type: 'image_url', image_url: { url: imageBase64 } }] : prompt;
     const messages = [{ role: 'system', content: systemContent }, ...mappedHistory.slice(-30), { role: 'user', content: userContent }];
 
-    // --- [NEW] Parallel Racing Logic ---
     const providers = await getLiveProviderStatus(serviceRoleClient);
     const healthyProviders = providers.filter(p => p.circuit_state === 'CLOSED' || p.circuit_state === 'HALF_OPEN').sort((a, b) => b.health_score - a.health_score);
 
     if (healthyProviders.length === 0) throw new AiProviderError('All AI providers are temporarily down. Please try again in 5 minutes.');
 
-    const providersToRace = healthyProviders.slice(0, PROVIDER_RACE_COUNT);
+    // --- [NEW] Smart Racing Logic ---
+    let winner: { stream: ReadableStream; provider: ApiProvider };
+    const primary = healthyProviders[0];
+    const secondary = healthyProviders.length > 1 ? healthyProviders[1] : null;
+
+    const primaryController = new AbortController();
+    const primaryCall = callProvider(primary, primaryController, messages);
     
-    const callProvider = (provider: ApiProvider): Promise<{ response: Response; provider: ApiProvider }> => {
-        return new Promise(async (resolve, reject) => {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), API_CALL_TIMEOUT_MS);
-            try {
-                const response = await fetch(provider.url, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${provider.apiKey}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ model: provider.model || 'gemini-1.5-flash', messages, temperature: 0.7, max_tokens: 8000 }),
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
-                if (!response.ok) {
-                    const errorBody = await response.text();
-                    reject({ error: new Error(`API error ${response.status}: ${errorBody.substring(0, 200)}`), provider });
-                } else {
-                    resolve({ response, provider });
-                }
-            } catch (error) {
-                clearTimeout(timeoutId);
-                reject({ error, provider });
-            }
-        });
-    };
+    const delayPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('delay_trigger')), PRIMARY_CALL_GRACE_PERIOD_MS)
+    );
 
     try {
-        const racePromises = providersToRace.map(p => callProvider(p));
-        const winner = await Promise.any(racePromises);
-
-        console.log(`🏆 Race winner: ${winner.provider.name} (Score: ${winner.provider.health_score})`);
-        updateProviderHealth(serviceRoleClient, winner.provider.name, 'success');
-        return winner.response;
-
-    } catch (error: any) {
-        console.warn(`🚨 All ${providersToRace.length} providers in the race failed.`);
-        if (error instanceof AggregateError) {
-            for (const individualError of error.errors) {
-                if (individualError?.provider) {
-                    console.warn(`- ${individualError.provider.name} failed: ${individualError.error.message}`)
-                    updateProviderHealth(serviceRoleClient, individualError.provider.name, 'failure');
+        console.log(`🏎️ Starting primary call: ${primary.name}`);
+        winner = await Promise.race([primaryCall, delayPromise]);
+    } catch (e: any) {
+        // Primary was too slow or failed, let's bring in the secondary
+        if (e.message === 'delay_trigger' && secondary) {
+            console.log(`🐢 Primary ${primary.name} is slow, starting secondary ${secondary.name}`);
+            const secondaryController = new AbortController();
+            const secondaryCall = callProvider(secondary, secondaryController, messages);
+            try {
+                winner = await Promise.any([primaryCall, secondaryCall]);
+            } catch (aggError) {
+                console.warn(`🚨 Both primary and secondary providers failed in the race.`);
+                if (aggError instanceof AggregateError) {
+                    aggError.errors.forEach((err: any) => {
+                        if (err?.provider) updateProviderHealth(serviceRoleClient, err.provider.name, 'failure');
+                    });
                 }
+                throw new AiProviderError('AI अभी थोड़ी देर के लिए busy है. 1-2 मिनट बाद फिर try करें।');
+            }
+        } else { // Primary failed before the delay was up
+            console.warn(`🚨 Primary provider ${primary.name} failed fast:`, e.error?.message || e.message);
+            updateProviderHealth(serviceRoleClient, primary.name, 'failure');
+            if (secondary) {
+                 console.log(`➡️ Failing over to secondary: ${secondary.name}`);
+                 const secondaryController = new AbortController();
+                 winner = await callProvider(secondary, secondaryController, messages); // This can still throw, will be caught by outer catch
+            } else {
+                 throw e; // No secondary to fall back to
             }
         }
-        throw new AiProviderError('AI अभी थोड़ी देर के लिए busy है. सारे API Providers में दिक्कत आ रही है. 1-2 मिनट बाद फिर try करें।');
     }
+
+    console.log(`🏆 Race winner: ${winner.provider.name} (Score: ${winner.provider.health_score})`);
+    updateProviderHealth(serviceRoleClient, winner.provider.name, 'success');
+
+    return new Response(winner.stream, {
+      headers: { ...CORS_HEADERS, 'Content-Type': 'text/event-stream; charset=utf-8' },
+      status: 200,
+    });
 
   } catch (error: unknown) {
     console.error('❌ Final error in handler:', error);
-    const errorMessage = error instanceof AiProviderError ? error.message : 'माफ़ करना दोस्त, कुछ तकनीकी दिक्कत आ गई है। एक बार फिर कोशिश करो!';
+    const typedError = (error as any)?.error || error;
+    const providerName = (error as any)?.provider?.name;
+    const errorMessage = error instanceof AiProviderError 
+      ? error.message 
+      : `माफ़ करना दोस्त, कुछ तकनीकी दिक्कत आ गई है। ${providerName ? `(${providerName})` : ''}`;
     return jsonResponse({ error: errorMessage }, error instanceof AiProviderError ? 429 : 500);
   }
 });
