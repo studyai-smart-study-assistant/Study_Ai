@@ -7,7 +7,7 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 const CORS_HEADERS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
 const API_CALL_TIMEOUT_MS = 15000; // Total timeout for a single provider call
 const FAILURE_THRESHOLD = 3;
-const PRIMARY_CALL_GRACE_PERIOD_MS = 2000; // How long to wait for the primary before starting the secondary
+const PRIMARY_CALL_GRACE_PERIOD_MS = 1500; // How long to wait for the primary before starting the secondary
 
 interface ApiProvider {
   name: string;
