@@ -1,31 +1,58 @@
-# Allow all web crawlers for general SEO
+# Global rule: allow all search engines
 User-agent: *
 Allow: /
 
-# Allow specific AI crawlers to access the site
-# This helps our content to be discoverable by AI models like ChatGPT.
+# Allow major search engine crawlers
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: YandexBot
+Allow: /
+
+# Allow AI crawlers that respect robots.txt
 User-agent: ChatGPT-User
 Allow: /
 
-# This allows Google's AI models (like Gemini) to access the content, 
-# which can improve visibility in AI-powered search results.
+User-agent: GPTBot
+Allow: /
+
 User-agent: Google-Extended
 Allow: /
 
-# Allow Grok from xAI to crawl the site.
-User-agent: grok
+User-agent: CCBot
 Allow: /
 
-# Allow DeepSeek to crawl the site.
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Grok
+Allow: /
+
 User-agent: DeepSeek-Crawler
 Allow: /
 
-# Disallow specific bots that we don't need
+# Block unnecessary aggressive crawlers
 User-agent: Amazonbot
 Disallow: /
 
 User-agent: Applebot-Extended
 Disallow: /
 
-# Sitemap location
+# Crawl delay for heavy bots (optional)
+User-agent: *
+Crawl-delay: 5
+
+# Sitemap
 Sitemap: https://mystudyai.online/sitemap.xml
