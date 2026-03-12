@@ -22,6 +22,8 @@ import { Sheet, SheetContent, SheetClose } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
+import PageMeta from '@/components/seo/PageMeta';
+
 const Index = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
@@ -125,6 +127,12 @@ const Index = () => {
 
   return (
     <ErrorBoundary>
+      <PageMeta
+        title="StudyAI: Your Personal AI Study Assistant for Notes, Quizzes & Homework"
+        description="Supercharge your learning with StudyAI! Get instant AI-powered help with homework, generate notes from any topic, create practice quizzes, and get guidance from an interactive AI teacher. Boost your grades and study smarter, not harder."
+        canonicalPath="/"
+        keywords="AI study assistant, notes generator, quiz maker, homework helper, study planner, AI teacher, student tools, exam preparation, learning assistant, education AI"
+      />
       <div className="flex h-screen bg-background overflow-hidden">
         {/* Sidebar Sheet for Mobile */}
         <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>

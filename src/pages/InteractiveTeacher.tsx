@@ -10,6 +10,7 @@ import InteractiveTeacherLesson from '@/components/study/interactive-teacher/Int
 import InteractiveTeacherHistory from '@/components/study/interactive-teacher/InteractiveTeacherHistory';
 import { motion } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
+import PageMeta from '@/components/seo/PageMeta';
 
 const InteractiveTeacher = () => {
   const { sessionId } = useParams();
@@ -82,6 +83,13 @@ const InteractiveTeacher = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-950">
+      <PageMeta
+        title="Interactive AI Teacher & Tutor - Personalized Learning 24/7 | StudyAI"
+        description="Experience one-on-one learning with an AI Teacher. Get personalized lessons, interactive exercises, and instant feedback on any subject. Your 24/7 AI tutor for exam prep and concept clarity."
+        canonicalPath="/teacher-chats" 
+        keywords="AI teacher, AI tutor, interactive learning, personalized education, virtual teacher, online tutoring, student learning assistant, concept explanation, exam help"
+      />
+
       {/* Responsive Header with Mobile Optimization */}
       <motion.div 
         initial={{ opacity: 0, y: -20 }}

@@ -1,6 +1,6 @@
 # Global rule: allow all search engines
 User-agent: *
-Allow: /
+Disallow:
 
 # Allow major search engine crawlers
 User-agent: Googlebot

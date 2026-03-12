@@ -14,10 +14,10 @@ const NotesCreator = () => {
   return (
     <div className="min-h-screen bg-background">
       <PageMeta 
-        title="AI Notes Creator - Generate Study Notes Instantly | StudyAI"
-        description="Create comprehensive study notes on any topic using AI. Generate exam-ready notes for Bihar Board, SSC CGL, UPSC and more. Free AI notes generator."
+        title="Free AI Notes Generator - Create Study Notes from Any Topic | StudyAI"
+        description="Instantly generate clear, concise, and well-structured study notes on any subject with our AI Notes Generator. Paste text, upload a PDF, or just enter a topic to create high-quality notes for revision and learning."
         canonicalPath="/notes-creator"
-        keywords="AI Notes Generator, Study Notes Creator, Bihar Board Notes, SSC CGL Notes, Free AI Notes"
+        keywords="AI notes generator, free notes creator, study notes maker, automated note taking, summarize text for notes, PDF to notes, topic to notes, revision notes"
       />
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center gap-3 px-4 py-3 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

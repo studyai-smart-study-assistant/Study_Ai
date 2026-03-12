@@ -14,10 +14,10 @@ const QuizGenerator = () => {
   return (
     <div className="min-h-screen bg-background">
       <PageMeta 
-        title="AI Quiz Generator - Create Practice Tests Instantly | StudyAI"
-        description="Generate interactive quizzes on any topic with AI. Practice for Bihar Board, SSC CGL, competitive exams. Earn XP and compete on leaderboard."
+        title="Free AI Quiz Generator - Create Custom Quizzes & Tests Instantly | StudyAI"
+        description="Create practice quizzes and tests on any subject for free with our AI Quiz Generator. Perfect for students preparing for exams like SSC, UPSC, JEE, NEET, and board exams. Generate MCQs, fill-in-the-blanks, and more to test your knowledge."
         canonicalPath="/quiz-generator"
-        keywords="AI Quiz Generator, Online Quiz Maker, Practice Tests, Bihar Board Quiz, SSC CGL Quiz"
+        keywords="AI quiz generator, free quiz maker, test generator, custom quiz creator, online quiz tool, MCQ generator, exam preparation, practice tests, student quiz tool"
       />
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center gap-3 px-4 py-3 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

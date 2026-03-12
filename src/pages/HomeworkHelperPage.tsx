@@ -12,10 +12,10 @@ const HomeworkHelperPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <PageMeta 
-        title="AI Homework Helper - Get Instant Assignment Help | StudyAI"
-        description="Get step-by-step homework solutions with AI. Solve math problems, science questions, and assignments. Perfect for students of all levels."
+        title="AI Homework Helper - Instant Answers & Step-by-Step Solutions | StudyAI"
+        description="Stuck on a tough problem? Our AI Homework Helper provides instant, step-by-step solutions for math, science, history, and more. Snap a picture or type your question to get unstuck and understand concepts better."
         canonicalPath="/homework-helper"
-        keywords="AI Homework Helper, Homework Solver, Math Helper, Science Helper, Assignment Help"
+        keywords="AI homework helper, homework solver, instant answers, math problem solver, science question solver, assignment help, academic assistance, school help"
       />
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center gap-3 px-4 py-3 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

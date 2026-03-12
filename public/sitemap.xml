@@ -1,81 +1,108 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Main Pages -->
   <url>
     <loc>https://mystudyai.online/</loc>
-    <lastmod>2026-03-09</lastmod>
+    <lastmod>2024-05-23</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://mystudyai.online/about</loc>
-    <lastmod>2026-03-09</lastmod>
+    <lastmod>2024-05-23</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
-  <url>
-    <loc>https://mystudyai.online/login</loc>
-    <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>https://mystudyai.online/signup</loc>
-    <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
+  
+  <!-- Core AI Tool Pages -->
   <url>
     <loc>https://mystudyai.online/notes-creator</loc>
-    <lastmod>2026-03-09</lastmod>
+    <lastmod>2024-05-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://mystudyai.online/quiz-generator</loc>
-    <lastmod>2026-03-09</lastmod>
+    <lastmod>2024-05-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
-  <url>
+    <url>
     <loc>https://mystudyai.online/homework-helper</loc>
-    <lastmod>2026-03-09</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://mystudyai.online/teacher-chats</loc>
-    <lastmod>2026-03-09</lastmod>
+    <lastmod>2024-05-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://mystudyai.online/study-planner</loc>
-    <lastmod>2026-03-09</lastmod>
+    <lastmod>2024-05-23</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://mystudyai.online/teacher-chats</loc>
+    <lastmod>2024-05-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
+  
+  <!-- Engagement & Community Pages -->
   <url>
     <loc>https://mystudyai.online/leaderboard</loc>
-    <lastmod>2026-03-09</lastmod>
+    <lastmod>2024-05-23</lastmod>
     <changefreq>daily</changefreq>
-    <priority>0.7</priority>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://mystudyai.online/study-tube</loc>
-    <lastmod>2026-03-09</lastmod>
+    <lastmod>2024-05-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
+    <url>
+    <loc>https://mystudyai.online/chat-system</loc>
+    <lastmod>2024-05-23</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- User Account & Auth Pages -->
+  <url>
+    <loc>https://mystudyai.online/login</loc>
+    <lastmod>2024-05-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mystudyai.online/signup</loc>
+    <lastmod>2024-05-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+    <url>
+    <loc>https://mystudyai.online/points-wallet</loc>
+    <lastmod>2024-05-23</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mystudyai.online/chat-history</loc>
+    <lastmod>2024-05-23</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.4</priority>
+  </url>
+
+  <!-- Legal Pages -->
   <url>
     <loc>https://mystudyai.online/privacy-policy</loc>
-    <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
+    <lastmod>2024-05-23</lastmod>
+    <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://mystudyai.online/terms-of-service</loc>
-    <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
+    <lastmod>2024-05-23</lastmod>
+    <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
 </urlset>

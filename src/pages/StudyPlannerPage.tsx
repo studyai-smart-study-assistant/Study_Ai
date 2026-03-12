@@ -12,10 +12,10 @@ const StudyPlannerPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <PageMeta 
-        title="AI Study Planner - Create Personalized Study Schedules | StudyAI"
-        description="Plan your studies efficiently with AI-powered study planner. Create personalized schedules for exams, competitive tests. Track progress daily."
+        title="AI Study Planner - Create Your Perfect Study Schedule Free | StudyAI"
+        description="Generate a personalized study plan in seconds with our AI Study Planner. Ideal for students managing homework, revision, and exam prep. Create a daily or weekly timetable, track your progress, and achieve your academic goals faster."
         canonicalPath="/study-planner"
-        keywords="AI Study Planner, Study Schedule Maker, Exam Preparation, Study Timetable, Bihar Board Preparation"
+        keywords="AI study planner, study schedule maker, exam timetable generator, daily study plan, weekly study schedule, revision planner, student planner, academic timetable"
       />
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center gap-3 px-4 py-3 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

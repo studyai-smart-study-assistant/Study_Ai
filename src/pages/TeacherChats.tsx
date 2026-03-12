@@ -46,10 +46,10 @@ const TeacherChats = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-green-50 dark:from-gray-800 dark:to-gray-900 p-4">
       <PageMeta 
-        title="AI Teacher Chat - Learn from Virtual AI Teachers | StudyAI"
-        description="Chat with AI teachers for personalized learning. Get explanations in Hindi or English. Perfect for Bihar Board, competitive exams preparation."
+        title="Your AI Teacher Chat History - Review Past Lessons | StudyAI"
+        description="Access and review your entire chat history with your AI Teachers. Revisit personalized lessons, re-read explanations, and track your learning progress over time. Your personal archive of AI-powered tutoring."
         canonicalPath="/teacher-chats"
-        keywords="AI Teacher, Virtual Teacher, Online Tutor, Learn with AI, Hindi Teacher"
+        keywords="AI teacher history, chat history, saved lessons, learning archive, review study sessions, personalized learning log, virtual tutor history"
       />
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
