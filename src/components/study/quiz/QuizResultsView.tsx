@@ -5,20 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, CheckCircle, XCircle, Trophy, RotateCcw, BookOpen, Award, ImageIcon } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { QuizResult } from './types';
-import QuizResultCard from '@/components/chat/QuizResultCard';
+import QuizResultCard from './QuizResultCard';
 
 interface QuizResultsViewProps {
   result: QuizResult;
-  topic?: string;
-  difficulty?: string;
+  quiz: any; // Add quiz prop
   onReset: () => void;
   onReviewAnswers: () => void;
 }
 
 export const QuizResultsView: React.FC<QuizResultsViewProps> = ({
   result,
-  topic = 'Quiz',
-  difficulty = 'medium',
+  quiz, // Destructure quiz prop
   onReset,
   onReviewAnswers
 }) => {
@@ -31,24 +29,25 @@ export const QuizResultsView: React.FC<QuizResultsViewProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const percentage = Math.round((result.score / result.totalQuestions) * 100);
+  const percentage = Math.round((result.correctAnswers / result.totalQuestions) * 100);
+
+  const resultsForCard = {
+      score: percentage,
+      correctAnswers: result.correctAnswers,
+      totalQuestions: result.totalQuestions,
+      points: result.xpEarned || 0,
+  };
 
   return (
     <div className="w-full max-w-2xl mx-auto px-4 space-y-6">
       {/* Premium Result Card */}
       {showCard && (
-        <div className="space-y-4">
-          <QuizResultCard
-            score={result.score}
-            total={result.totalQuestions}
-            topic={topic}
-            difficulty={difficulty}
-            percentage={percentage}
-          />
-          <Button onClick={() => setShowCard(false)} variant="ghost" className="w-full text-sm">
-            {language === 'hi' ? 'कार्ड बंद करें' : 'Close Card'}
-          </Button>
-        </div>
+        <QuizResultCard
+          results={resultsForCard}
+          quiz={quiz}
+          onClose={() => setShowCard(false)}
+          language={language}
+        />
       )}
 
       <Card>
@@ -67,7 +66,7 @@ export const QuizResultsView: React.FC<QuizResultsViewProps> = ({
             
             <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
               <CheckCircle className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 text-blue-600" />
-              <div className="text-xl sm:text-2xl font-bold text-blue-700 dark:text-blue-400">{result.score}/{result.totalQuestions}</div>
+              <div className="text-xl sm:text-2xl font-bold text-blue-700 dark:text-blue-400">{result.correctAnswers}/{result.totalQuestions}</div>
               <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{language === 'hi' ? 'सही उत्तर' : 'Correct'}</div>
             </div>
             

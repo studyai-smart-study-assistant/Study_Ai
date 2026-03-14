@@ -283,12 +283,12 @@ Please follow this exact format.`;
   const submitQuiz = async () => {
     recordQuestionTime();
 
-    const score = userAnswers.reduce((total, answer, index) => {
+    const correctAnswers = userAnswers.reduce((total, answer, index) => {
       return answer === questions[index].correctAnswer ? total + 1 : total;
     }, 0);
 
     const timeTaken = config.timeLimit - timeLeft;
-    const xpEarned = calculateXP(score, questions.length, timeTaken, config.timeLimit);
+    const xpEarned = calculateXP(correctAnswers, questions.length, timeTaken, config.timeLimit);
 
     if (currentUser?.uid) {
       try {
@@ -297,8 +297,8 @@ Please follow this exact format.`;
           xpEarned,
           'quiz',
           language === 'hi' 
-            ? `क्विज़ पूरी की: ${config.topic} (${score}/${questions.length} सही)`
-            : `Completed Quiz: ${config.topic} (${score}/${questions.length} correct)`
+            ? `क्विज़ पूरी की: ${config.topic} (${correctAnswers}/${questions.length} सही)`
+            : `Completed Quiz: ${config.topic} (${correctAnswers}/${questions.length} correct)`
         );
         
         toast.success(
@@ -340,7 +340,7 @@ Please follow this exact format.`;
 
     setReviewAnswers(reviewData);
     setQuizResult({
-      score,
+      correctAnswers,
       totalQuestions: questions.length,
       timeTaken,
       wrongAnswers,
@@ -802,11 +802,14 @@ Please follow this exact format.`;
   }
 
   if (mode === 'result' && quizResult) {
+    const quiz = {
+      title: config.topic,
+      questions: questions,
+    };
     return (
       <QuizResultsView
         result={quizResult}
-        topic={config.topic}
-        difficulty={difficulty}
+        quiz={quiz}
         onReset={resetQuiz}
         onReviewAnswers={goToReview}
       />
