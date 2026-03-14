@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,6 +16,25 @@ const floatingIcons = [
   { Icon: Star, x: '12%', y: '78%', delay: 2.2, size: 20 },
   { Icon: Sparkles, x: '55%', y: '8%', delay: 0.7, size: 16 },
 ];
+
+const AnimatedInput = ({ id, icon: Icon, focusKey, focusedField, setFocusedField, children, ...props }: any) => (
+    <motion.div
+      className="relative group"
+      animate={focusedField === focusKey ? { scale: 1.02 } : { scale: 1 }}
+      transition={{ type: "spring", stiffness: 300 }}
+    >
+      <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
+      <Input
+        id={id}
+        onFocus={() => setFocusedField(focusKey)}
+        onBlur={() => setFocusedField(null)}
+        className="h-12 pl-11 bg-secondary/50 border-border/50 focus:border-primary focus:bg-background transition-all duration-300 rounded-xl focus:shadow-[0_0_15px_hsl(267_75%_60%_/_0.15)]"
+        {...props}
+      />
+      {children}
+    </motion.div>
+  );
+
 
 const Signup = () => {
   const [name, setName] = useState('');
@@ -90,23 +108,6 @@ const Signup = () => {
   const passwordStrength = password.length === 0 ? 0 : password.length < 6 ? 1 : password.length < 10 ? 2 : 3;
   const strengthColors = ['', 'bg-destructive', 'bg-yellow-500', 'bg-green-500'];
   const strengthLabels = ['', 'Weak', 'Good', 'Strong'];
-
-  const AnimatedInput = ({ id, icon: Icon, focusKey, ...props }: any) => (
-    <motion.div
-      className="relative group"
-      animate={focusedField === focusKey ? { scale: 1.02 } : { scale: 1 }}
-      transition={{ type: "spring", stiffness: 300 }}
-    >
-      <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
-      <Input
-        id={id}
-        onFocus={() => setFocusedField(focusKey)}
-        onBlur={() => setFocusedField(null)}
-        className="h-12 pl-11 bg-secondary/50 border-border/50 focus:border-primary focus:bg-background transition-all duration-300 rounded-xl focus:shadow-[0_0_15px_hsl(267_75%_60%_/_0.15)]"
-        {...props}
-      />
-    </motion.div>
-  );
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background relative overflow-hidden p-4">
@@ -241,33 +242,29 @@ const Signup = () => {
           >
             <motion.div className="space-y-2" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 }}>
               <Label htmlFor="name" className="text-sm font-medium text-foreground">Full Name</Label>
-              <AnimatedInput id="name" icon={User} focusKey="name" value={name} onChange={(e: any) => setName(e.target.value)} placeholder="Your full name" required />
+              <AnimatedInput id="name" icon={User} focusKey="name" value={name} onChange={(e: any) => setName(e.target.value)} placeholder="Your full name" required focusedField={focusedField} setFocusedField={setFocusedField} />
             </motion.div>
 
             <motion.div className="space-y-2" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }}>
               <Label htmlFor="email" className="text-sm font-medium text-foreground">Email</Label>
-              <AnimatedInput id="email" icon={Mail} focusKey="email" type="email" value={email} onChange={(e: any) => setEmail(e.target.value)} placeholder="your.email@example.com" required />
+              <AnimatedInput id="email" icon={Mail} focusKey="email" type="email" value={email} onChange={(e: any) => setEmail(e.target.value)} placeholder="your.email@example.com" required focusedField={focusedField} setFocusedField={setFocusedField} />
             </motion.div>
 
             <motion.div className="space-y-2" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.45 }}>
               <Label htmlFor="password" className="text-sm font-medium text-foreground">Password</Label>
-              <motion.div
-                className="relative group"
-                animate={focusedField === 'password' ? { scale: 1.02 } : { scale: 1 }}
-                transition={{ type: "spring", stiffness: 300 }}
-              >
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
-                <Input
+              <AnimatedInput
                   id="password"
+                  icon={Lock}
+                  focusKey="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  onFocus={() => setFocusedField('password')}
-                  onBlur={() => setFocusedField(null)}
                   placeholder="Create a strong password"
-                  className="h-12 pl-11 pr-11 bg-secondary/50 border-border/50 focus:border-primary focus:bg-background transition-all duration-300 rounded-xl focus:shadow-[0_0_15px_hsl(267_75%_60%_/_0.15)]"
                   required
-                />
+                  focusedField={focusedField}
+                  setFocusedField={setFocusedField}
+                  className="pr-11"
+              >
                 <Button
                   type="button"
                   variant="ghost"
@@ -287,7 +284,7 @@ const Signup = () => {
                     </motion.div>
                   </AnimatePresence>
                 </Button>
-              </motion.div>
+              </AnimatedInput>
               {password.length > 0 && (
                 <motion.div className="space-y-1" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
                   <div className="flex gap-1">
@@ -308,7 +305,7 @@ const Signup = () => {
 
             <motion.div className="space-y-2" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }}>
               <Label htmlFor="confirmPassword" className="text-sm font-medium text-foreground">Confirm Password</Label>
-              <AnimatedInput id="confirmPassword" icon={ShieldCheck} focusKey="confirm" type="password" value={confirmPassword} onChange={(e: any) => setConfirmPassword(e.target.value)} placeholder="Confirm your password" required />
+              <AnimatedInput id="confirmPassword" icon={ShieldCheck} focusKey="confirm" type="password" value={confirmPassword} onChange={(e: any) => setConfirmPassword(e.target.value)} placeholder="Confirm your password" required focusedField={focusedField} setFocusedField={setFocusedField} />
             </motion.div>
 
             {/* Terms */}

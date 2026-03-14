@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,6 +16,25 @@ const floatingIcons = [
   { Icon: Sparkles, x: '50%', y: '10%', delay: 0.5, size: 16 },
   { Icon: BookOpen, x: '90%', y: '50%', delay: 1.2, size: 14 },
 ];
+
+const AnimatedInput = ({ id, icon: Icon, focusKey, focusedField, setFocusedField, children, ...props }: any) => (
+    <motion.div
+      className="relative group"
+      animate={focusedField === focusKey ? { scale: 1.02 } : { scale: 1 }}
+      transition={{ type: "spring", stiffness: 300 }}
+    >
+      <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
+      <Input
+        id={id}
+        onFocus={() => setFocusedField(focusKey)}
+        onBlur={() => setFocusedField(null)}
+        className="h-12 pl-11 bg-secondary/50 border-border/50 focus:border-primary focus:bg-background transition-all duration-300 rounded-xl focus:shadow-[0_0_15px_hsl(267_75%_60%_/_0.15)]"
+        {...props}
+      />
+      {children}
+    </motion.div>
+  );
+
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -253,24 +271,18 @@ const Login = () => {
               transition={{ delay: 0.4 }}
             >
               <Label htmlFor="email" className="text-sm font-medium text-foreground">Email</Label>
-              <motion.div
-                className="relative group"
-                animate={focusedField === 'email' ? { scale: 1.02 } : { scale: 1 }}
-                transition={{ type: "spring", stiffness: 300 }}
-              >
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
-                <Input
+              <AnimatedInput 
                   id="email"
+                  icon={Mail}
+                  focusKey="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onFocus={() => setFocusedField('email')}
-                  onBlur={() => setFocusedField(null)}
+                  onChange={(e: any) => setEmail(e.target.value)}
                   placeholder="your.email@example.com"
-                  className="h-12 pl-11 bg-secondary/50 border-border/50 focus:border-primary focus:bg-background transition-all duration-300 rounded-xl focus:shadow-[0_0_15px_hsl(267_75%_60%_/_0.15)]"
                   required
+                  focusedField={focusedField}
+                  setFocusedField={setFocusedField}
                 />
-              </motion.div>
             </motion.div>
 
             {/* Password field */}
@@ -286,43 +298,39 @@ const Login = () => {
                   Forgot password?
                 </Link>
               </div>
-              <motion.div
-                className="relative group"
-                animate={focusedField === 'password' ? { scale: 1.02 } : { scale: 1 }}
-                transition={{ type: "spring", stiffness: 300 }}
-              >
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
-                <Input
+              <AnimatedInput 
                   id="password"
+                  icon={Lock}
+                  focusKey="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onFocus={() => setFocusedField('password')}
-                  onBlur={() => setFocusedField(null)}
+                  onChange={(e: any) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="h-12 pl-11 pr-11 bg-secondary/50 border-border/50 focus:border-primary focus:bg-background transition-all duration-300 rounded-xl focus:shadow-[0_0_15px_hsl(267_75%_60%_/_0.15)]"
                   required
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowPassword(!showPassword)}
+                  focusedField={focusedField}
+                  setFocusedField={setFocusedField}
+                  className="pr-11"
                 >
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={showPassword ? 'hide' : 'show'}
-                      initial={{ rotate: -90, opacity: 0 }}
-                      animate={{ rotate: 0, opacity: 1 }}
-                      exit={{ rotate: 90, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowPassword(!showPassword)}
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </motion.div>
-                  </AnimatePresence>
-                </Button>
-              </motion.div>
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={showPassword ? 'hide' : 'show'}
+                          initial={{ rotate: -90, opacity: 0 }}
+                          animate={{ rotate: 0, opacity: 1 }}
+                          exit={{ rotate: 90, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </motion.div>
+                      </AnimatePresence>
+                    </Button>
+                </AnimatedInput>
             </motion.div>
 
             {/* Submit button */}
