@@ -10,7 +10,8 @@ interface LiveTalkingModeProps {
   onClose: () => void;
 }
 
-const GEMINI_WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
+// Using a more stable Gemini WebSocket endpoint
+const GEMINI_WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.GenerateContent';
 
 const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
   const [isMicOn, setIsMicOn] = useState(true);
@@ -18,10 +19,8 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [status, setStatus] = useState<'idle' | 'listening' | 'thinking' | 'speaking'>('idle');
-  const [transcript, setTranscript] = useState('');
   const [aiResponse, setAiResponse] = useState('');
   const [activeAnalyser, setActiveAnalyser] = useState<AnalyserNode | null>(null);
-  const [liveModel, setLiveModel] = useState('models/gemini-2.5-flash-native-audio-latest');
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -29,16 +28,16 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
   const micStreamRef = useRef<MediaStream | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
   const frameIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playbackCtxRef = useRef<AudioContext | null>(null);
-  const isConnectedRef = useRef(false);
-  const isSpeakingRef = useRef(false);
-  const pendingAudioRef = useRef<Float32Array[]>([]);
   const playbackSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
-  // ── Camera ──
+  const isConnectedRef = useRef(false);
+  const isSpeakingRef = useRef(false);
+
+  // ── Camera Management ──
   const startCamera = useCallback(async (facing: 'user' | 'environment') => {
     try {
       if (cameraStreamRef.current) cameraStreamRef.current.getTracks().forEach(t => t.stop());
@@ -49,12 +48,12 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
       cameraStreamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
     } catch {
-      toast.error('Camera access denied');
+      toast.error('Camera access denied. Please enable it in your browser settings.');
       setIsCameraOn(false);
     }
   }, []);
 
-  // ── Capture frame as base64 JPEG ──
+  // ── Capture Video Frame ──
   const captureFrame = useCallback((): string | null => {
     if (!videoRef.current || !canvasRef.current || !isCameraOn) return null;
     const v = videoRef.current;
@@ -66,11 +65,10 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
     if (!ctx) return null;
     ctx.drawImage(v, 0, 0, c.width, c.height);
     const dataUrl = c.toDataURL('image/jpeg', 0.5);
-    // Return raw base64 without prefix
     return dataUrl.split(',')[1] || null;
   }, [isCameraOn]);
 
-  // ── Play received PCM audio ──
+  // ── Play Received Audio ──
   const playAudioChunk = useCallback((pcmBase64: string) => {
     if (!isSpeakerOn) return;
     try {
@@ -78,7 +76,6 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
       const bytes = new Uint8Array(binaryStr.length);
       for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
 
-      // Convert PCM 16-bit LE to Float32
       const int16 = new Int16Array(bytes.buffer);
       const float32 = new Float32Array(int16.length);
       for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
@@ -108,7 +105,7 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
     }
   }, [isSpeakerOn]);
 
-  // ── Interrupt: stop AI audio ──
+  // ── Interrupt AI Speech ──
   const interruptPlayback = useCallback(() => {
     if (isSpeakingRef.current) {
       try {
@@ -119,231 +116,150 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
     }
   }, []);
 
-  // ── Connect WebSocket to Gemini ──
+  // ── Connect to Gemini (Simplified & More Robust) ──
   const connectWebSocket = useCallback(async () => {
+    setStatus('idle');
     try {
       const { data, error } = await supabase.functions.invoke('gemini-live-token');
-      if (error || !data?.apiKey) {
-        toast.error('Failed to get API key');
+      if (error || !data?.apiKey || !data?.model) {
+        toast.error('Failed to get API key. Please try again.');
+        console.error('Token acquisition failed:', error);
+        onClose();
         return;
       }
 
-      const apiKeys: string[] = Array.isArray(data?.allKeys) && data.allKeys.length > 0
-        ? data.allKeys
-        : [data.apiKey];
+      const { apiKey, model: modelToUse } = data;
+      console.log(`Attempting to connect with model: ${modelToUse}`);
+      
+      const ws = new WebSocket(`${GEMINI_WS_URL}&key=${apiKey}&model=${modelToUse}`);
+      wsRef.current = ws;
 
-      const modelCandidates = Array.from(new Set([
-        'models/gemini-2.5-flash-native-audio-latest',
-        'models/gemini-live-2.5-flash-preview',
-        ...(Array.isArray(data?.models) ? data.models : []),
-        data?.model,
-        liveModel,
-        'models/gemini-2.0-flash-live-001',
-        'models/gemini-2.0-flash-exp',
-      ].filter(Boolean)));
+      ws.onopen = () => {
+        console.log('Gemini WebSocket connected');
+        // No complex setup message needed for this endpoint
+        isConnectedRef.current = true;
+        setStatus('listening');
+        toast.success(`🔴 Live Mode Active`);
+      };
 
-      // Try each model × each key combination
-      let totalAttempts = 0;
-      const maxAttempts = modelCandidates.length * apiKeys.length;
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
 
-      const tryNext = (modelIdx: number, keyIdx: number) => {
-        if (!open) return;
-        totalAttempts++;
-
-        if (totalAttempts > maxAttempts || modelIdx >= modelCandidates.length) {
-          setStatus('idle');
-          toast.error('कोई भी API key + model combination काम नहीं कर रहा');
-          return;
-        }
-
-        const modelToUse = modelCandidates[modelIdx];
-        const apiKey = apiKeys[keyIdx % apiKeys.length];
-        setLiveModel(modelToUse);
-        console.log(`Trying model: ${modelToUse}, key#${keyIdx % apiKeys.length}`);
-
-        const ws = new WebSocket(`${GEMINI_WS_URL}?key=${apiKey}`);
-        wsRef.current = ws;
-
-        let setupComplete = false;
-        const setupTimer = setTimeout(() => {
-          if (!setupComplete) {
-            console.warn(`Setup timeout on ${modelToUse} key#${keyIdx}, trying next...`);
-            try { ws.close(4000, 'setup timeout'); } catch {}
-          }
-        }, 6000);
-
-        ws.onopen = () => {
-          console.log('Gemini WebSocket connected');
-          const setupMsg = {
-            setup: {
-              model: modelToUse,
-              generationConfig: {
-                responseModalities: ['AUDIO'],
-                speechConfig: {
-                  voiceConfig: {
-                    prebuiltVoiceConfig: {
-                      voiceName: 'Aoede'
-                    }
-                  }
-                }
-              },
-              systemInstruction: {
-                parts: [{
-                  text: `You are Study AI Live, a real-time multimodal AI teacher built by Ajit Kumar. You help students learn by seeing their books, notes, diagrams through the camera and explaining concepts verbally. Keep responses concise (2-4 sentences) since you're speaking live. Respond in the same language as the student (Hindi or English). If the student shows a diagram or equation, explain it clearly. Be encouraging and patient like a good teacher.`
-                }]
-              }
-            }
-          };
-          ws.send(JSON.stringify(setupMsg));
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const msg = JSON.parse(event.data);
-
-            if (msg.error) {
-              console.error('Gemini setup error:', msg.error);
-            }
-
-            if (msg.setupComplete) {
-              setupComplete = true;
-              clearTimeout(setupTimer);
-              isConnectedRef.current = true;
-              setStatus('listening');
-              toast.success(`🔴 Live Mode Active (${modelToUse.replace('models/', '')})`);
-              return;
-            }
-
-            if (msg.serverContent) {
-              const parts = msg.serverContent.modelTurn?.parts;
-              if (parts) {
-                for (const part of parts) {
-                  if (part.inlineData?.mimeType?.startsWith('audio/')) {
-                    playAudioChunk(part.inlineData.data);
-                  }
-                  if (part.text) {
-                    setAiResponse(prev => prev ? prev + ' ' + part.text : part.text);
-                  }
-                }
-              }
-
-              if (msg.serverContent.turnComplete) {
-                isSpeakingRef.current = false;
-                if (isConnectedRef.current) setStatus('listening');
-              }
-            }
-          } catch (e) {
-            console.error('WS message parse error:', e);
-          }
-        };
-
-        ws.onerror = (e) => {
-          console.error('WebSocket error:', e);
-        };
-
-        ws.onclose = (e) => {
-          clearTimeout(setupTimer);
-          console.log('WebSocket closed:', e.code, e.reason);
-
-          if (!setupComplete) {
-            isConnectedRef.current = false;
-            setStatus('idle');
-            // Try next key for same model, or next model
-            const nextKeyIdx = keyIdx + 1;
-            if (nextKeyIdx < apiKeys.length) {
-              tryNext(modelIdx, nextKeyIdx);
-            } else {
-              tryNext(modelIdx + 1, 0);
-            }
+          if (msg.error) {
+            console.error('Gemini error:', msg.error.message);
+            toast.error(msg.error.message);
+            handleEndCall();
             return;
           }
 
-          isConnectedRef.current = false;
-          setStatus('idle');
-          if (open) {
-            setTimeout(() => connectWebSocket(), 2000);
+          const candidate = msg.candidates?.[0];
+          if (!candidate) return;
+
+          const content = candidate.content;
+          if (content?.parts) {
+            for (const part of content.parts) {
+              if (part.audioData?.data) {
+                playAudioChunk(part.audioData.data);
+              }
+              if (part.text) {
+                setAiResponse(prev => (prev ? prev + ' ' + part.text : part.text).trim());
+              }
+            }
           }
-        };
+          
+          if (candidate.finishReason === 'COMPLETE' || candidate.finishReason === 'STOP') {
+             isSpeakingRef.current = false;
+             if (isConnectedRef.current) setStatus('listening');
+          }
+
+        } catch (e) {
+          console.error('WS message parse error:', e);
+        }
       };
 
-      tryNext(0, 0);
+      ws.onerror = (e) => {
+        console.error('WebSocket error:', e);
+        toast.error('Live connection failed. Please check your network and try again.');
+      };
+
+      ws.onclose = (e) => {
+        console.log('WebSocket closed:', e.code, e.reason);
+        if (isConnectedRef.current) { // Was connected, probably a drop
+            toast.info('Live connection closed. You can restart it.');
+        }
+        handleEndCall();
+      };
+
     } catch (e) {
       console.error('WebSocket connect error:', e);
-      toast.error('Failed to connect');
+      toast.error('Failed to connect to the live service.');
+      onClose();
     }
-  }, [open, playAudioChunk, liveModel]);
+  }, [onClose, playAudioChunk]);
 
-  // ── Stream mic audio as PCM 16kHz via WebSocket ──
+  // ── Stream Mic via AudioWorklet (Modern & Performant) ──
   const startMicStream = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
       });
       micStreamRef.current = stream;
 
       const audioCtx = new AudioContext({ sampleRate: 16000 });
       audioCtxRef.current = audioCtx;
 
+      await audioCtx.audioWorklet.addModule('/audio-processor.js');
+      
       const source = audioCtx.createMediaStreamSource(stream);
+      const workletNode = new AudioWorkletNode(audioCtx, 'pcm-audio-processor');
+      workletNodeRef.current = workletNode;
+      
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 512;
       analyser.smoothingTimeConstant = 0.3;
-      source.connect(analyser);
       analyserRef.current = analyser;
       setActiveAnalyser(analyser);
-
-      // Use ScriptProcessorNode for PCM capture (worklet would be better but simpler this way)
-      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
-      source.connect(processor);
-      processor.connect(audioCtx.destination);
-
+      
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-      processor.onaudioprocess = (e) => {
+      workletNode.port.onmessage = (event) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !isConnectedRef.current) return;
 
-        // Check volume for interruption
+        // Check for user interruption
         analyser.getByteFrequencyData(dataArray);
         const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-
-        // Interrupt AI if user speaks
         if (avg > 15 && isSpeakingRef.current) {
           interruptPlayback();
-          setTranscript('');
           setAiResponse('');
         }
-
-        // Convert Float32 to PCM 16-bit LE
-        const float32 = e.inputBuffer.getChannelData(0);
-        const int16 = new Int16Array(float32.length);
-        for (let i = 0; i < float32.length; i++) {
-          const s = Math.max(-1, Math.min(1, float32[i]));
-          int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-        }
-
-        // Convert to base64
-        const uint8 = new Uint8Array(int16.buffer);
+        
+        const pcm16Buffer = event.data as ArrayBuffer;
+        const uint8 = new Uint8Array(pcm16Buffer);
         let binary = '';
-        for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+        for (let i = 0; i < uint8.length; i++) {
+          binary += String.fromCharCode(uint8[i]);
+        }
         const b64 = btoa(binary);
 
-        // Send audio chunk
         const msg = {
-          realtimeInput: {
-            mediaChunks: [{
-              data: b64,
-              mimeType: 'audio/pcm;rate=16000',
-            }]
-          }
+          content: { parts: [{ inlineData: { mimeType: 'audio/l16; rate=16000', data: b64 } }] }
         };
         wsRef.current.send(JSON.stringify(msg));
       };
-    } catch {
-      toast.error('Microphone access denied');
+
+      source.connect(analyser);
+      analyser.connect(workletNode);
+      workletNode.connect(audioCtx.destination); // Connect to output to avoid issues
+
+    } catch (err) {
+      console.error('Mic stream error:', err);
+      toast.error('Microphone access denied. Please enable it in your browser settings.');
+      setIsMicOn(false);
     }
   }, [interruptPlayback]);
 
-  // ── Stream camera frames periodically ──
+  // ── Stream Camera Frames Periodically ──
   const startFrameStream = useCallback(() => {
     if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
 
@@ -354,18 +270,32 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
       if (!frame) return;
 
       const msg = {
-        realtimeInput: {
-          mediaChunks: [{
-            data: frame,
-            mimeType: 'image/jpeg',
-          }]
-        }
+        content: { parts: [{ inlineData: { mimeType: 'image/jpeg', data: frame } }] }
       };
       wsRef.current.send(JSON.stringify(msg));
-    }, 2000); // Send frame every 2 seconds
+    }, 2500); // Send frame every 2.5 seconds
   }, [captureFrame, isCameraOn]);
+  
+  // ── Cleanup Logic ──
+  const cleanup = useCallback(() => {
+      isConnectedRef.current = false;
+      wsRef.current?.close();
+      wsRef.current = null;
+      
+      micStreamRef.current?.getTracks().forEach(t => t.stop());
+      cameraStreamRef.current?.getTracks().forEach(t => t.stop());
+      
+      audioCtxRef.current?.close().catch(() => {});
+      playbackCtxRef.current?.close().catch(() => {});
+      workletNodeRef.current?.port.close();
 
-  // ── Init ──
+      if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
+
+      setActiveAnalyser(null);
+      setStatus('idle');
+  }, []);
+
+  // ── Component Lifecycle ──
   useEffect(() => {
     if (open) {
       startCamera(facingMode);
@@ -373,36 +303,11 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
       startMicStream();
     }
     return () => {
-      isConnectedRef.current = false;
-      wsRef.current?.close();
-      wsRef.current = null;
-      micStreamRef.current?.getTracks().forEach(t => t.stop());
-      cameraStreamRef.current?.getTracks().forEach(t => t.stop());
-      audioCtxRef.current?.close().catch(() => {});
-      playbackCtxRef.current?.close().catch(() => {});
-      if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
-      setActiveAnalyser(null);
-      analyserRef.current = null;
-      setStatus('idle');
+      cleanup();
     };
   }, [open]);
 
-  // Connection watchdog: prevent infinite "Connecting..." state
-  useEffect(() => {
-    if (!open) return;
-
-    const timeout = setTimeout(() => {
-      if (!isConnectedRef.current && status === 'idle') {
-        toast.error('Live connection timeout — retrying...');
-        wsRef.current?.close();
-        connectWebSocket();
-      }
-    }, 8000);
-
-    return () => clearTimeout(timeout);
-  }, [open, status, connectWebSocket]);
-
-  // Start frame streaming when camera/connection changes
+  // Start frame streaming when connection is ready
   useEffect(() => {
     if (open && isCameraOn && isConnectedRef.current) {
       startFrameStream();
@@ -410,62 +315,52 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
     return () => {
       if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
     };
-  }, [open, isCameraOn, startFrameStream]);
+  }, [open, isCameraOn, isConnectedRef.current, startFrameStream]);
 
+  // ── UI Handlers ──
   const toggleCamera = useCallback(() => {
-    if (isCameraOn) {
-      cameraStreamRef.current?.getVideoTracks().forEach(t => t.stop());
-      setIsCameraOn(false);
-    } else {
-      startCamera(facingMode);
-      setIsCameraOn(true);
-    }
-  }, [isCameraOn, facingMode, startCamera]);
-
+    setIsCameraOn(prev => {
+      const isOff = !prev;
+      if (isOff) {
+        cameraStreamRef.current?.getVideoTracks().forEach(t => t.stop());
+      } else {
+        startCamera(facingMode);
+      }
+      return !prev;
+    });
+  }, [facingMode, startCamera]);
+  
   const switchCamera = useCallback(() => {
-    const nf = facingMode === 'user' ? 'environment' : 'user';
-    setFacingMode(nf);
-    if (isCameraOn) startCamera(nf);
+    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newFacingMode);
+    if (isCameraOn) startCamera(newFacingMode);
   }, [facingMode, isCameraOn, startCamera]);
 
   const toggleMic = useCallback(() => {
-    if (isMicOn) {
-      micStreamRef.current?.getTracks().forEach(t => t.stop());
-      audioCtxRef.current?.close().catch(() => {});
-      setActiveAnalyser(null);
-      analyserRef.current = null;
-      setIsMicOn(false);
-    } else {
-      setIsMicOn(true);
-      startMicStream();
-    }
-  }, [isMicOn, startMicStream]);
-
+      setIsMicOn(prev => {
+          const isOff = !prev;
+          if (isOff) {
+              micStreamRef.current?.getAudioTracks().forEach(t => t.enabled = false);
+          } else {
+              micStreamRef.current?.getAudioTracks().forEach(t => t.enabled = true);
+          }
+          return !prev;
+      });
+  }, []);
+  
   const toggleSpeaker = useCallback(() => setIsSpeakerOn(p => !p), []);
 
   const handleEndCall = useCallback(() => {
-    isConnectedRef.current = false;
-    wsRef.current?.close();
-    wsRef.current = null;
-    micStreamRef.current?.getTracks().forEach(t => t.stop());
-    cameraStreamRef.current?.getTracks().forEach(t => t.stop());
-    audioCtxRef.current?.close().catch(() => {});
-    playbackCtxRef.current?.close().catch(() => {});
-    if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
-    setActiveAnalyser(null);
-    analyserRef.current = null;
-    setTranscript('');
-    setAiResponse('');
-    setStatus('idle');
+    cleanup();
     onClose();
-  }, [onClose]);
+  }, [cleanup, onClose]);
 
   if (!open) return null;
 
   const statusLabels: Record<string, string> = {
     idle: '⏳ Connecting...',
     listening: '🎙️ Listening...',
-    thinking: '🧠 Thinking...',
+    thinking: '🧠 Thinking...', // Kept for potential future use
     speaking: '🔊 Speaking...',
   };
 
@@ -473,13 +368,13 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
     <div className="fixed inset-0 z-50 bg-black flex flex-col overflow-hidden">
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Main area: wave animation */}
+      {/* Main area */}
       <div className="flex-1 relative flex items-center justify-center">
         <div className="absolute inset-0 z-0">
           <LiveAudioWave status={status} analyser={activeAnalyser} />
         </div>
 
-        {/* Floating camera preview */}
+        {/* Camera Preview */}
         <div className={`absolute top-16 right-4 z-20 rounded-2xl overflow-hidden shadow-2xl border-2 transition-all duration-300 ${
           isCameraOn
             ? 'w-32 h-44 sm:w-40 sm:h-56 border-emerald-500/50'
@@ -507,20 +402,19 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
           )}
         </div>
 
-        {/* Status badge */}
+        {/* Status Badge */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
           <div className="flex items-center gap-2.5 px-5 py-2.5 rounded-full text-white text-sm font-semibold backdrop-blur-xl bg-white/10 border border-white/10 shadow-lg">
             <div className={`h-2.5 w-2.5 rounded-full transition-colors ${
-              status === 'listening' ? 'bg-emerald-400 animate-pulse shadow-emerald-400/50 shadow-lg' :
-              status === 'thinking' ? 'bg-amber-400 animate-pulse shadow-amber-400/50 shadow-lg' :
-              status === 'speaking' ? 'bg-blue-400 animate-pulse shadow-blue-400/50 shadow-lg' :
+              status === 'listening' ? 'bg-emerald-400 animate-pulse' :
+              status === 'speaking' ? 'bg-blue-400 animate-pulse' :
               'bg-muted-foreground/40'
             }`} />
             {statusLabels[status]}
           </div>
         </div>
 
-        {/* Close button */}
+        {/* Close Button */}
         <button
           onClick={handleEndCall}
           className="absolute top-4 right-4 z-30 p-2.5 rounded-full bg-white/10 backdrop-blur-xl text-white/80 hover:bg-white/20 border border-white/10 transition-colors"
@@ -528,16 +422,15 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
           <X className="h-5 w-5" />
         </button>
 
-        {/* Center branding */}
+        {/* Branding */}
         <div className="relative z-10 flex flex-col items-center gap-3 pointer-events-none">
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-500/20 to-blue-500/20 backdrop-blur-xl border border-white/10 flex items-center justify-center shadow-2xl">
             <span className="text-3xl">🧠</span>
           </div>
           <p className="text-white/50 text-xs font-medium tracking-wider uppercase">Study AI Live</p>
-          <p className="text-white/30 text-[10px] tracking-wide">Gemini Multimodal • WebSocket</p>
         </div>
 
-        {/* AI Response overlay */}
+        {/* AI Response Text */}
         <div className="absolute bottom-0 left-0 right-0 p-5 z-10">
           <div className="max-w-lg mx-auto">
             {aiResponse && (
@@ -550,25 +443,17 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
         </div>
       </div>
 
-      {/* Control bar */}
+      {/* Control Bar */}
       <div className="bg-black/80 backdrop-blur-xl border-t border-white/5 px-6 py-5 safe-area-bottom">
         <div className="flex items-center justify-center gap-5 max-w-xs mx-auto">
+          
           <Button onClick={toggleMic} variant="ghost" size="icon"
             className={`h-14 w-14 rounded-full border transition-all ${
               isMicOn
-                ? 'bg-white/10 text-white border-white/10 hover:bg-white/20'
-                : 'bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30'
+                ? 'bg-white/10 text-white border-white/10'
+                : 'bg-red-500/20 text-red-400 border-red-500/30'
             }`}>
             {isMicOn ? <Mic className="h-6 w-6" /> : <MicOff className="h-6 w-6" />}
-          </Button>
-
-          <Button onClick={toggleSpeaker} variant="ghost" size="icon"
-            className={`h-14 w-14 rounded-full border transition-all ${
-              isSpeakerOn
-                ? 'bg-white/10 text-white border-white/10 hover:bg-white/20'
-                : 'bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30'
-            }`}>
-            {isSpeakerOn ? <Volume2 className="h-6 w-6" /> : <VolumeX className="h-6 w-6" />}
           </Button>
 
           <Button onClick={handleEndCall} variant="ghost" size="icon"
@@ -579,16 +464,12 @@ const LiveTalkingMode: React.FC<LiveTalkingModeProps> = ({ open, onClose }) => {
           <Button onClick={toggleCamera} variant="ghost" size="icon"
             className={`h-14 w-14 rounded-full border transition-all ${
               isCameraOn
-                ? 'bg-white/10 text-white border-white/10 hover:bg-white/20'
-                : 'bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30'
+                ? 'bg-white/10 text-white border-white/10'
+                : 'bg-red-500/20 text-red-400 border-red-500/30'
             }`}>
             {isCameraOn ? <Camera className="h-6 w-6" /> : <CameraOff className="h-6 w-6" />}
           </Button>
-
-          <Button onClick={switchCamera} variant="ghost" size="icon" disabled={!isCameraOn}
-            className="h-14 w-14 rounded-full bg-white/10 text-white border border-white/10 hover:bg-white/20 disabled:opacity-20">
-            <SwitchCamera className="h-6 w-6" />
-          </Button>
+          
         </div>
       </div>
     </div>
