@@ -19,12 +19,14 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useAvatarUrl } from '@/hooks/useAvatarUrl';
+import { prefetchRoute } from '@/lib/route-prefetch';
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+// Helper to get recent chats from localStorage
 const getRecentChats = (): { id: string; title: string; time: number }[] => {
   try {
     const raw = localStorage.getItem('chat_sessions');
@@ -39,6 +41,7 @@ const getRecentChats = (): { id: string; title: string; time: number }[] => {
   }
 };
 
+// Formats timestamp to a relative time string
 const formatRelativeTime = (timestamp: number) => {
   const now = Date.now();
   const diff = now - timestamp;
@@ -72,29 +75,38 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
   const close = isMobile ? onClose : undefined;
 
+  // --- SMART PREFETCHING DATA ---
+  // Added a `prefetch` function to each route definition
   const features = [
-    { icon: FileText, label: 'Notes Creator', path: '/notes-creator' },
-    { icon: Brain, label: 'Quiz Generator', path: '/quiz-generator' },
-    { icon: Send, label: 'Ask Teacher', path: '/teacher-chats' },
-    { icon: CalendarDays, label: 'Study Planner', path: '/study-planner' },
-    { icon: PenTool, label: 'Homework Helper', path: '/homework-helper' },
-    { icon: Youtube, label: 'Study Tube', path: '/study-tube' },
+    { icon: FileText, label: 'Notes Creator', path: '/notes-creator', prefetch: () => import('@/pages/NotesCreator') },
+    { icon: Brain, label: 'Quiz Generator', path: '/quiz-generator', prefetch: () => import('@/pages/QuizGeneratorPage') },
+    { icon: Send, label: 'Ask Teacher', path: '/teacher-chats', prefetch: () => import('@/pages/TeacherChats') },
+    { icon: CalendarDays, label: 'Study Planner', path: '/study-planner', prefetch: () => import('@/pages/StudyPlannerPage') },
+    { icon: PenTool, label: 'Homework Helper', path: '/homework-helper', prefetch: () => import('@/pages/HomeworkHelperPage') },
+    { icon: Youtube, label: 'Study Tube', path: '/study-tube', prefetch: () => import('@/pages/StudyTube') },
   ];
 
   const navigation = [
-    { icon: Bookmark, label: 'Saved', path: '/saved-messages' },
-    { icon: MessageCircle, label: 'Campus Talk', path: '/chat-system' },
-    { icon: Trophy, label: 'Leaderboard', path: '/leaderboard' },
-    { icon: Wallet, label: 'Points Wallet', path: '/points-wallet' },
-    { icon: GraduationCap, label: 'Activities', path: '/student-activities' },
+    { icon: Bookmark, label: 'Saved', path: '/saved-messages', prefetch: () => import('@/pages/SavedMessages') },
+    { icon: MessageCircle, label: 'Campus Talk', path: '/chat-system', prefetch: () => import('@/pages/ChatSystem') },
+    { icon: Trophy, label: 'Leaderboard', path: '/leaderboard', prefetch: () => import('@/pages/Leaderboard') },
+    { icon: Wallet, label: 'Points Wallet', path: '/points-wallet', prefetch: () => import('@/pages/PointsWalletPage') },
+    { icon: GraduationCap, label: 'Activities', path: '/student-activities', prefetch: () => import('@/pages/StudentActivities') },
   ];
 
-  const NavItem = ({ icon: Icon, label, path }: { icon: any; label: string; path: string }) => {
+  // --- SMART PREFETCHING NavItem ---
+  const NavItem = ({ icon: Icon, label, path, prefetch }: { icon: any; label: string; path: string; prefetch: () => Promise<any> }) => {
     const active = location.pathname === path;
+
+    const handleMouseEnter = () => {
+      prefetchRoute(prefetch); // Trigger prefetch on hover
+    };
+
     return (
       <Link
         to={path}
         onClick={close}
+        onMouseEnter={handleMouseEnter} // Added prefetch trigger
         className={cn(
           "flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 group",
           active
@@ -123,7 +135,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         
         {/* Header */}
         <div className="px-4 pt-5 pb-2 flex items-center gap-3">
-          <Link to="/" onClick={close} className="flex items-center gap-3 group">
+          <Link to="/" onClick={close} onMouseEnter={() => prefetchRoute(() => import('@/pages/Index'))} className="flex items-center gap-3 group">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/20 group-hover:shadow-primary/30 transition-shadow">
               <Sparkles className="h-4.5 w-4.5 text-primary-foreground" />
             </div>
@@ -141,6 +153,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               variant="outline" 
               size="sm" 
               className="w-full justify-start gap-2.5 h-10 rounded-xl text-[13px] font-semibold border-dashed border-primary/30 text-primary hover:bg-primary/5 hover:border-primary/50 transition-all"
+              onMouseEnter={() => prefetchRoute(() => import('@/pages/Index'))}
             >
               <Plus className="h-4 w-4" />
               New Chat
@@ -152,7 +165,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         <ScrollArea className="flex-1 min-h-0">
           <div className="px-2 pb-4">
 
-            {/* Recent chats — ChatGPT/Gemini style */}
+            {/* Recent chats */}
             {recentChats.length > 0 && (
               <>
                 <SectionLabel>Recent Chats</SectionLabel>
@@ -162,6 +175,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                       key={chat.id}
                       to="/"
                       onClick={close}
+                      onMouseEnter={() => prefetchRoute(() => import('@/pages/Index'))}
                       className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-all duration-200 group"
                     >
                       <MessageSquare className="h-4 w-4 flex-shrink-0 opacity-40 group-hover:opacity-70 transition-opacity" />
@@ -174,6 +188,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                   <Link
                     to="/chat-history"
                     onClick={close}
+                    onMouseEnter={() => prefetchRoute(() => import('@/pages/ChatHistory'))}
                     className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12px] text-primary/70 hover:text-primary hover:bg-primary/5 transition-all font-medium"
                   >
                     <History className="h-3.5 w-3.5" />
@@ -183,18 +198,15 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               </>
             )}
 
-            {/* If no chats, show a prompt */}
+            {/* Prompt if no chats */}
             {recentChats.length === 0 && (
               <>
                 <SectionLabel>Recent Chats</SectionLabel>
                 <div className="mx-3 p-4 rounded-xl bg-muted/30 border border-border/50">
-                  <div className="flex items-center gap-2.5 mb-2">
-                    <MessageSquare className="h-4 w-4 text-muted-foreground/40" />
-                    <span className="text-[12px] font-medium text-muted-foreground/60">No chats yet</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground/40 leading-relaxed">
-                    Start a new conversation to see your chat history here.
-                  </p>
+                    <MessageSquare className="h-4 w-4 text-muted-foreground/40 mb-2" />
+                    <p className="text-[11px] text-muted-foreground/50 leading-relaxed">
+                      Start a new conversation to see your chat history here.
+                    </p>
                 </div>
               </>
             )}
@@ -214,11 +226,11 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             {/* Divider */}
             <div className="mx-4 my-3 border-t border-border/40" />
 
-            {/* Bottom items — Profile, Chat History, About together */}
+            {/* Bottom items */}
             <div className="space-y-0.5 px-1">
-              <NavItem icon={User} label="Profile" path="/profile" />
-              <NavItem icon={History} label="Chat History" path="/chat-history" />
-              <NavItem icon={Info} label="About" path="/about" />
+              <NavItem icon={User} label="Profile" path="/profile" prefetch={() => import('@/pages/Profile')} />
+              <NavItem icon={History} label="Chat History" path="/chat-history" prefetch={() => import('@/pages/ChatHistory')} />
+              <NavItem icon={Info} label="About" path="/about" prefetch={() => import('@/pages/AboutPage')} />
             </div>
           </div>
         </ScrollArea>
@@ -237,7 +249,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           {/* User / Login */}
           {currentUser ? (
             <div className="space-y-1.5">
-              <Link to="/profile" onClick={close} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-accent transition-all">
+              <Link to="/profile" onClick={close} onMouseEnter={() => prefetchRoute(() => import('@/pages/Profile'))} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-accent transition-all">
                 <Avatar className="w-8 h-8 ring-2 ring-primary/20">
                   <AvatarImage src={profileAvatarUrl || currentUser.photoURL || undefined} alt={currentUser.displayName || "User"} className="object-cover" />
                   <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
@@ -260,7 +272,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             </div>
           ) : (
             <SheetClose asChild>
-              <Link to="/login">
+              <Link to="/login" onMouseEnter={() => prefetchRoute(() => import('@/pages/Login'))}>
                 <Button className="w-full h-10 text-[13px] font-semibold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-lg shadow-primary/20 transition-all">
                   Login / Register
                 </Button>
