@@ -1,165 +1,158 @@
+
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+// Please run `npm install marked @types/marked` to add this required library.
+import { marked } from 'marked';
 
 /**
- * Creates a temporary styled HTML element from markdown content,
- * renders it via html2canvas, and produces a proper PDF with Unicode support.
+ * Pre-processes raw text, converts it to styled HTML, and renders it to a canvas.
  */
-async function renderContentToCanvas(content: string, title?: string): Promise<HTMLCanvasElement> {
-  // Convert markdown to simple HTML
-  const htmlContent = markdownToHtml(content);
+async function renderContentToCanvas(rawText: string, title?: string): Promise<HTMLCanvasElement> {
+  // 1. Data Pre-processing: Remove metadata tags like <|source|>
+  let content = rawText.replace(/<\\|.*?\\|>/g, '');
 
-  // Create a temporary container
+  // 2. Visual Formatting: Find special sections and wrap them for styling
+  // Using a function to replace to avoid issues with nested content and ensure clean paragraphs.
+  const replacer = (match: string, p1: string, p2: string) => {
+    const boxType = p1.includes('💡') ? 'remember-box' : 'practice-box';
+    const header = p1.includes('💡') ? '💡 Remember This' : '❓ Quick Practice';
+    // Parse inner content as markdown
+    const innerHtml = marked.parse(p2.trim()); 
+    return `
+      <div class="${boxType}">
+        <h4>${header}</h4>
+        ${innerHtml}
+      </div>
+    `;
+  };
+  content = content.replace(/(💡 Remember This:|❓ Quick Practice:)([\s\S]*?)(?=\\n\\n|💡|❓|$)/g, replacer);
+
+  // 3. Convert the rest of the markdown to HTML using marked.js
+  const htmlContent = marked.parse(content);
+  
+  // Create a temporary container for rendering
   const container = document.createElement('div');
+  
+  // Set A4 paper size and the requested 20mm margins
+  // 1mm = 3.7795px. 20mm = ~76px.
+  // A4 width = 210mm. Content area = 210 - 20 - 20 = 170mm.
   container.style.cssText = `
     position: fixed; left: -9999px; top: 0;
-    width: 794px; /* A4 at 96dpi */
-    padding: 40px 48px;
+    width: 170mm; 
+    padding: 0;
+    margin: 20mm;
     background: white;
-    font-family: 'Noto Sans Devanagari', 'Noto Sans', Arial, sans-serif;
+    font-family: 'Noto Sans', 'Noto Sans Devanagari', Arial, sans-serif;
     font-size: 14px;
     line-height: 1.7;
     color: #1a1a1a;
   `;
 
-  // Load Noto Sans Devanagari for Hindi support
-  const fontLink = document.createElement('link');
-  fontLink.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans:wght@400;600;700&display=swap';
-  fontLink.rel = 'stylesheet';
-  document.head.appendChild(fontLink);
-
-  // Wait for font to load
-  await new Promise(resolve => setTimeout(resolve, 500));
-
-  const heading = title || 'Study AI Notes';
-  const dateStr = new Date().toLocaleDateString('hi-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-
-  container.innerHTML = `
-    <div style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; padding: 20px 28px; border-radius: 12px 12px 0 0; margin: -40px -48px 24px -48px;">
-      <div style="font-size: 20px; font-weight: 700; margin-bottom: 6px; font-family: 'Noto Sans Devanagari', 'Noto Sans', sans-serif;">${escapeHtml(heading)}</div>
-      <div style="font-size: 12px; opacity: 0.85; font-family: 'Noto Sans Devanagari', 'Noto Sans', sans-serif;">Study AI  •  ${dateStr}</div>
-    </div>
-    <div style="font-family: 'Noto Sans Devanagari', 'Noto Sans', Arial, sans-serif;">
-      ${htmlContent}
-    </div>
-    <div style="text-align: center; color: #999; font-size: 11px; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-family: 'Noto Sans Devanagari', 'Noto Sans', sans-serif;">
-      Study AI  •  Generated PDF
-    </div>
+  const topicTitle = title || 'Study AI Notes';
+  
+  // 4. Visual Formatting Rules via a CSS <style> block
+  const styles = `
+    h3 {
+      font-size: 16pt !important;
+      font-weight: bold !important;
+      color: #2563eb !important; /* Theme Blue */
+      margin-top: 24px !important;
+      margin-bottom: 12px !important;
+    }
+    strong {
+      font-weight: 700; /* Emphasize bolded text */
+    }
+    .remember-box, .practice-box {
+      background-color: #f1f5f9; /* Light Grey/Pale Blue */
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin: 16px 0;
+    }
+    .remember-box h4, .practice-box h4 {
+      margin: 0 0 8px 0;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .remember-box p, .practice-box p {
+      margin: 0;
+    }
+    ul, ol {
+      padding-left: 20px;
+    }
+    p {
+      margin-bottom: 12px;
+    }
   `;
 
+  // Inject fonts, styles, and content into the container
+  container.innerHTML = `
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700&family=Noto+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <style>${styles}</style>
+    ${htmlContent}
+  `;
+  
   document.body.appendChild(container);
 
-  // Small delay to ensure rendering
-  await new Promise(resolve => setTimeout(resolve, 300));
+  // Wait for fonts and content to render
+  await new Promise(resolve => setTimeout(resolve, 1000));
 
   const canvas = await html2canvas(container, {
-    scale: 2,
+    scale: 2, // Higher resolution
     useCORS: true,
-    logging: false,
     backgroundColor: '#ffffff',
   });
 
   document.body.removeChild(container);
-  document.head.removeChild(fontLink);
 
   return canvas;
 }
 
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function markdownToHtml(md: string): string {
-  const lines = md.split('\n');
-  let html = '';
-  let inList = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    if (!trimmed) {
-      if (inList) { html += '</ul>'; inList = false; }
-      html += '<div style="height: 8px;"></div>';
-      continue;
-    }
-
-    // Headings
-    if (trimmed.startsWith('### ')) {
-      if (inList) { html += '</ul>'; inList = false; }
-      const text = inlineFormat(trimmed.replace(/^###\s*/, ''));
-      html += `<h3 style="font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0; font-family: 'Noto Sans Devanagari', 'Noto Sans', sans-serif;">${text}</h3>`;
-    } else if (trimmed.startsWith('## ')) {
-      if (inList) { html += '</ul>'; inList = false; }
-      const text = inlineFormat(trimmed.replace(/^##\s*/, ''));
-      html += `<h2 style="font-size: 18px; font-weight: 700; color: #2563eb; margin: 20px 0 8px 0; padding-bottom: 6px; border-bottom: 2px solid #dbeafe; font-family: 'Noto Sans Devanagari', 'Noto Sans', sans-serif;">${text}</h2>`;
-    } else if (trimmed.startsWith('# ')) {
-      if (inList) { html += '</ul>'; inList = false; }
-      const text = inlineFormat(trimmed.replace(/^#\s*/, ''));
-      html += `<h1 style="font-size: 22px; font-weight: 700; color: #0f172a; margin: 24px 0 10px 0; padding-bottom: 8px; border-bottom: 3px solid #2563eb; font-family: 'Noto Sans Devanagari', 'Noto Sans', sans-serif;">${text}</h1>`;
-    }
-    // Bullet points
-    else if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
-      if (!inList) { html += '<ul style="margin: 6px 0; padding-left: 0; list-style: none;">'; inList = true; }
-      const text = inlineFormat(trimmed.replace(/^[-*•]\s*/, ''));
-      html += `<li style="padding: 3px 0 3px 20px; position: relative; font-family: 'Noto Sans Devanagari', 'Noto Sans', sans-serif;"><span style="position: absolute; left: 4px; color: #2563eb; font-weight: bold;">●</span>${text}</li>`;
-    }
-    // Numbered list
-    else if (/^\d+\.\s/.test(trimmed)) {
-      if (inList) { html += '</ul>'; inList = false; }
-      const text = inlineFormat(trimmed.replace(/^\d+\.\s*/, ''));
-      const num = trimmed.match(/^(\d+)\./)?.[1] || '1';
-      html += `<div style="padding: 3px 0 3px 24px; position: relative; font-family: 'Noto Sans Devanagari', 'Noto Sans', sans-serif;"><span style="position: absolute; left: 0; color: #2563eb; font-weight: 700;">${num}.</span>${text}</div>`;
-    }
-    // Blockquote
-    else if (trimmed.startsWith('> ')) {
-      if (inList) { html += '</ul>'; inList = false; }
-      const text = inlineFormat(trimmed.replace(/^>\s*/, ''));
-      html += `<div style="border-left: 3px solid #2563eb; background: #f8fafc; padding: 10px 14px; margin: 8px 0; border-radius: 0 6px 6px 0; font-style: italic; color: #475569; font-family: 'Noto Sans Devanagari', 'Noto Sans', sans-serif;">${text}</div>`;
-    }
-    // Regular paragraph
-    else {
-      if (inList) { html += '</ul>'; inList = false; }
-      const text = inlineFormat(trimmed);
-      html += `<p style="margin: 4px 0; color: #334155; font-family: 'Noto Sans Devanagari', 'Noto Sans', sans-serif;">${text}</p>`;
-    }
-  }
-
-  if (inList) html += '</ul>';
-  return html;
-}
-
-function inlineFormat(text: string): string {
-  // Bold
-  text = text.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 700; color: #0f172a;">$1</strong>');
-  // Italic
-  text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
-  // Inline code
-  text = text.replace(/`(.*?)`/g, '<code style="background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 13px;">$1</code>');
-  return text;
-}
-
-/** Generate a PDF document from chat content */
+/** 
+ * Generate a PDF document from chat content with proper metadata and formatting.
+ */
 export async function generateChatPdfAsync(content: string, title?: string): Promise<jsPDF> {
-  const canvas = await renderContentToCanvas(content, title);
+  const topicTitle = title || 'Study AI Generated Notes';
+  const canvas = await renderContentToCanvas(content, topicTitle);
+
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  
+  // 5. PDF Metadata: Set the document title
+  pdf.setProperties({
+    title: topicTitle
+  });
 
   const imgWidth = 210; // A4 width in mm
   const pageHeight = 297; // A4 height in mm
   const imgHeight = (canvas.height * imgWidth) / canvas.width;
   
-  const pdf = new jsPDF('p', 'mm', 'a4');
-  const imgData = canvas.toDataURL('image/png');
-
   let heightLeft = imgHeight;
   let position = 0;
 
-  pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+  // Add the rendered HTML as an image
+  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, imgWidth, imgHeight);
   heightLeft -= pageHeight;
 
+  // Add new pages if content overflows
   while (heightLeft > 0) {
     position = heightLeft - imgHeight;
     pdf.addPage();
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
     heightLeft -= pageHeight;
+  }
+  
+  // 6. PDF Metadata: Add a footer to every page
+  const pageCount = pdf.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    pdf.setPage(i);
+    pdf.setFontSize(9);
+    pdf.setTextColor('#888888');
+    // Center the footer text
+    pdf.text(
+      'Generated by Study AI - Your Personal Learning Assistant.',
+      pdf.internal.pageSize.getWidth() / 2,
+      pageHeight - 10, // 10mm from the bottom
+      { align: 'center' }
+    );
   }
 
   return pdf;
@@ -170,16 +163,16 @@ export async function downloadChatPdf(content: string, title?: string) {
   const { safeDownload } = await import('./webviewDownload');
   const doc = await generateChatPdfAsync(content, title);
   const blob = doc.output('blob');
-  const fileName = `${(title || 'Study-AI-Notes').replace(/\s+/g, '-')}.pdf`;
+  const fileName = `${(title || 'Study-AI-Notes').replace(/\\s+/g, '-')}.pdf`;
   await safeDownload({ blob, filename: fileName, mimeType: 'application/pdf' });
 }
 
 /** Share chat content as PDF (with fallback to download) */
-export async function shareChatPdf(content: string, title?: string) {
+export async function shareChatPdf(content:string, title?: string) {
   const { safeDownload } = await import('./webviewDownload');
   const doc = await generateChatPdfAsync(content, title);
   const blob = doc.output('blob');
-  const fileName = `${(title || 'Study-AI-Notes').replace(/\s+/g, '-')}.pdf`;
+  const fileName = `${(title || 'Study-AI-Notes').replace(/\\s+/g, '-')}.pdf`;
 
   try {
     const file = new File([blob], fileName, { type: 'application/pdf' });
