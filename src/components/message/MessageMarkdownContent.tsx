@@ -1,9 +1,7 @@
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, Suspense } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { cn } from "@/lib/utils";
 import { Copy, Check, BookOpen, Brain, Lightbulb, ChevronDown, ChevronUp } from 'lucide-react';
 import {
@@ -20,6 +18,15 @@ interface MessageMarkdownContentProps {
   isTyping: boolean;
   isBot: boolean;
 }
+
+// Dynamically import the SyntaxHighlighter
+const LazySyntaxHighlighter = React.lazy(async () => {
+  const [{ Prism }, { atomDark }] = await Promise.all([
+    import('react-syntax-highlighter'),
+    import('react-syntax-highlighter/dist/esm/styles/prism')
+  ]);
+  return { default: (props: any) => <Prism {...props} style={atomDark} /> };
+});
 
 const MessageMarkdownContent: React.FC<MessageMarkdownContentProps> = ({
   content,
@@ -70,6 +77,12 @@ const MessageMarkdownContent: React.FC<MessageMarkdownContentProps> = ({
         setTimeout(() => setIsCopied(false), 2000);
       });
     };
+    
+    const preloader = (
+        <pre style={{ padding: '1rem', fontSize: '13px', lineHeight: '1.7', backgroundColor: '#1a1b26', margin: 0, borderRadius: 0, color: 'white', overflowX: 'auto' }}>
+            <code>{codeString}</code>
+        </pre>
+    );
 
     return (
       <div className="my-4 rounded-xl overflow-hidden border border-border/50 shadow-sm">
@@ -80,21 +93,22 @@ const MessageMarkdownContent: React.FC<MessageMarkdownContentProps> = ({
             <span>{isCopied ? 'Copied!' : 'Copy'}</span>
           </button>
         </div>
-        <SyntaxHighlighter
-          language={match ? match[1] : undefined}
-          style={atomDark}
-          customStyle={{ 
-            padding: '1rem',
-            fontSize: '13px',
-            lineHeight: '1.7',
-            backgroundColor: '#1a1b26',
-            margin: 0,
-            borderRadius: 0,
-          }}
-          wrapLongLines={true}
-        >
-          {codeString}
-        </SyntaxHighlighter>
+        <Suspense fallback={preloader}>
+            <LazySyntaxHighlighter
+              language={match ? match[1] : undefined}
+              customStyle={{ 
+                padding: '1rem',
+                fontSize: '13px',
+                lineHeight: '1.7',
+                backgroundColor: '#1a1b26',
+                margin: 0,
+                borderRadius: 0,
+              }}
+              wrapLongLines={true}
+            >
+              {codeString}
+            </LazySyntaxHighlighter>
+        </Suspense>
       </div>
     );
   };
@@ -233,7 +247,7 @@ const MessageMarkdownContent: React.FC<MessageMarkdownContentProps> = ({
 
   return (
     <div className={cn(
-      "w-full break-words text-[15px] leading-relaxed",
+      "w-full break-words text-[1.5rem] leading-relaxed",
       isTyping && isBot && typingIndex < contentRef.current.length && "after:content-['▎'] after:animate-pulse after:ml-0.5 after:text-primary"
     )}>
       {renderContent()}

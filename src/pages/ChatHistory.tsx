@@ -10,6 +10,7 @@ import { ArrowLeft, Search, MessageSquare, Calendar, Trash2, Edit3, Check, X } f
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import HighPerformanceAd from '@/components/ads/HighPerformanceAd';
 
 
 const ChatHistory = () => {
@@ -329,6 +330,7 @@ const ChatHistory = () => {
             )}
           </div>
         </div>
+        <HighPerformanceAd />
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import StudyPlannerWrapper from '@/components/study/StudyPlannerWrapper';
 import PageMeta from '@/components/seo/PageMeta';
+import HighPerformanceAd from '@/components/ads/HighPerformanceAd';
 
 const StudyPlannerPage = () => {
   const navigate = useNavigate();
@@ -38,6 +39,7 @@ const StudyPlannerPage = () => {
       {/* Content */}
       <main className="container max-w-4xl mx-auto p-4">
         <StudyPlannerWrapper />
+        <HighPerformanceAd />
       </main>
     </div>
   );

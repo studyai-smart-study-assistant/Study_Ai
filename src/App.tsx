@@ -16,6 +16,7 @@ import PageSkeleton from '@/components/common/PageSkeleton';
 
 import { Suspense, lazy } from 'react';
 import { useAppPermissions } from '@/hooks/useAppPermissions';
+import { usePagePrefetcher } from '@/hooks/usePagePrefetcher'; // Import the new hook
 
 // Lazy load pages for better performance
 const Index = lazy(() => import('@/pages/Index'));
@@ -57,6 +58,8 @@ const PageWrapper = ({ children, variant = 'default' }: { children: React.ReactN
 
 function App() {
   useAppPermissions();
+  usePagePrefetcher(); // Activate the page prefetcher
+
   return (
     <Router>
       <ErrorBoundary>

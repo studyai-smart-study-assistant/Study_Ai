@@ -12,6 +12,7 @@ import { ArrowLeft, Youtube, Home } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import PageMeta from '@/components/seo/PageMeta';
+import HighPerformanceAd from '@/components/ads/HighPerformanceAd';
 
 
 const StudyTube: React.FC = () => {
@@ -165,15 +166,18 @@ const StudyTube: React.FC = () => {
               </div>
             </div>
           ) : (
-            <VideoGrid
-              videos={videos}
-              onVideoSelect={handleVideoSelect}
-              isLoading={isLoading}
-              onLoadMore={loadMoreVideos}
-              hasMore={!!nextPageToken}
-              searchError={searchError}
-              onRetry={() => searchQuery && handleSearch(searchQuery)}
-            />
+            <>
+              <VideoGrid
+                videos={videos}
+                onVideoSelect={handleVideoSelect}
+                isLoading={isLoading}
+                onLoadMore={loadMoreVideos}
+                hasMore={!!nextPageToken}
+                searchError={searchError}
+                onRetry={() => searchQuery && handleSearch(searchQuery)}
+              />
+              <HighPerformanceAd />
+            </>
           )}
         </div>
       </div>

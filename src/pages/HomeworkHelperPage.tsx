@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import HomeworkAssistantWrapper from '@/components/study/HomeworkAssistantWrapper';
 import PageMeta from '@/components/seo/PageMeta';
+import HighPerformanceAd from '@/components/ads/HighPerformanceAd';
 
 const HomeworkHelperPage = () => {
   const navigate = useNavigate();
@@ -38,6 +39,7 @@ const HomeworkHelperPage = () => {
       {/* Content */}
       <main className="container max-w-4xl mx-auto p-4">
         <HomeworkAssistantWrapper />
+        <HighPerformanceAd />
       </main>
     </div>
   );

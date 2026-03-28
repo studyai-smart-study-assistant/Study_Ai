@@ -1,36 +1,28 @@
+
 import { useEffect, useRef } from 'react';
-import { requestNotificationPermission, requestMicrophonePermission } from '@/utils/permissions';
+import { requestNotificationPermission } from '@/utils/permissions';
 
 /**
- * Requests essential app permissions once per session.
- * Only asks for notifications and microphone — camera/storage requested on-demand.
+ * Requests non-intrusive app permissions once per session.
+ * Only asks for notifications. Other permissions (mic, camera) are requested on-demand.
  */
 export function useAppPermissions() {
   const hasRequested = useRef(false);
 
   useEffect(() => {
-    if (hasRequested.current) return;
+    // Ensure this runs only once per session
+    if (hasRequested.current) {
+      return;
+    }
     hasRequested.current = true;
 
-    const requestEssentialPermissions = async () => {
-      // Small delay so app renders first
-      await new Promise(r => setTimeout(r, 2000));
+    // After a short delay, ask for notification permission.
+    // We are NOT asking for microphone or camera here.
+    const timer = setTimeout(() => {
+      console.log('Requesting notification permission...');
+      requestNotificationPermission();
+    }, 10000); // 10-second delay
 
-      // Request notification permission (non-blocking)
-      try {
-        await requestNotificationPermission();
-      } catch {
-        // Silently ignore
-      }
-
-      // Request microphone permission (needed for STT features)
-      try {
-        await requestMicrophonePermission();
-      } catch {
-        // Silently ignore
-      }
-    };
-
-    requestEssentialPermissions();
+    return () => clearTimeout(timer);
   }, []);
 }

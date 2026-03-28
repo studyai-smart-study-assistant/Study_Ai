@@ -15,6 +15,7 @@ import PageMeta from '@/components/seo/PageMeta';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentStreakSync } from '@/utils/streakUtils';
 import { getUserAppUsage, getFormattedUsageTime } from '@/utils/appUsageTracker';
+import HighPerformanceAd from '@/components/ads/HighPerformanceAd';
 
 const LeaderboardPage = () => {
   const { currentUser } = useAuth();
@@ -310,6 +311,7 @@ const LeaderboardPage = () => {
             </p>
           </div>
         </Card>
+        <HighPerformanceAd />
       </div>
     </div>
   );

@@ -4,9 +4,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import EnhancedNotesGeneratorWrapper from '@/components/study/EnhancedNotesGeneratorWrapper';
-import AdsterraBanner from '@/components/ads/AdsterraBanner';
-import MonetagInterstitial from '@/components/ads/MonetagInterstitial';
 import PageMeta from '@/components/seo/PageMeta';
+import HighPerformanceAd from '@/components/ads/HighPerformanceAd';
 
 const NotesCreator = () => {
   const navigate = useNavigate();
@@ -38,10 +37,9 @@ const NotesCreator = () => {
       </header>
 
       {/* Content */}
-      <MonetagInterstitial page="notes" />
       <main className="container max-w-4xl mx-auto p-4">
-        <AdsterraBanner page="notes" />
         <EnhancedNotesGeneratorWrapper />
+        <HighPerformanceAd />
       </main>
     </div>
   );

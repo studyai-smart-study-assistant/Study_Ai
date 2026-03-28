@@ -8,6 +8,7 @@ import TeacherChatSearch from '@/components/teacher/TeacherChatSearch';
 import EmptySearch from '@/components/teacher/EmptySearch';
 import { useTeacherChats } from '@/hooks/useTeacherChats';
 import PageMeta from '@/components/seo/PageMeta';
+import HighPerformanceAd from '@/components/ads/HighPerformanceAd';
 
 const TeacherChats = () => {
   const navigate = useNavigate();
@@ -137,6 +138,7 @@ const TeacherChats = () => {
             )}
           </div>
         </div>
+        <HighPerformanceAd />
       </div>
     </div>
   );

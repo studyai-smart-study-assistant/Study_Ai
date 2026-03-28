@@ -23,6 +23,7 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
 import PageMeta from '@/components/seo/PageMeta';
+import HighPerformanceAd from '@/components/ads/HighPerformanceAd';
 
 const Index = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -392,6 +393,8 @@ const Index = () => {
                         <span className="text-sm font-medium">Leaderboard</span>
                       </Link>
                     </div>
+
+                    <HighPerformanceAd />
 
                     {/* Example Prompts */}
                     <div className="w-full space-y-2 mb-6">
