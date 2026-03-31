@@ -1,20 +1,19 @@
-
 {
   "name": "Study AI",
-  "short_name": "StudyAI",
-  "start_url": "/",
+  "short_name": "Study AI",
+  "start_url": ".",
   "display": "standalone",
-  "background_color": "#0A0A1A",
-  "theme_color": "#8E2DE2",
-  "description": "StudyAI is a smart AI learning assistant that helps students generate notes, quizzes and study answers instantly using AI. Free for all.",
+  "background_color": "#ffffff",
+  "theme_color": "#007bff",
+  "description": "An AI-powered study assistant to help you learn better.",
   "icons": [
     {
-      "src": "/notification-icon.png",
+      "src": "images/study-ai-logo.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/notification-icon.png",
+      "src": "images/study-ai-logo.png",
       "sizes": "512x512",
       "type": "image/png"
     }

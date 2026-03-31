@@ -1,29 +1,11 @@
-/**
- * Service Worker Registration
- * Registers SW for PWA functionality
- */
-
-export const registerServiceWorker = async () => {
-  if (!('serviceWorker' in navigator)) return;
-
-  // SW should run only in production to avoid stale chunk/cache issues during preview/dev.
-  if (!import.meta.env.PROD) {
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    await Promise.all(registrations.map((registration) => registration.unregister()));
-    return;
-  }
-
-  try {
-    const registration = await navigator.serviceWorker.register('/sw.js', {
-      scope: '/',
+export function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').then(registration => {
+        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+      }).catch(error => {
+        console.log('ServiceWorker registration failed: ', error);
+      });
     });
-
-    setInterval(() => {
-      registration.update();
-    }, 60 * 60 * 1000);
-
-    console.log('SW registered:', registration.scope);
-  } catch (error) {
-    console.log('SW registration failed:', error);
   }
-};
+}
