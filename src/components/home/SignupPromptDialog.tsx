@@ -1,97 +1,57 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Sparkles, UserPlus, Gift, Shield, Cloud } from 'lucide-react';
-import { markSignupPromptDismissed } from '@/utils/guestUsageTracker';
+import { Sparkles, Trophy, UserPlus } from 'lucide-react';
 
 interface SignupPromptDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const SignupPromptDialog: React.FC<SignupPromptDialogProps> = ({
-  open,
-  onOpenChange,
-}) => {
+const SignupPromptDialog: React.FC<SignupPromptDialogProps> = ({ open, onOpenChange }) => {
   const navigate = useNavigate();
 
-  const handleSignup = () => {
+  const handleNavigation = (path: string) => {
     onOpenChange(false);
-    navigate('/signup');
+    navigate(path);
   };
-
-  const handleLogin = () => {
-    onOpenChange(false);
-    navigate('/login');
-  };
-
-  const handleDismiss = () => {
-    markSignupPromptDismissed();
-    onOpenChange(false);
-  };
-
-  const benefits = [
-    { icon: Cloud, text: 'Save progress across devices' },
-    { icon: Shield, text: 'Secure data backup' },
-    { icon: Gift, text: 'Get bonus credits' },
-  ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-            <Sparkles className="w-8 h-8 text-primary" />
-          </div>
-          <DialogTitle className="text-xl">Enjoying Study AI?</DialogTitle>
-          <DialogDescription className="text-base">
-            Create a free account to unlock more features and save your progress.
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <Sparkles className="w-6 h-6 text-primary" />
+            Unlock the Full Experience
+          </DialogTitle>
+          <DialogDescription className="pt-2">
+            You've reached the guest chat limit. Create a free account to continue learning and unlock powerful features.
           </DialogDescription>
         </DialogHeader>
-
-        {/* Benefits list */}
-        <div className="space-y-2 py-4">
-          {benefits.map((benefit, index) => (
-            <div key={index} className="flex items-center gap-3 text-sm text-muted-foreground">
-              <benefit.icon className="w-4 h-4 text-primary" />
-              <span>{benefit.text}</span>
+        
+        <div className="py-4 space-y-3">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
+                <Trophy className="w-5 h-5 text-yellow-500 mt-1" />
+                <div>
+                    <h4 className="font-semibold">View Your Rank</h4>
+                    <p className="text-sm text-muted-foreground">Compete with other students and climb the leaderboard.</p>
+                </div>
             </div>
-          ))}
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
+                <UserPlus className="w-5 h-5 text-green-500 mt-1" />
+                <div>
+                    <h4 className="font-semibold">Unlimited Chats & History</h4>
+                    <p className="text-sm text-muted-foreground">Never lose a conversation and chat without limits.</p>
+                </div>
+            </div>
         </div>
 
-        <div className="space-y-3">
-          <Button 
-            onClick={handleSignup} 
-            className="w-full h-12 text-base gap-2"
-          >
-            <UserPlus className="w-5 h-5" />
-            Create Free Account
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            onClick={handleLogin}
-            className="w-full h-12 text-base"
-          >
-            Already have an account? Login
-          </Button>
-
-          <Button 
-            variant="ghost" 
-            onClick={handleDismiss}
-            className="w-full text-muted-foreground"
-          >
-            Maybe Later
-          </Button>
-        </div>
+        <DialogFooter className="sm:justify-start gap-2">
+          <Button onClick={() => handleNavigation('/signup')} className="w-full sm:w-auto">Create Free Account</Button>
+          <Button variant="outline" onClick={() => handleNavigation('/login')} className="w-full sm:w-auto">Login</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
