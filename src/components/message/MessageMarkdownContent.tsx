@@ -220,7 +220,8 @@ const MessageMarkdownContent: React.FC<MessageMarkdownContentProps> = ({
         ),
 
         strong: ({ children }) => <strong className="font-bold text-foreground">{children}</strong>,
-        em: ({ children }) => <em className="italic text-foreground/80">{children}</em>,
+        em: ({ children }) => <em className="italic text-foreground/80">
+{children}</em>,
 
         hr: () => <hr className="my-6 border-t border-border/40" />,
 
@@ -247,7 +248,7 @@ const MessageMarkdownContent: React.FC<MessageMarkdownContentProps> = ({
 
   return (
     <div className={cn(
-      "w-full break-words text-[1.5rem] leading-relaxed",
+      "w-full break-words text-[15px] leading-relaxed",
       isTyping && isBot && typingIndex < contentRef.current.length && "after:content-['▎'] after:animate-pulse after:ml-0.5 after:text-primary"
     )}>
       {renderContent()}
