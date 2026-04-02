@@ -74,6 +74,9 @@ const rotatingTexts = [
           <span className="text-lg font-bold text-shadow-hero banner-text-enter">
             {rotatingTexts[currentIndex]}
           </span>
+          <span className="text-sm font-semibold underline underline-offset-2 opacity-80 hover:opacity-100 transition-opacity">
+            Click to Login
+          </span>
         </Link>
       </div>
     );
