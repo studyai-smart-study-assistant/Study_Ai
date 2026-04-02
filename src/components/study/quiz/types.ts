@@ -17,11 +17,12 @@ export interface QuizConfig {
 
 export interface QuizResult {
   score: number;
+  correctAnswers?: number;
   totalQuestions: number;
   timeTaken: number;
   wrongAnswers: { question: string; userAnswer: string; correctAnswer: string }[];
   xpEarned?: number;
-  questionTimes?: number[]; // Time spent on each question in seconds
+  questionTimes?: number[];
 }
 
 export interface SubjectOption {
