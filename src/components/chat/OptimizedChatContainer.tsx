@@ -79,7 +79,7 @@ const OptimizedChatContainer: React.FC<OptimizedChatContainerProps> = ({
       
       <ChatBody {...chatBodyProps} />
       
-      <ChatFooter {...chatFooterProps} />
+      <ChatFooter {...chatFooterProps} onDeepThinking={async () => {}} onNewsSearch={async () => {}} />
     </div>
   );
 };

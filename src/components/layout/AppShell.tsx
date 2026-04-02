@@ -19,9 +19,9 @@ const pageVariants = {
 };
 
 const pageTransition = {
-  type: 'tween',
-  ease: 'anticipate',
-  duration: 0.3, // A quick transition
+  type: 'tween' as const,
+  ease: 'anticipate' as const,
+  duration: 0.3,
 };
 
 /**

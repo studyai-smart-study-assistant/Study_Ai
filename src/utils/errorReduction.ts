@@ -23,7 +23,7 @@ export class ErrorReduction {
       this.lastErrors.set(errorKey, now);
       this.errorCounts.set(errorKey, (this.errorCounts.get(errorKey) || 0) + 1);
       
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         console.error(message, error);
       }
       return true;

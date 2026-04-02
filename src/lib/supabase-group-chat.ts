@@ -38,7 +38,7 @@ export function listenForGroupMessages(groupId: string, callback: (messages: any
   
   // Set up an additional polling mechanism as a fallback
   // This is particularly important for mobile APKs where websockets might be less reliable
-  let intervalId: NodeJS.Timeout | null = null;
+  let intervalId: ReturnType<typeof setInterval> | null = null;
   let lastMessageCount = 0;
   
   const startPollingFallback = () => {

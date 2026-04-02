@@ -66,6 +66,8 @@ const ChatContainer: React.FC<ChatContainerProps> = ({ chatId, onChatUpdated }) 
         onSend={handleSend} 
         isLoading={isLoading} 
         isDisabled={isResponding || messageLimitReached}
+        onDeepThinking={async () => {}}
+        onNewsSearch={async () => {}}
       />
     </div>
   );

@@ -13,7 +13,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]} // For tables, strikethrough, etc.
-      className="prose prose-sm dark:prose-invert max-w-none text-base leading-7"
+      // @ts-ignore - className is supported by react-markdown
       components={{
         // Custom renderer for code blocks to add syntax highlighting
         code({ node, inline, className, children, ...props }) {

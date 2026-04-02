@@ -23,7 +23,7 @@ const EmptyChatUI: React.FC<EmptyChatUIProps> = ({ onStartChat }) => {
   const [showTimer, setShowTimer] = useState(false);
   const [showScrollGuide, setShowScrollGuide] = useState(true);
   const [hasScrolled, setHasScrolled] = useState(false);
-  const initialGuideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initialGuideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // Initially show the guide, then hide it after a delay

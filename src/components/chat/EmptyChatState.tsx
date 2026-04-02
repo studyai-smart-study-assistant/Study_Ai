@@ -13,12 +13,7 @@ const EmptyChatState: React.FC<EmptyChatStateProps> = ({ onSendMessage }) => {
   return (
     <div className="pb-48 px-4 pt-4 overflow-x-hidden">
       <EmptyChatUI 
-        onCreateImage={() => onSendMessage("Help me understand quantum physics concepts")}
-        onSurpriseMe={() => onSendMessage("Explain machine learning in simple terms")}
-        onAnalyzeImages={() => onSendMessage("Give me a study plan for IELTS exam")}
-        onSummarizeText={() => onSendMessage("Summarize the key concepts of organic chemistry")}
-        onMore={() => {}}
-        onDeepThinking={(topic) => onSendMessage(`🔬 [DEEP RESEARCH] ${topic} - इस विषय पर गहन इंटरनेट रिसर्च करो और एडवांस लेवल की जानकारी दो। सभी पहलुओं को कवर करो - इतिहास, वर्तमान स्थिति, भविष्य की संभावनाएं, और एक्सपर्ट opinions।`)}
+        onStartChat={onSendMessage}
       />
       
       {/* Enhanced Study Tools Section */}

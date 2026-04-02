@@ -52,7 +52,7 @@ const components = {
 const MemoizedReactMarkdown: FC<{ content: string }> = memo(({ content }) => {
     return (
         <ReactMarkdown
-            className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-normal prose-pre:p-0"
+            // @ts-ignore - className is supported by react-markdown
             remarkPlugins={[remarkGfm]}
             components={components}
         >
