@@ -68,15 +68,18 @@ const rotatingTexts = [
       >
         <Link
           to="/login"
-          className="flex items-center justify-center gap-3"
+          className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4"
         >
-          <Sparkles size={20} />
-          <span className="text-lg font-bold text-shadow-hero banner-text-enter">
-            {rotatingTexts[currentIndex]}
-          </span>
-          <span className="text-sm font-semibold underline underline-offset-2 opacity-80 hover:opacity-100 transition-opacity">
-            Click to Login
-          </span>
+          <div className="flex items-center gap-3">
+            <Sparkles size={20} className="animate-pulse"/>
+            <span className="text-lg font-bold text-shadow-hero banner-text-enter">
+              {rotatingTexts[currentIndex]}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white font-semibold py-1 px-3 rounded-full transition-all text-sm">
+            <span>Click here to Login</span>
+            <LogIn size={16} />
+          </div>
         </Link>
       </div>
     );
