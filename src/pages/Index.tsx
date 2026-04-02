@@ -26,10 +26,10 @@ import PageMeta from '@/components/seo/PageMeta';
 import HighPerformanceAd from '@/components/ads/HighPerformanceAd';
 
 const GetStartedBanner = () => (
-    <div className="bg-gradient-to-r from-primary/80 to-primary/90 text-primary-foreground py-2 text-center text-sm shadow-md">
+    <div className="shimmer bg-gradient-to-r from-primary/80 to-primary/90 text-primary-foreground py-2 text-center text-sm shadow-md">
       <Link to="/login" className="flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
-        <Sparkles size={16} />
-        <span>Get Started! Login to unlock your full potential.</span>
+        <Sparkles size={16} className="glow" />
+        <span>Unlock premium features & climb the ranks! Get Started.</span>
       </Link>
     </div>
   );
