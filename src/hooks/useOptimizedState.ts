@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 export const useOptimizedState = <T>(initialState: T, delay: number = 300) => {
   const [state, setState] = useState<T>(initialState);
   const [debouncedState, setDebouncedState] = useState<T>(initialState);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const setOptimizedState = useCallback((newState: T | ((prev: T) => T)) => {
     const resolvedState = typeof newState === 'function' ? (newState as (prev: T) => T)(state) : newState;

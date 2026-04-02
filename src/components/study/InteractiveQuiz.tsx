@@ -340,6 +340,7 @@ Please follow this exact format.`;
 
     setReviewAnswers(reviewData);
     setQuizResult({
+      score: correctAnswers,
       correctAnswers,
       totalQuestions: questions.length,
       timeTaken,

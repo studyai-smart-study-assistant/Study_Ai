@@ -205,7 +205,7 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({
       )}
       
       <ChatFooter 
-        onSend={handleSend} 
+        onSend={(msg: string) => handleSend(msg)} 
         isLoading={isLoading} 
         isDisabled={isResponding || messageLimitReached}
         webSearchEnabled={webSearchEnabled}

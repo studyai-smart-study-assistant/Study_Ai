@@ -35,7 +35,7 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
@@ -173,7 +173,7 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
         {uploadedFiles.length > 0 && (
             <div className="flex space-x-2 p-2 overflow-x-auto">
                 {uploadedFiles.map(file => (
-                    <ImagePreview key={file.id} file={file} onRemove={() => setUploadedFiles(files => files.filter(f => f.id !== file.id))} />
+                    <ImagePreview key={(file as any).id || Math.random()} file={file as any} onRemove={() => setUploadedFiles(files => files.filter((f, i) => f !== file))} />
                 ))}
             </div>
         )}

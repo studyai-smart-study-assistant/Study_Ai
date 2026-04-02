@@ -13,7 +13,7 @@ export interface UserUsageData {
 let sessionStartTime: number | null = null;
 let isTracking = false;
 let currentUserId: string | null = null;
-let syncInterval: NodeJS.Timeout | null = null;
+let syncInterval: ReturnType<typeof setInterval> | null = null;
 
 const USAGE_KEY = (userId: string) => `${userId}_usage_data`;
 

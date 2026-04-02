@@ -65,7 +65,7 @@ const OptimizedChatContainer: React.FC<OptimizedChatContainerProps> = ({
   }), [messages, isLoading, isResponding, handleMessageEdited, handleMessageDeleted, handleSend]);
 
   const chatFooterProps = useMemo(() => ({
-    onSend: handleSend,
+    onSend: (msg: string) => handleSend(msg),
     isLoading,
     isDisabled: isResponding || messageLimitReached
   }), [handleSend, isLoading, isResponding, messageLimitReached]);
@@ -79,7 +79,7 @@ const OptimizedChatContainer: React.FC<OptimizedChatContainerProps> = ({
       
       <ChatBody {...chatBodyProps} />
       
-      <ChatFooter {...chatFooterProps} />
+      <ChatFooter {...chatFooterProps} onDeepThinking={async () => {}} onNewsSearch={async () => {}} />
     </div>
   );
 };

@@ -69,7 +69,7 @@ async function tryCapacitorDownload(blob: Blob, filename: string): Promise<boole
 
     // Check/request storage permission
     const permResult = await checkStoragePermission();
-    if (!permResult.granted) {
+    if (!(permResult as any).granted) {
       toast.error('📂 Storage permission दें ताकि फाइल save हो सके।');
       return false;
     }
