@@ -61,3 +61,4 @@ export const getSyllabusForExam = (examName: string) => {
 export const getSubjectSyllabus = (examName: string, subjectName: string) => {
     return null;
 };
+
