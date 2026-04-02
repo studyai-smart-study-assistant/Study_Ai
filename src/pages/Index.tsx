@@ -39,7 +39,7 @@ const rotatingTexts = [
     useEffect(() => {
       const interval = setInterval(() => {
         setCurrentIndex((prevIndex) => (prevIndex + 1) % rotatingTexts.length);
-      }, 3500);
+      }, 8000);
       return () => clearInterval(interval);
     }, []);
   
@@ -421,25 +421,34 @@ const Index = () => {
                       </div>
   
                       <div className="grid grid-cols-2 gap-3 w-full mb-8">
-                          <button onClick={() => handleFeatureClick('/notes-creator')} className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors">
-                              <FileText className="w-5 h-5 text-primary" />
-                              <span className="text-sm font-medium">Notes Generator</span>
-                          </button>
-                          <button onClick={() => handleFeatureClick('/quiz-generator')} className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors">
-                              <BookOpen className="w-5 h-5 text-primary" />
-                              <span className="text-sm font-medium">Quiz Generator</span>
-                          </button>
-                          <button onClick={() => handleFeatureClick('/teacher-chats')} className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors">
-                              <GraduationCap className="w-5 h-5 text-primary" />
-                              <span className="text-sm font-medium">AI Teacher</span>
-                          </button>
-                          <button onClick={() => handleFeatureClick('/leaderboard')} className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors">
-                              <Trophy className="w-5 h-5 text-primary" />
-                              <div className='text-left'>
-                                  <span className="text-sm font-medium">View Your Rank</span>
-                                  {!currentUser && <span className="text-xs text-primary block">Login Required</span>}
-                              </div>
-                          </button>
+                        <button onClick={() => handleFeatureClick('/notes-creator')} className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors">
+                            <FileText className="w-5 h-5 text-primary" />
+                            <div className='text-left'>
+                                <span className="text-sm font-medium">Notes Generator</span>
+                                {!currentUser && <span className="text-xs text-primary block">Login Required</span>}
+                            </div>
+                        </button>
+                        <button onClick={() => handleFeatureClick('/quiz-generator')} className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors">
+                            <BookOpen className="w-5 h-5 text-primary" />
+                            <div className='text-left'>
+                                <span className="text-sm font-medium">Quiz Generator</span>
+                                {!currentUser && <span className="text-xs text-primary block">Login Required</span>}
+                            </div>
+                        </button>
+                        <button onClick={() => handleFeatureClick('/teacher-chats')} className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors">
+                            <GraduationCap className="w-5 h-5 text-primary" />
+                            <div className='text-left'>
+                                <span className="text-sm font-medium">AI Teacher</span>
+                                {!currentUser && <span className="text-xs text-primary block">Login Required</span>}
+                            </div>
+                        </button>
+                        <button onClick={() => handleFeatureClick('/leaderboard')} className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-colors">
+                            <Trophy className="w-5 h-5 text-primary" />
+                            <div className='text-left'>
+                                <span className="text-sm font-medium">View Your Rank</span>
+                                {!currentUser && <span className="text-xs text-primary block">Login Required</span>}
+                            </div>
+                        </button>
                       </div>
   
                       <HighPerformanceAd />
