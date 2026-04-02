@@ -25,14 +25,59 @@ import SignupPromptDialog from '@/components/home/SignupPromptDialog';
 import PageMeta from '@/components/seo/PageMeta';
 import HighPerformanceAd from '@/components/ads/HighPerformanceAd';
 
-const GetStartedBanner = () => (
-    <div className="shimmer bg-gradient-to-r from-primary/80 to-primary/90 text-primary-foreground py-2 text-center text-sm shadow-md">
-      <Link to="/login" className="flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
-        <Sparkles size={16} className="glow" />
-        <span>Unlock premium features & climb the ranks! Get Started.</span>
-      </Link>
-    </div>
-  );
+const rotatingTexts = [
+    "Unlock All Features! 🚀",
+    "See Your Rank on the Leaderboard! 🏆",
+    "Save Your Notes & Quizzes! 📚",
+    "Join for FREE & Get a Bonus! ✨",
+  ];
+  
+  const GetStartedBanner = () => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const bannerRef = useRef<HTMLDivElement>(null);
+  
+    useEffect(() => {
+      const interval = setInterval(() => {
+        setCurrentIndex((prevIndex) => (prevIndex + 1) % rotatingTexts.length);
+      }, 3500);
+      return () => clearInterval(interval);
+    }, []);
+  
+    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+      if (!bannerRef.current) return;
+      const { clientX, clientY, currentTarget } = e;
+      const { left, top, width, height } = currentTarget.getBoundingClientRect();
+      const x = (clientX - left) / width - 0.5;
+      const y = (clientY - top) / height - 0.5;
+      bannerRef.current.style.transform = `perspective(1000px) rotateX(${-y * 8}deg) rotateY(${x * 8}deg) scale3d(1.03, 1.03, 1.03)`;
+    };
+  
+    const handleMouseLeave = () => {
+      if (bannerRef.current) {
+        bannerRef.current.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) scale3d(1, 1, 1)';
+      }
+    };
+  
+    return (
+      <div
+        ref={bannerRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        className="animated-gradient text-primary-foreground py-3 text-center shadow-2xl transition-transform duration-300 ease-out"
+        style={{ willChange: 'transform' }}
+      >
+        <Link
+          to="/login"
+          className="flex items-center justify-center gap-3"
+        >
+          <Sparkles size={20} />
+          <span className="text-lg font-bold text-shadow-hero banner-text-enter">
+            {rotatingTexts[currentIndex]}
+          </span>
+        </Link>
+      </div>
+    );
+  };
 
 const Index = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
