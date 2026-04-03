@@ -203,6 +203,8 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
               setIsDeepThinkingMode={setDeepThinkingMode}
               isNewsMode={isNewsMode}
               setIsNewsMode={setIsNewsMode}
+              isReasoningMode={isReasoningMode}
+              setIsReasoningMode={setIsReasoningMode}
               setUploadedFiles={setUploadedFiles}
               textareaRef={textareaRef}
             />
