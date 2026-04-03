@@ -42,6 +42,19 @@ const TOOLS = [
   },
   {
     type: 'function', function: {
+      name: 'fetch_news',
+      description: 'Get latest news headlines for a topic, country, or category (e.g. India news today).',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Topic or keyword for latest news' },
+          category: { type: 'string', description: 'Fallback category like education, technology, business' }
+        }
+      }
+    }
+  },
+  {
+    type: 'function', function: {
       name: 'generate_image',
       description: 'Generate image from text description. Only when user explicitly asks to create/draw/generate an image.',
       parameters: { type: 'object', properties: { prompt: { type: 'string' } }, required: ['prompt'] }
@@ -69,6 +82,31 @@ async function executeTool(name: string, args: any): Promise<string> {
     }
     return 'Web search unavailable';
   }
+  if (name === 'fetch_news') {
+    try {
+      const newsApiKey = Deno.env.get('NEWS_API_KEY') || Deno.env.get('NEWSAPI_KEY');
+      if (!newsApiKey) return 'News API key not configured';
+      const searchQuery = (args?.query || '').trim();
+      const category = (args?.category || '').trim();
+      const url = searchQuery
+        ? `https://newsapi.org/v2/everything?q=${encodeURIComponent(searchQuery)}&sortBy=publishedAt&pageSize=6&language=en`
+        : `https://newsapi.org/v2/top-headlines?country=in${category ? `&category=${encodeURIComponent(category)}` : ''}&pageSize=6`;
+
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { 'X-Api-Key': newsApiKey },
+      });
+      if (!res.ok) return `News fetch failed (${res.status})`;
+      const data = await res.json();
+      const articles = Array.isArray(data?.articles) ? data.articles.slice(0, 6) : [];
+      if (!articles.length) return 'No recent news found for that query.';
+      return articles
+        .map((a: any, i: number) => `${i + 1}. ${a.title} (${a.source?.name || 'unknown'}) - ${a.url}`)
+        .join('\n');
+    } catch {
+      return 'News service unavailable';
+    }
+  }
   if (name === 'generate_image') {
     return `[Image generation requested: "${args.prompt}"] — Image generation will be handled client-side.`;
   }
@@ -78,6 +116,15 @@ async function executeTool(name: string, args: any): Promise<string> {
 // SSE helper
 function sseEvent(event: string, data: any): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+function shouldForceRealtimeTools(prompt: string): boolean {
+  const q = (prompt || '').toLowerCase();
+  const triggers = [
+    'latest', 'current', 'today', 'news', 'breaking', 'just happened',
+    'अभी', 'आज', 'ताज़ा', 'ताजा', 'लेटेस्ट', 'खबर', 'न्यूज़', 'कल क्या हुआ'
+  ];
+  return triggers.some((k) => q.includes(k));
 }
 
 serve(async (req) => {
@@ -138,7 +185,7 @@ serve(async (req) => {
       }
     } catch (e) { console.warn('Mem fetch err:', e); }
 
-    let systemPrompt = `आप 'Study AI' हैं, जिसे अजित कुमार ने बनाया है। आप एक दोस्त और मेंटोर हैं। सरल Hindi-English भाषा में बात करें।${memoriesCtx}${groupPromptCtx}`;
+    let systemPrompt = `आप 'Study AI' हैं, जिसे अजित कुमार ने बनाया है। आप एक दोस्त और मेंटोर हैं। सरल Hindi-English भाषा में बात करें। आज की तारीख ${new Date().toISOString().slice(0, 10)} है। अगर सवाल latest/current/today/news/kal kya hua से जुड़ा हो तो पहले tools चलाओ: web_search के लिए Tavily और news के लिए News API उपयोग करो, फिर verified जानकारी के साथ जवाब दो।${memoriesCtx}${groupPromptCtx}`;
     if (userContext) systemPrompt += `\n\n📋 Recent context:\n${userContext}`;
     if (reasoningMode) systemPrompt += `\n\n📐 Reasoning Mode ON: Step-by-step solve करो, mathematical/logical problems detail में।`;
 
@@ -150,7 +197,9 @@ serve(async (req) => {
     const messages = [{ role: 'system', content: systemPrompt }, ...mappedHistory.slice(-30), { role: 'user', content: userContent }];
 
     const providers = getProviders();
-    if (!providers.length) return new Response(JSON.stringify({ error: 'No providers' }), { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } });
+    const groqProviders = providers.filter((p) => p.type === 'groq');
+    const selectedProviders = reasoningMode && groqProviders.length > 0 ? groqProviders : providers;
+    if (!selectedProviders.length) return new Response(JSON.stringify({ error: 'No providers' }), { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } });
 
     // Create SSE stream
     const { readable, writable } = new TransformStream();
@@ -162,20 +211,53 @@ serve(async (req) => {
     (async () => {
       try {
         await write(sseEvent('status', { status: 'thinking', text: '🧠 सवाल समझ रहा हूँ...' }));
+        let runtimeMessages = messages;
+
+        // Hard guarantee: for latest/current/news prompts, fetch web data first and inject timeline + tool outputs.
+        if (!imageBase64 && shouldForceRealtimeTools(prompt || '')) {
+          const nowIso = new Date().toISOString();
+          await write(sseEvent('status', { status: 'tool_executing', text: '🔍 लेटेस्ट वेब जानकारी ला रहा हूँ...', tool: 'web_search' }));
+          const webResult = await executeTool('web_search', { query: prompt });
+
+          await write(sseEvent('status', { status: 'tool_executing', text: '📰 अभी की खबरें ला रहा हूँ...', tool: 'fetch_news' }));
+          const newsResult = await executeTool('fetch_news', { query: prompt });
+
+          runtimeMessages = [
+            ...messages,
+            {
+              role: 'system',
+              content:
+                `🕒 Current UTC time: ${nowIso}\n` +
+                `Use the following live tool outputs as primary source of truth for latest/current answers.\n` +
+                `If tools fail, clearly mention limitation instead of guessing stale facts.\n\n` +
+                `Tavily Web Search:\n${webResult}\n\nNews API:\n${newsResult}`,
+            },
+          ];
+
+          await write(sseEvent('tools_used', {
+            tools: [
+              { name: 'web_search', query: prompt || '' },
+              { name: 'fetch_news', query: prompt || '' },
+            ],
+          }));
+        }
 
         // Try providers sequentially
         let providerResponse: Response | null = null;
         let usedProvider = '';
 
-        for (const provider of providers) {
+        for (const provider of selectedProviders) {
           try {
             await write(sseEvent('status', { status: 'connecting', text: `⚡ ${provider.type === 'groq' ? 'Ultra-fast' : provider.type} engine से connect...` }));
 
             const body: any = {
-              model: provider.model, messages,
+              model: provider.model, messages: runtimeMessages,
               temperature: reasoningMode ? 0.6 : 0.7,
               max_tokens: 8192, stream: true,
             };
+            if (provider.type === 'groq' && reasoningMode) {
+              body.reasoning_effort = 'high';
+            }
 
             // Add tools for function calling
             if (TOOLS.length > 0 && !imageBase64) {
@@ -267,7 +349,8 @@ serve(async (req) => {
           for (const tc of validCalls) {
             const toolName = tc.name;
             let statusText = '🔧 Tool चला रहा हूँ...';
-            if (toolName === 'web_search') statusText = '🔍 इंटरनेट पर खोज रहा हूँ...';
+            if (toolName === 'web_search') statusText = '🔍 इंटरनेट पर लेटेस्ट जानकारी खोज रहा हूँ...';
+            else if (toolName === 'fetch_news') statusText = '📰 ताज़ा खबरें निकाल रहा हूँ...';
             else if (toolName === 'generate_image') statusText = '🎨 Image बना रहा हूँ...';
             await write(sseEvent('status', { status: 'tool_executing', text: statusText, tool: toolName }));
           }
@@ -284,19 +367,20 @@ serve(async (req) => {
 
           // Second call with tool results
           const toolMessages = [
-            ...messages,
+            ...runtimeMessages,
             { role: 'assistant', content: fullContent || null, tool_calls: validCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.arguments } })) },
             ...toolResults.map(tr => ({ role: 'tool', tool_call_id: tr.id, content: tr.result }))
           ];
 
           // Try providers again for the follow-up
-          for (const provider of providers) {
+          for (const provider of selectedProviders) {
             try {
               const headers: Record<string, string> = { 'Content-Type': 'application/json' };
               if (provider.type === 'gemini') headers['X-goog-api-key'] = provider.apiKey;
               else headers['Authorization'] = `Bearer ${provider.apiKey}`;
 
-              const body2: any = { model: provider.model, messages: toolMessages, temperature: 0.7, max_tokens: 8192, stream: true };
+              const body2: any = { model: provider.model, messages: toolMessages, temperature: reasoningMode ? 0.6 : 0.7, max_tokens: 8192, stream: true };
+              if (provider.type === 'groq' && reasoningMode) body2.reasoning_effort = 'high';
               const ctrl2 = new AbortController();
               const tid2 = setTimeout(() => ctrl2.abort(), 15000);
               const resp2 = await fetch(provider.url, { method: 'POST', headers, body: JSON.stringify(body2), signal: ctrl2.signal });
@@ -329,7 +413,17 @@ serve(async (req) => {
           }
 
           // Send tool info for UI
-          await write(sseEvent('tools_used', { tools: toolResults.map(t => ({ name: t.name, query: t.name === 'web_search' ? JSON.parse(validCalls.find(c => c.id === t.id)?.arguments || '{}').query : '' })) }));
+          await write(sseEvent('tools_used', {
+            tools: toolResults.map(t => {
+              const rawArgs = validCalls.find(c => c.id === t.id)?.arguments || '{}';
+              let parsedArgs: any = {};
+              try { parsedArgs = JSON.parse(rawArgs); } catch {}
+              return {
+                name: t.name,
+                query: parsedArgs.query || parsedArgs.topic || parsedArgs.category || '',
+              };
+            })
+          }));
         }
 
         await write(sseEvent('status', { status: 'done', text: '✅ Complete' }));
