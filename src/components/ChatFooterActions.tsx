@@ -24,6 +24,8 @@ interface ChatFooterActionsProps {
     setIsDeepThinkingMode: (value: boolean) => void;
     isNewsMode: boolean;
     setIsNewsMode: (value: boolean) => void;
+    isReasoningMode: boolean;
+    setIsReasoningMode: (value: boolean) => void;
     setUploadedFiles: React.Dispatch<React.SetStateAction<UploadedFile[]>>;
     textareaRef: React.RefObject<HTMLTextAreaElement>;
     isLoading?: boolean;
