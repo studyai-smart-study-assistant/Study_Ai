@@ -63,7 +63,7 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
         props.onNewsSearch(input.trim());
     } else {
         // Regular send (with web search if enabled)
-        props.onSend(input.trim(), uploadedFiles);
+        props.onSend(input.trim(), uploadedFiles, { reasoningMode: isReasoningMode });
     }
 
     setInput('');
