@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import ImageGallery from '@/components/ImageGallery';
 import LiveTalkingMode from '@/components/chat/LiveTalkingMode';
 import { checkStoragePermission, isMobile, isWebView, requestCameraPermission } from '@/utils/permissions';
+import { persistAttachmentToSession } from '@/utils/attachmentSession';
 
 export interface UploadedFile {
     id: string;
@@ -31,6 +32,7 @@ interface ChatFooterActionsProps {
     textareaRef: React.RefObject<HTMLTextAreaElement>;
     isLoading?: boolean;
     isDisabled?: boolean;
+    attachmentSessionKey?: string;
 }
 
 const ChatFooterActions: React.FC<ChatFooterActionsProps> = (props) => {
@@ -70,8 +72,9 @@ const ChatFooterActions: React.FC<ChatFooterActionsProps> = (props) => {
     const openCameraPicker = async () => {
         // Prompt camera permission first for better Android/iOS UX.
         const stream = await requestCameraPermission('environment', language);
-        if (!stream) return;
-        stream.getTracks().forEach((track) => track.stop());
+        if (stream) {
+            stream.getTracks().forEach((track) => track.stop());
+        }
         cameraInputRef.current?.click();
         setIsAttachOpen(false);
     };
@@ -86,18 +89,18 @@ const ChatFooterActions: React.FC<ChatFooterActionsProps> = (props) => {
         props.textareaRef.current?.focus();
     };
 
-    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'pdf' | 'file') => {
+    const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'pdf' | 'file') => {
         const files = event.target.files;
         if (!files) return;
 
-        Array.from(files).forEach(file => {
+        for (const file of Array.from(files)) {
             if (type === 'image' && !file.type.startsWith('image/')) {
                 toast.error(language === 'hi' ? 'कृपया केवल image file चुनें' : 'Please select an image file');
-                return;
+                continue;
             }
             if (file.size > 20 * 1024 * 1024) {
                 toast.error(language === 'hi' ? 'फ़ाइल 20MB से छोटी होनी चाहिए' : 'File must be under 20MB');
-                return;
+                continue;
             }
 
             const uploadedFile: UploadedFile = {
@@ -107,7 +110,13 @@ const ChatFooterActions: React.FC<ChatFooterActionsProps> = (props) => {
                 preview: type === 'image' ? URL.createObjectURL(file) : undefined,
             };
             props.setUploadedFiles(prev => [...prev, uploadedFile]);
-        });
+
+            try {
+                await persistAttachmentToSession(props.attachmentSessionKey, uploadedFile);
+            } catch (error) {
+                console.error('Attachment session persist failed:', error);
+            }
+        }
 
         event.target.value = '';
         setIsAttachOpen(false);
@@ -116,9 +125,9 @@ const ChatFooterActions: React.FC<ChatFooterActionsProps> = (props) => {
 
     return (
         <>
-            <input type="file" ref={fileInputRef} onChange={(e) => handleFileSelect(e, 'image')} accept="image/*" className="hidden" />
-            <input type="file" ref={cameraInputRef} onChange={(e) => handleFileSelect(e, 'image')} accept="image/*" capture="environment" className="hidden" />
-            <input type="file" ref={fileUploadInputRef} onChange={(e) => handleFileSelect(e, 'file')} accept=".pdf,.doc,.docx,.txt,image/*" className="hidden" />
+            <input type="file" ref={fileInputRef} onChange={(e) => { void handleFileSelect(e, 'image'); }} accept="image/*" className="hidden" />
+            <input type="file" ref={cameraInputRef} onChange={(e) => { void handleFileSelect(e, 'image'); }} accept="image/*" capture="environment" className="hidden" />
+            <input type="file" ref={fileUploadInputRef} onChange={(e) => { void handleFileSelect(e, 'file'); }} accept=".pdf,.doc,.docx,.txt,image/*" className="hidden" />
 
             <div className="flex items-center gap-1">
                 {/* Attachment Plus Button */}
