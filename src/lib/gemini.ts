@@ -46,14 +46,28 @@ const invokeChatCompletion = async (payload: {
         body: JSON.stringify(payload),
       });
 
-      const responseText = await response.text();
-      const parsed = responseText ? JSON.parse(responseText) : {};
-
       if (!response.ok) {
-        const message = parsed?.error || `Edge function error (${response.status})`;
-        throw new Error(message);
+        const errorText = await response.text();
+        let errorMsg = `Edge function error (${response.status})`;
+        try {
+          const parsed = JSON.parse(errorText);
+          errorMsg = parsed?.error || errorMsg;
+        } catch { errorMsg = errorText || errorMsg; }
+        throw new Error(errorMsg);
       }
 
+      const contentType = response.headers.get('content-type') || '';
+
+      // Handle SSE streaming response
+      if (contentType.includes('text/event-stream') && response.body) {
+        console.log(`✅ ${CHAT_FUNCTION_NAME} streaming via: ${baseUrl}`);
+        const fullText = await parseSSEStream(response.body);
+        return { response: fullText, sources: [], webSearchUsed: false };
+      }
+
+      // Handle JSON response (fallback)
+      const responseText = await response.text();
+      const parsed = responseText ? JSON.parse(responseText) : {};
       console.log(`✅ ${CHAT_FUNCTION_NAME} success via: ${baseUrl}`);
       return parsed;
     } catch (error: any) {
@@ -64,6 +78,36 @@ const invokeChatCompletion = async (payload: {
 
   throw new Error(lastError?.message || "Edge function unreachable");
 };
+
+// Parse SSE stream into complete text
+async function parseSSEStream(body: ReadableStream<Uint8Array>): Promise<string> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let result = '';
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let newlineIdx: number;
+    while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
+      let line = buffer.slice(0, newlineIdx);
+      buffer = buffer.slice(newlineIdx + 1);
+      if (line.endsWith('\r')) line = line.slice(0, -1);
+      if (!line.startsWith('data: ')) continue;
+      const jsonStr = line.slice(6).trim();
+      if (jsonStr === '[DONE]') return result;
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const content = parsed.choices?.[0]?.delta?.content;
+        if (content) result += content;
+      } catch { /* partial JSON, ignore */ }
+    }
+  }
+  return result;
+}
 
 export interface WebSearchSource {
   title: string;
