@@ -84,25 +84,77 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {
-    const { prompt, history = [], imageBase64, reasoningMode = false, userContext, mindVaultContext } = await req.json();
+    const { prompt, history = [], imageBase64, reasoningMode = false, userContext, mindVaultContext, groupId } = await req.json();
     if (!prompt && !imageBase64) return new Response(JSON.stringify({ error: 'No prompt' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } });
 
     // Auth & memories (only if not pre-fetched)
     let memoriesCtx = mindVaultContext || '';
-    if (!memoriesCtx) {
+    let groupCtx = '';
+    if (!memoriesCtx || groupId) {
       try {
         const sbUrl = Deno.env.get('SUPABASE_URL')!;
         const sbKey = Deno.env.get('SUPABASE_ANON_KEY')!;
         const uc = createClient(sbUrl, sbKey, { global: { headers: { Authorization: req.headers.get('Authorization')! } } });
         const { data: { user } } = await uc.auth.getUser();
         if (user) {
-          const { data: mems } = await uc.from('user_memories').select('memory_key,memory_value').eq('user_id', user.id).order('importance', { ascending: false }).limit(15);
-          if (mems?.length) memoriesCtx = `\n🧠 Mind Vault:\n${mems.map((m: any) => `- ${m.memory_key}: ${m.memory_value}`).join('\n')}`;
+          if (!memoriesCtx) {
+            const { data: mems } = await uc.from('user_memories').select('memory_key,memory_value').eq('user_id', user.id).order('importance', { ascending: false }).limit(15);
+            if (mems?.length) memoriesCtx = `\n🧠 Mind Vault:\n${mems.map((m: any) => `- ${m.memory_key}: ${m.memory_value}`).join('\n')}`;
+          }
+
+          if (groupId) {
+            const { data: membership } = await uc
+              .from('group_participants')
+              .select('group_id')
+              .eq('group_id', groupId)
+              .eq('user_id', user.id)
+              .maybeSingle();
+
+            if (membership) {
+              const { data: groupData } = await uc
+                .from('study_groups')
+                .select('name, group_system_prompt')
+                .eq('id', groupId)
+                .maybeSingle();
+
+              const { data: memberRows } = await uc
+                .from('group_participants')
+                .select('user_id')
+                .eq('group_id', groupId)
+                .limit(50);
+
+              const memberIds = (memberRows || []).map((x: any) => x.user_id);
+              if (memberIds.length > 0) {
+                const { data: memberMemories } = await uc
+                  .from('user_memories')
+                  .select('user_id,memory_key,memory_value')
+                  .in('user_id', memberIds)
+                  .order('importance', { ascending: false })
+                  .limit(120);
+
+                if (memberMemories?.length) {
+                  const grouped = new Map<string, Array<{ memory_key: string; memory_value: string }>>();
+                  for (const m of memberMemories) {
+                    if (!grouped.has(m.user_id)) grouped.set(m.user_id, []);
+                    grouped.get(m.user_id)!.push({ memory_key: m.memory_key, memory_value: m.memory_value });
+                  }
+
+                  const memoryLines = Array.from(grouped.entries())
+                    .map(([memberUserId, mems]) => `- ${memberUserId}: ${mems.slice(0, 4).map((mm) => `${mm.memory_key}: ${mm.memory_value}`).join(' | ')}`)
+                    .join('\n');
+
+                  groupCtx = `\n\n👥 Group Study Context (${groupData?.name || 'Study Group'}):\n${groupData?.group_system_prompt || ''}\n\n📚 Active members and Mind Vault snapshots:\n${memoryLines}`;
+                } else {
+                  groupCtx = `\n\n👥 Group Study Context (${groupData?.name || 'Study Group'}):\n${groupData?.group_system_prompt || ''}`;
+                }
+              }
+            }
+          }
         }
       } catch (e) { console.warn('Mem fetch err:', e); }
     }
 
-    let systemPrompt = `आप 'Study AI' हैं, जिसे अजित कुमार ने बनाया है। आप एक दोस्त और मेंटोर हैं। सरल Hindi-English भाषा में बात करें।${memoriesCtx}`;
+    let systemPrompt = `आप 'Study AI' हैं, जिसे अजित कुमार ने बनाया है। आप एक दोस्त और मेंटोर हैं। सरल Hindi-English भाषा में बात करें।${memoriesCtx}${groupCtx}`;
     if (userContext) systemPrompt += `\n\n📋 Recent context:\n${userContext}`;
     if (reasoningMode) systemPrompt += `\n\n📐 Reasoning Mode ON: Step-by-step solve करो, mathematical/logical problems detail में।`;
 

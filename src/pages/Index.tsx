@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { 
   Menu, Plus, Sparkles, FileText, BookOpen, GraduationCap, Trophy, Clock,
   Bookmark, User, LogOut, Moon, Sun, MessageSquare, MessageCircle, Youtube, Wallet, Info,
-  X, ArrowUp, ClipboardList, LogIn
+  X, ArrowUp, ClipboardList, LogIn, UserRound
 } from 'lucide-react';
 import { useTheme } from '@/providers/ThemeProvider';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
 import PageMeta from '@/components/seo/PageMeta';
 import HighPerformanceAd from '@/components/ads/HighPerformanceAd';
+import GroupStudyModal from '@/components/home/GroupStudyModal';
 
 const rotatingTexts = [
     "Unlock All Features! 🚀",
@@ -95,6 +96,7 @@ const Index = () => {
   const { theme, toggleTheme } = useTheme();
   const { avatarUrl: profileAvatarUrl } = useAvatarUrl(currentUser?.uid);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -389,6 +391,18 @@ const Index = () => {
                 >
                   {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
                 </Button>
+
+                {currentUser && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 rounded-full"
+                    onClick={() => setIsGroupModalOpen(true)}
+                    title="AI-Powered Group Study"
+                  >
+                    <UserRound className="h-5 w-5" />
+                  </Button>
+                )}
                 
                 {currentUser ? (
                   <Link to="/profile">
@@ -529,6 +543,11 @@ const Index = () => {
       <SignupPromptDialog 
         open={showSignupPrompt} 
         onOpenChange={setShowSignupPrompt} 
+      />
+      <GroupStudyModal
+        open={isGroupModalOpen}
+        onOpenChange={setIsGroupModalOpen}
+        currentUserId={currentUser?.uid}
       />
     </ErrorBoundary>
   );

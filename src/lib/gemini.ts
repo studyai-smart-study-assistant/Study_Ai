@@ -27,6 +27,7 @@ const invokeChatCompletion = async (payload: {
   imageBase64?: string;
   userId?: string;
   reasoningMode?: boolean;
+  groupId?: string | null;
 }) => {
   const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   const { data: { session } } = await supabase.auth.getSession();
@@ -244,6 +245,7 @@ export async function generateResponseWithSearch(
       imageBase64,
       userId,
       reasoningMode,
+      groupId: localStorage.getItem('studyai_active_group_id'),
     });
 
     if (data?.error) throw new Error(data.error);
