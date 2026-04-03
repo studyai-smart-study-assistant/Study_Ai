@@ -118,6 +118,15 @@ function sseEvent(event: string, data: any): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
+function shouldForceRealtimeTools(prompt: string): boolean {
+  const q = (prompt || '').toLowerCase();
+  const triggers = [
+    'latest', 'current', 'today', 'news', 'breaking', 'just happened',
+    'अभी', 'आज', 'ताज़ा', 'ताजा', 'लेटेस्ट', 'खबर', 'न्यूज़', 'कल क्या हुआ'
+  ];
+  return triggers.some((k) => q.includes(k));
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -202,6 +211,36 @@ serve(async (req) => {
     (async () => {
       try {
         await write(sseEvent('status', { status: 'thinking', text: '🧠 सवाल समझ रहा हूँ...' }));
+        let runtimeMessages = messages;
+
+        // Hard guarantee: for latest/current/news prompts, fetch web data first and inject timeline + tool outputs.
+        if (!imageBase64 && shouldForceRealtimeTools(prompt || '')) {
+          const nowIso = new Date().toISOString();
+          await write(sseEvent('status', { status: 'tool_executing', text: '🔍 लेटेस्ट वेब जानकारी ला रहा हूँ...', tool: 'web_search' }));
+          const webResult = await executeTool('web_search', { query: prompt });
+
+          await write(sseEvent('status', { status: 'tool_executing', text: '📰 अभी की खबरें ला रहा हूँ...', tool: 'fetch_news' }));
+          const newsResult = await executeTool('fetch_news', { query: prompt });
+
+          runtimeMessages = [
+            ...messages,
+            {
+              role: 'system',
+              content:
+                `🕒 Current UTC time: ${nowIso}\n` +
+                `Use the following live tool outputs as primary source of truth for latest/current answers.\n` +
+                `If tools fail, clearly mention limitation instead of guessing stale facts.\n\n` +
+                `Tavily Web Search:\n${webResult}\n\nNews API:\n${newsResult}`,
+            },
+          ];
+
+          await write(sseEvent('tools_used', {
+            tools: [
+              { name: 'web_search', query: prompt || '' },
+              { name: 'fetch_news', query: prompt || '' },
+            ],
+          }));
+        }
 
         // Try providers sequentially
         let providerResponse: Response | null = null;
@@ -212,7 +251,7 @@ serve(async (req) => {
             await write(sseEvent('status', { status: 'connecting', text: `⚡ ${provider.type === 'groq' ? 'Ultra-fast' : provider.type} engine से connect...` }));
 
             const body: any = {
-              model: provider.model, messages,
+              model: provider.model, messages: runtimeMessages,
               temperature: reasoningMode ? 0.6 : 0.7,
               max_tokens: 8192, stream: true,
             };
@@ -328,7 +367,7 @@ serve(async (req) => {
 
           // Second call with tool results
           const toolMessages = [
-            ...messages,
+            ...runtimeMessages,
             { role: 'assistant', content: fullContent || null, tool_calls: validCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.arguments } })) },
             ...toolResults.map(tr => ({ role: 'tool', tool_call_id: tr.id, content: tr.result }))
           ];
