@@ -13,6 +13,7 @@ import { chatDB } from '@/lib/db';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { UploadedFile } from '../ChatFooterActions';
+import { restoreAttachmentsFromSession } from '@/utils/attachmentSession';
 
 interface EnhancedChatContainerProps {
   chatId: string;
@@ -38,6 +39,8 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({ chatId, o
 
   const [editImageState, setEditImageState] = useState<{ imageUrl: string; prompt: string } | null>(null);
   const [deepThinkingSources, setDeepThinkingSources] = useState<{ title: string; url: string }[]>([]);
+  const [recoveredAttachments, setRecoveredAttachments] = useState<UploadedFile[]>([]);
+  const attachmentSessionKey = `chat-${chatId}`;
 
   const handleEditImage = useCallback((imageUrl: string, originalPrompt: string) => {
     setEditImageState({ imageUrl, prompt: originalPrompt });
@@ -120,6 +123,14 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({ chatId, o
 
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom, streamingContent]);
 
+  useEffect(() => {
+    const restored = restoreAttachmentsFromSession(attachmentSessionKey);
+    if (restored.length > 0) {
+      setRecoveredAttachments(restored);
+      toast.success(language === 'hi' ? 'रिकवर की गई इमेज/फ़ाइल मिली।' : 'Recovered unsent attachment from previous session.');
+    }
+  }, [attachmentSessionKey, language]);
+
   const fileToDataUrl = useCallback((file: File) => {
     return new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -177,6 +188,7 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({ chatId, o
           }
 
           handleSend(msg, imageBase64, false, options?.reasoningMode || false);
+          setRecoveredAttachments([]);
         }} 
         isLoading={isLoading} 
         isDisabled={isResponding || messageLimitReached}
@@ -185,6 +197,8 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({ chatId, o
         onDeepThinking={handleDeepThinking}
         onNewsSearch={handleNewsSearch}
         onInputFocus={handleInputFocus}
+        attachmentSessionKey={attachmentSessionKey}
+        recoveredAttachments={recoveredAttachments}
       />
 
       {editImageState && (

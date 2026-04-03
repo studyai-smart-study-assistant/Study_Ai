@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { requestMicrophonePermission } from '@/utils/permissions';
 import ChatFooterActions, { UploadedFile } from './ChatFooterActions';
 import ImagePreview from './ImagePreview';
+import { clearAttachmentSession, removeAttachmentFromSession } from '@/utils/attachmentSession';
 
 interface ChatFooterProps {
   onSend: (message: string, files?: UploadedFile[], options?: { reasoningMode?: boolean }) => void;
@@ -19,13 +20,15 @@ interface ChatFooterProps {
   onDeepThinking: (topic: string) => Promise<void>;
   onNewsSearch: (query: string) => Promise<void>;
   onInputFocus?: () => void;
+  attachmentSessionKey?: string;
+  recoveredAttachments?: UploadedFile[];
 }
 
 const ChatFooter: React.FC<ChatFooterProps> = (props) => {
   const [input, setInput] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>(props.recoveredAttachments || []);
   
   // Tool Modes State
   const [isImageMode, setIsImageMode] = useState(false);
@@ -46,6 +49,12 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
     }
   }, [input]);
+
+  useEffect(() => {
+    if (props.recoveredAttachments && props.recoveredAttachments.length > 0) {
+      setUploadedFiles((prev) => (prev.length > 0 ? prev : props.recoveredAttachments!));
+    }
+  }, [props.recoveredAttachments]);
 
   const clearAllModes = () => {
     props.onWebSearchToggle?.(false);
@@ -69,6 +78,7 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
 
     setInput('');
     setUploadedFiles([]);
+    clearAttachmentSession(props.attachmentSessionKey);
     clearAllModes();
   };
 
@@ -177,7 +187,14 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
         {uploadedFiles.length > 0 && (
             <div className="flex space-x-2 p-2 overflow-x-auto">
                 {uploadedFiles.map(file => (
-                    <ImagePreview key={(file as any).id || Math.random()} file={file as any} onRemove={() => setUploadedFiles(files => files.filter((f, i) => f !== file))} />
+                    <ImagePreview
+                      key={(file as any).id || Math.random()}
+                      file={file as any}
+                      onRemove={() => {
+                        setUploadedFiles(files => files.filter((f) => f.id !== file.id));
+                        removeAttachmentFromSession(props.attachmentSessionKey, file.id);
+                      }}
+                    />
                 ))}
             </div>
         )}
@@ -210,6 +227,7 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
               setIsReasoningMode={setIsReasoningMode}
               setUploadedFiles={setUploadedFiles}
               textareaRef={textareaRef}
+              attachmentSessionKey={props.attachmentSessionKey}
             />
 
             <div className="flex items-center gap-2">
