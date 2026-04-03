@@ -30,6 +30,7 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
   const [isImageMode, setIsImageMode] = useState(false);
   const [isDeepThinkingMode, setDeepThinkingMode] = useState(false);
   const [isNewsMode, setIsNewsMode] = useState(false);
+  const [isReasoningMode, setIsReasoningMode] = useState(false);
 
   const { language } = useLanguage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
