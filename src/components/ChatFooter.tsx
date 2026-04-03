@@ -11,7 +11,7 @@ import ChatFooterActions, { UploadedFile } from './ChatFooterActions';
 import ImagePreview from './ImagePreview';
 
 interface ChatFooterProps {
-  onSend: (message: string, files?: UploadedFile[]) => void;
+  onSend: (message: string, files?: UploadedFile[], options?: { reasoningMode?: boolean }) => void;
   isLoading: boolean;
   isDisabled?: boolean;
   webSearchEnabled?: boolean;
@@ -30,6 +30,7 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
   const [isImageMode, setIsImageMode] = useState(false);
   const [isDeepThinkingMode, setDeepThinkingMode] = useState(false);
   const [isNewsMode, setIsNewsMode] = useState(false);
+  const [isReasoningMode, setIsReasoningMode] = useState(false);
 
   const { language } = useLanguage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -50,6 +51,7 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
     setIsImageMode(false);
     setDeepThinkingMode(false);
     setIsNewsMode(false);
+    setIsReasoningMode(false);
   }
 
   const handleSend = () => {
@@ -61,7 +63,7 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
         props.onNewsSearch(input.trim());
     } else {
         // Regular send (with web search if enabled)
-        props.onSend(input.trim(), uploadedFiles);
+        props.onSend(input.trim(), uploadedFiles, { reasoningMode: isReasoningMode });
     }
 
     setInput('');
@@ -156,6 +158,7 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
 
   const getPlaceholder = () => {
     if (props.isDisabled) return language === 'hi' ? "AI जवाब दे रहा है..." : "Waiting for AI...";
+    if (isReasoningMode) return language === 'hi' ? "📐 Maths & Reasoning..." : "📐 Maths & Reasoning...";
     if (isImageMode) return language === 'hi' ? "Image का description लिखें..." : "Describe the image...";
     if (isDeepThinkingMode) return language === 'hi' ? "गहन सोच के लिए विषय..." : "Topic for deep thinking...";
     if (isNewsMode) return language === 'hi' ? "नवीनतम समाचार खोजें..." : "Search for latest news...";
@@ -201,6 +204,8 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
               setIsDeepThinkingMode={setDeepThinkingMode}
               isNewsMode={isNewsMode}
               setIsNewsMode={setIsNewsMode}
+              isReasoningMode={isReasoningMode}
+              setIsReasoningMode={setIsReasoningMode}
               setUploadedFiles={setUploadedFiles}
               textareaRef={textareaRef}
             />

@@ -6,7 +6,7 @@ interface UseMessageHandlerProps {
   loadMessages: () => Promise<void>;
   onChatUpdated?: () => void;
   scrollToBottom: () => void;
-  sendMessage: (input: string, imageUrl?: string, skipAIResponse?: boolean) => void;
+  sendMessage: (input: string, imageUrl?: string, skipAIResponse?: boolean, reasoningMode?: boolean) => void;
 }
 
 export const useMessageHandler = ({
@@ -17,8 +17,8 @@ export const useMessageHandler = ({
   sendMessage
 }: UseMessageHandlerProps) => {
   const handleSend = useCallback(
-    (input: string, imageUrl?: string, skipAIResponse?: boolean) => {
-      sendMessage(input, imageUrl, skipAIResponse);
+    (input: string, imageUrl?: string, skipAIResponse?: boolean, reasoningMode?: boolean) => {
+      sendMessage(input, imageUrl, skipAIResponse, reasoningMode);
       scrollToBottom();
     },
     [sendMessage, scrollToBottom]

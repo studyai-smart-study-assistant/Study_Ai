@@ -205,7 +205,10 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({
       )}
       
       <ChatFooter 
-        onSend={(msg: string) => handleSend(msg)} 
+        onSend={(msg: string, files?: any, options?: { reasoningMode?: boolean }) => {
+          const reasoningMode = options?.reasoningMode || false;
+          handleSend(msg, undefined, false, reasoningMode);
+        }} 
         isLoading={isLoading} 
         isDisabled={isResponding || messageLimitReached}
         webSearchEnabled={webSearchEnabled}

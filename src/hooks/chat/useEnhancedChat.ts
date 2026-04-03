@@ -55,7 +55,7 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
     }
   };
 
-  const enhancedSendMessage = useCallback(async (input: string, imageUrl?: string, skipAIResponse: boolean = false) => {
+  const enhancedSendMessage = useCallback(async (input: string, imageUrl?: string, skipAIResponse: boolean = false, reasoningMode: boolean = false) => {
     if ((!input.trim() && !imageUrl) || isLoading || isResponding) return;
     
     if (!currentUser && messages.filter(m => m.role === 'user').length >= GUEST_MESSAGE_LIMIT) {
@@ -124,7 +124,7 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
           async (query: string) => {
             setConnectionStatus('reconnecting');
             
-            const searchResult = await generateResponseWithSearch(query, chatHistory, chatId, 'google/gemini-3-flash-preview', webSearchEnabled, imageBase64);
+            const searchResult = await generateResponseWithSearch(query, chatHistory, chatId, 'google/gemini-3-flash-preview', webSearchEnabled, imageBase64, reasoningMode);
             setLastSources(searchResult.sources);
             
             // If agent generated an image, save to gallery

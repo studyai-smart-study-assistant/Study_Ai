@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Plus, Upload, Camera, SlidersHorizontal, Globe, Sparkles, ImageIcon, Telescope, Newspaper, Radio, FileText } from "lucide-react";
+import { Plus, Upload, Camera, SlidersHorizontal, Globe, Sparkles, ImageIcon, Telescope, Newspaper, Radio, FileText, Calculator } from "lucide-react";
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import ImageGallery from '@/components/ImageGallery';
@@ -24,6 +24,8 @@ interface ChatFooterActionsProps {
     setIsDeepThinkingMode: (value: boolean) => void;
     isNewsMode: boolean;
     setIsNewsMode: (value: boolean) => void;
+    isReasoningMode: boolean;
+    setIsReasoningMode: (value: boolean) => void;
     setUploadedFiles: React.Dispatch<React.SetStateAction<UploadedFile[]>>;
     textareaRef: React.RefObject<HTMLTextAreaElement>;
     isLoading?: boolean;
@@ -41,11 +43,12 @@ const ChatFooterActions: React.FC<ChatFooterActionsProps> = (props) => {
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const pdfInputRef = useRef<HTMLInputElement>(null);
 
-    const toggleMode = (mode: 'web' | 'image' | 'deep' | 'news') => {
+    const toggleMode = (mode: 'web' | 'image' | 'deep' | 'news' | 'reasoning') => {
         props.onWebSearchToggle?.(mode === 'web' ? !props.webSearchEnabled : false);
         props.setIsImageMode(mode === 'image' ? !props.isImageMode : false);
         props.setIsDeepThinkingMode(mode === 'deep' ? !props.isDeepThinkingMode : false);
         props.setIsNewsMode(mode === 'news' ? !props.isNewsMode : false);
+        props.setIsReasoningMode(mode === 'reasoning' ? !props.isReasoningMode : false);
         setIsToolsOpen(false);
         props.textareaRef.current?.focus();
     };
@@ -155,6 +158,13 @@ const ChatFooterActions: React.FC<ChatFooterActionsProps> = (props) => {
                             <div>
                                 <p className="text-sm font-semibold text-foreground">News</p>
                                 <p className="text-xs text-muted-foreground">{props.isNewsMode ? 'ON' : 'Search latest news'}</p>
+                            </div>
+                        </button>
+                        <button onClick={() => toggleMode('reasoning')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted">
+                            <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${props.isReasoningMode ? 'bg-violet-100' : 'bg-muted'}`}><Calculator className={`h-4 w-4 ${props.isReasoningMode ? 'text-violet-600' : 'text-muted-foreground'}`} /></div>
+                            <div>
+                                <p className="text-sm font-semibold text-foreground">Maths & Reasoning</p>
+                                <p className="text-xs text-muted-foreground">{props.isReasoningMode ? 'ON' : 'Step-by-step problem solving'}</p>
                             </div>
                         </button>
                         <button onClick={() => { setIsLiveMode(true); setIsToolsOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted">
