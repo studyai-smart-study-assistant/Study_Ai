@@ -18,6 +18,7 @@ interface ChatFooterProps {
   onWebSearchToggle?: (enabled: boolean) => void;
   onDeepThinking: (topic: string) => Promise<void>;
   onNewsSearch: (query: string) => Promise<void>;
+  onInputFocus?: () => void;
 }
 
 const ChatFooter: React.FC<ChatFooterProps> = (props) => {
