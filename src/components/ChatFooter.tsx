@@ -158,6 +158,7 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
 
   const getPlaceholder = () => {
     if (props.isDisabled) return language === 'hi' ? "AI जवाब दे रहा है..." : "Waiting for AI...";
+    if (isReasoningMode) return language === 'hi' ? "📐 Maths & Reasoning..." : "📐 Maths & Reasoning...";
     if (isImageMode) return language === 'hi' ? "Image का description लिखें..." : "Describe the image...";
     if (isDeepThinkingMode) return language === 'hi' ? "गहन सोच के लिए विषय..." : "Topic for deep thinking...";
     if (isNewsMode) return language === 'hi' ? "नवीनतम समाचार खोजें..." : "Search for latest news...";

@@ -118,7 +118,8 @@ export async function generateResponseWithSearch(
   chatId?: string,
   model: string = 'google/gemini-3-flash-preview',
   forceWebSearch: boolean = false,
-  imageBase64?: string
+  imageBase64?: string,
+  reasoningMode: boolean = false
 ): Promise<GenerateResponseWithSearchResult> {
   try {
     console.log(`🚀 Study AI: model=${model}, forceWebSearch=${forceWebSearch}`);
