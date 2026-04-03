@@ -17,6 +17,7 @@ export async function streamChatCompletion(
     reasoningMode?: boolean;
     userContext?: string;
     mindVaultContext?: string;
+    groupId?: string;
   },
   callbacks: StreamCallbacks,
   signal?: AbortSignal
