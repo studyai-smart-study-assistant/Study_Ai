@@ -2,7 +2,7 @@
 import React from 'react';
 import MessageList from './MessageList';
 import EmptyChatState from './EmptyChatState';
-import EnhancedLoadingAnimation from '../ui/enhanced-loading-animation';
+import AgentStatusIndicator from './AgentStatusIndicator';
 
 interface ChatBodyProps {
   messages: any[];
@@ -13,17 +13,12 @@ interface ChatBodyProps {
   onSendMessage: (message: string) => void;
   messagesEndRef: React.RefObject<HTMLDivElement>;
   onEditImage?: (imageUrl: string, originalPrompt: string) => void;
+  agentStatus?: { status: string; text: string } | null;
 }
 
 const ChatBody: React.FC<ChatBodyProps> = ({
-  messages,
-  isLoading,
-  isResponding,
-  onMessageEdited,
-  onMessageDeleted,
-  onSendMessage,
-  messagesEndRef,
-  onEditImage
+  messages, isLoading, isResponding, onMessageEdited, onMessageDeleted,
+  onSendMessage, messagesEndRef, onEditImage, agentStatus
 }) => {
   return (
     <div className="flex-1 overflow-y-auto overflow-x-hidden w-full">
@@ -39,14 +34,9 @@ const ChatBody: React.FC<ChatBodyProps> = ({
             onEditImage={onEditImage}
           />
           
-          {/* Enhanced loading animation with status message */}
-          {(isLoading || isResponding) && (
-            <div className="flex flex-col items-center justify-center py-6 px-2">
-              <EnhancedLoadingAnimation 
-                message={isResponding ? "AI Agent सोच रहा है..." : "संदेश लोड हो रहे हैं..."}
-                className="my-2" 
-              />
-            </div>
+          {/* Real agent status - not fake */}
+          {agentStatus && (
+            <AgentStatusIndicator status={agentStatus.status} text={agentStatus.text} />
           )}
         </>
       )}

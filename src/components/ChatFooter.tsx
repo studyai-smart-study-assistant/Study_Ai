@@ -18,6 +18,7 @@ interface ChatFooterProps {
   onWebSearchToggle?: (enabled: boolean) => void;
   onDeepThinking: (topic: string) => Promise<void>;
   onNewsSearch: (query: string) => Promise<void>;
+  onInputFocus?: () => void;
 }
 
 const ChatFooter: React.FC<ChatFooterProps> = (props) => {
@@ -188,6 +189,7 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
+              onFocus={props.onInputFocus}
               placeholder={getPlaceholder()}
               className="resize-none w-full border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-[16px] p-0 min-h-[24px]"
               disabled={props.isLoading || props.isDisabled}
