@@ -21,7 +21,7 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'reconnecting' | 'disconnected'>('connected');
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [lastSources, setLastSources] = useState<Array<{ title: string; url: string }>>([]);
-  const [agentStatus, setAgentStatus] = useState<{ status: string; text: string } | null>(null);
+  const [agentStatus, setAgentStatus] = useState<{ status: string; text: string; tool?: string; provider?: string } | null>(null);
   const [streamingContent, setStreamingContent] = useState<string>('');
   const { currentUser, messageLimitReached, setMessageLimitReached } = useAuth();
   const { prefetched, prefetchContext, resetPrefetch } = useContextPrefetch();
@@ -166,8 +166,8 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
                   return updated;
                 });
               },
-              onStatus: (status, text) => {
-                setAgentStatus({ status, text });
+              onStatus: (status, text, extra) => {
+                setAgentStatus({ status, text, tool: extra?.tool, provider: extra?.provider });
                 if (status === 'done') setAgentStatus(null);
               },
               onToolsUsed: (tools) => {
