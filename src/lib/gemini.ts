@@ -26,6 +26,7 @@ const invokeChatCompletion = async (payload: {
   webSearchSources?: Array<{ title: string; url: string }>;
   imageBase64?: string;
   userId?: string;
+  reasoningMode?: boolean;
 }) => {
   const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   const { data: { session } } = await supabase.auth.getSession();
