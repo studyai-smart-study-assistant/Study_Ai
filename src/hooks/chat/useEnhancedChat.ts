@@ -55,7 +55,7 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
     }
   };
 
-  const enhancedSendMessage = useCallback(async (input: string, imageUrl?: string, skipAIResponse: boolean = false) => {
+  const enhancedSendMessage = useCallback(async (input: string, imageUrl?: string, skipAIResponse: boolean = false, reasoningMode: boolean = false) => {
     if ((!input.trim() && !imageUrl) || isLoading || isResponding) return;
     
     if (!currentUser && messages.filter(m => m.role === 'user').length >= GUEST_MESSAGE_LIMIT) {
