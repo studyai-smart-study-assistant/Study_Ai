@@ -230,6 +230,10 @@ export async function generateResponseWithSearch(
       webSearchSources = searchResult.sources;
     }
 
+    if (reasoningMode) {
+      toast.info('📐 Reasoning mode ON...', { duration: 2000 });
+    }
+
     const data = await invokeChatCompletion({
       prompt: sanitizeForAI(prompt),
       history: formattedHistory,
@@ -239,6 +243,7 @@ export async function generateResponseWithSearch(
       webSearchSources,
       imageBase64,
       userId,
+      reasoningMode,
     });
 
     if (data?.error) throw new Error(data.error);
