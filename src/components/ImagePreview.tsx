@@ -2,12 +2,12 @@
 import React from 'react';
 import { X, FileText } from 'lucide-react';
 
-// The props now receive a single 'file' object
 interface UploadedFile {
   id: string;
-  data: string;
-  name: string;
-  type: 'image' | 'pdf';
+  file: File;
+  name?: string;
+  preview?: string;
+  type: 'image' | 'pdf' | 'file';
 }
 
 interface ImagePreviewProps {
@@ -16,15 +16,24 @@ interface ImagePreviewProps {
 }
 
 const ImagePreview: React.FC<ImagePreviewProps> = ({ file, onRemove }) => {
+  const fileName = file.name || file.file?.name || 'file';
+  const imageSrc = file.preview;
+  const isDocument = file.type === 'pdf' || file.type === 'file';
+
   return (
     <div className="relative flex-shrink-0">
-      {file.type === 'pdf' ? (
+      {isDocument ? (
         <div className="h-16 w-32 px-2 flex items-center justify-center gap-2 bg-muted rounded-lg border border-border">
           <FileText className="h-6 w-6 text-destructive flex-shrink-0" />
-          <p className="text-xs font-medium text-foreground truncate">{file.name}</p>
+          <p className="text-xs font-medium text-foreground truncate">{fileName}</p>
         </div>
+      ) : imageSrc ? (
+        <img src={imageSrc} alt={fileName} className="h-16 w-auto object-cover rounded-lg border border-border" />
       ) : (
-        <img src={file.data} alt={file.name} className="h-16 w-auto object-cover rounded-lg border border-border" />
+        <div className="h-16 w-32 px-2 flex items-center justify-center gap-2 bg-muted rounded-lg border border-border">
+          <FileText className="h-6 w-6 text-primary flex-shrink-0" />
+          <p className="text-xs font-medium text-foreground truncate">{fileName}</p>
+        </div>
       )}
       <button 
         onClick={onRemove} 
