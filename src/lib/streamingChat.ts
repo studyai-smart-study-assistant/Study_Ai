@@ -55,6 +55,47 @@ export async function streamChatCompletion(
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
   let buf = '';
+  let currentEvent = "message";
+  let dataLines: string[] = [];
+
+  const flushEvent = () => {
+    if (!dataLines.length) return;
+    const payload = dataLines.join('\n').trim();
+    dataLines = [];
+
+    if (!payload) return;
+    if (payload === '[DONE]') {
+      callbacks.onDone();
+      return 'done';
+    }
+
+    try {
+      const data = JSON.parse(payload);
+      switch (currentEvent) {
+        case 'token':
+          if (data.content) callbacks.onToken(data.content);
+          break;
+        case 'status':
+          callbacks.onStatus(data.status, data.text, data);
+          break;
+        case 'tools_used':
+          callbacks.onToolsUsed(data.tools || []);
+          break;
+        case 'error':
+          callbacks.onError(data.error || 'Unknown error');
+          break;
+        default: {
+          const content = data.choices?.[0]?.delta?.content;
+          if (content) callbacks.onToken(content);
+        }
+      }
+    } catch {
+      // ignore malformed partial event payloads
+    }
+
+    currentEvent = "message";
+    return null;
+  };
 
   while (true) {
     const { done, value } = await reader.read();
@@ -66,52 +107,24 @@ export async function streamChatCompletion(
       let line = buf.slice(0, nl);
       buf = buf.slice(nl + 1);
       if (line.endsWith('\r')) line = line.slice(0, -1);
-      if (!line || line.startsWith(':')) continue;
 
-      // Parse event type
-      if (line.startsWith('event: ')) {
-        const eventType = line.slice(7).trim();
-        // Read next data line
-        const dataIdx = buf.indexOf('\n');
-        if (dataIdx === -1) { buf = line + '\n' + buf; break; }
-        let dataLine = buf.slice(0, dataIdx);
-        buf = buf.slice(dataIdx + 1);
-        if (dataLine.endsWith('\r')) dataLine = dataLine.slice(0, -1);
-        if (!dataLine.startsWith('data: ')) continue;
-        const jsonStr = dataLine.slice(6).trim();
-        
-        try {
-          const data = JSON.parse(jsonStr);
-          switch (eventType) {
-            case 'token':
-              if (data.content) callbacks.onToken(data.content);
-              break;
-            case 'status':
-              callbacks.onStatus(data.status, data.text, data);
-              break;
-            case 'tools_used':
-              callbacks.onToolsUsed(data.tools || []);
-              break;
-            case 'error':
-              callbacks.onError(data.error || 'Unknown error');
-              break;
-          }
-        } catch { /* partial json */ }
+      // SSE event terminator
+      if (!line) {
+        if (flushEvent() === 'done') return;
         continue;
       }
 
-      // Standard SSE format (data: only)
+      if (line.startsWith(':')) continue;
+      if (line.startsWith('event: ')) {
+        currentEvent = line.slice(7).trim();
+        continue;
+      }
       if (line.startsWith('data: ')) {
-        const jsonStr = line.slice(6).trim();
-        if (jsonStr === '[DONE]') { callbacks.onDone(); return; }
-        try {
-          const data = JSON.parse(jsonStr);
-          const content = data.choices?.[0]?.delta?.content;
-          if (content) callbacks.onToken(content);
-        } catch {}
+        dataLines.push(line.slice(6));
       }
     }
   }
 
+  flushEvent();
   callbacks.onDone();
 }

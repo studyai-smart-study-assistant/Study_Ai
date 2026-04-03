@@ -13,7 +13,7 @@ interface ChatBodyProps {
   onSendMessage: (message: string) => void;
   messagesEndRef: React.RefObject<HTMLDivElement>;
   onEditImage?: (imageUrl: string, originalPrompt: string) => void;
-  agentStatus?: { status: string; text: string } | null;
+  agentStatus?: { status: string; text: string; tool?: string; provider?: string } | null;
 }
 
 const ChatBody: React.FC<ChatBodyProps> = ({
@@ -36,7 +36,7 @@ const ChatBody: React.FC<ChatBodyProps> = ({
           
           {/* Real agent status - not fake */}
           {agentStatus && (
-            <AgentStatusIndicator status={agentStatus.status} text={agentStatus.text} />
+            <AgentStatusIndicator status={agentStatus.status} text={agentStatus.text} tool={agentStatus.tool} provider={agentStatus.provider} />
           )}
         </>
       )}
