@@ -1,14 +1,7 @@
 
 import React from 'react';
 import { X, FileText } from 'lucide-react';
-
-// The props now receive a single 'file' object
-interface UploadedFile {
-  id: string;
-  data: string;
-  name: string;
-  type: 'image' | 'pdf';
-}
+import type { UploadedFile } from './ChatFooterActions';
 
 interface ImagePreviewProps {
   file: UploadedFile;
@@ -18,13 +11,15 @@ interface ImagePreviewProps {
 const ImagePreview: React.FC<ImagePreviewProps> = ({ file, onRemove }) => {
   return (
     <div className="relative flex-shrink-0">
-      {file.type === 'pdf' ? (
+      {file.type === 'file' ? (
         <div className="h-16 w-32 px-2 flex items-center justify-center gap-2 bg-muted rounded-lg border border-border">
           <FileText className="h-6 w-6 text-destructive flex-shrink-0" />
-          <p className="text-xs font-medium text-foreground truncate">{file.name}</p>
+          <p className="text-xs font-medium text-foreground truncate">{file.file.name}</p>
         </div>
+      ) : file.preview ? (
+        <img src={file.preview} alt={file.file.name} className="h-16 w-auto object-cover rounded-lg border border-border" />
       ) : (
-        <img src={file.data} alt={file.name} className="h-16 w-auto object-cover rounded-lg border border-border" />
+        <div className="h-16 w-20 bg-muted rounded-lg border border-border" />
       )}
       <button 
         onClick={onRemove} 

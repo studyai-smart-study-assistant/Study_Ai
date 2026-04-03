@@ -12,7 +12,7 @@ export interface UploadedFile {
     id: string;
     file: File;
     preview?: string;
-    type: 'image' | 'pdf' | 'file';
+    type: 'image' | 'file';
 }
 
 interface ChatFooterActionsProps {
@@ -41,7 +41,7 @@ const ChatFooterActions: React.FC<ChatFooterActionsProps> = (props) => {
     
     const fileInputRef = useRef<HTMLInputElement>(null);
     const cameraInputRef = useRef<HTMLInputElement>(null);
-    const pdfInputRef = useRef<HTMLInputElement>(null);
+    const genericFileInputRef = useRef<HTMLInputElement>(null);
 
     const toggleMode = (mode: 'web' | 'image' | 'deep' | 'news' | 'reasoning') => {
         props.onWebSearchToggle?.(mode === 'web' ? !props.webSearchEnabled : false);
@@ -53,12 +53,13 @@ const ChatFooterActions: React.FC<ChatFooterActionsProps> = (props) => {
         props.textareaRef.current?.focus();
     };
 
-    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'pdf' | 'file') => {
+    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>, sourceType: 'camera' | 'image' | 'file') => {
         const files = event.target.files;
         if (!files) return;
 
         Array.from(files).forEach(file => {
-            if (type === 'image' && !file.type.startsWith('image/')) {
+            const isImage = file.type.startsWith('image/');
+            if ((sourceType === 'image' || sourceType === 'camera') && !isImage) {
                 toast.error(language === 'hi' ? 'कृपया केवल image file चुनें' : 'Please select an image file');
                 return;
             }
@@ -70,8 +71,8 @@ const ChatFooterActions: React.FC<ChatFooterActionsProps> = (props) => {
             const uploadedFile: UploadedFile = {
                 id: crypto.randomUUID(),
                 file,
-                type,
-                preview: type === 'image' ? URL.createObjectURL(file) : undefined,
+                type: isImage ? 'image' : 'file',
+                preview: isImage ? URL.createObjectURL(file) : undefined,
             };
             props.setUploadedFiles(prev => [...prev, uploadedFile]);
         });
@@ -84,8 +85,8 @@ const ChatFooterActions: React.FC<ChatFooterActionsProps> = (props) => {
     return (
         <>
             <input type="file" ref={fileInputRef} onChange={(e) => handleFileSelect(e, 'image')} accept="image/*" className="hidden" />
-            <input type="file" ref={cameraInputRef} onChange={(e) => handleFileSelect(e, 'image')} accept="image/*" capture="environment" className="hidden" />
-            <input type="file" ref={pdfInputRef} onChange={(e) => handleFileSelect(e, 'pdf')} accept=".pdf,.doc,.docx,.txt" className="hidden" />
+            <input type="file" ref={cameraInputRef} onChange={(e) => handleFileSelect(e, 'camera')} accept="image/*" capture className="hidden" />
+            <input type="file" ref={genericFileInputRef} onChange={(e) => handleFileSelect(e, 'file')} accept="*/*" className="hidden" />
 
             <div className="flex items-center gap-1">
                 {/* Attachment Plus Button */}
@@ -108,7 +109,7 @@ const ChatFooterActions: React.FC<ChatFooterActionsProps> = (props) => {
                                 <p className="text-sm font-semibold text-foreground">{language === 'hi' ? 'कैमरा' : 'Camera'}</p>
                             </div>
                         </button>
-                        <button onClick={() => { pdfInputRef.current?.click(); setIsAttachOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted">
+                        <button onClick={() => { genericFileInputRef.current?.click(); setIsAttachOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted">
                             <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-amber-500/10"><FileText className="h-4 w-4 text-amber-600" /></div>
                             <div>
                                 <p className="text-sm font-semibold text-foreground">{language === 'hi' ? 'फ़ाइल अपलोड' : 'Upload File'}</p>
