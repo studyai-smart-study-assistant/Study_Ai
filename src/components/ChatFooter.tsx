@@ -11,7 +11,7 @@ import ChatFooterActions, { UploadedFile } from './ChatFooterActions';
 import ImagePreview from './ImagePreview';
 
 interface ChatFooterProps {
-  onSend: (message: string, files?: UploadedFile[]) => void;
+  onSend: (message: string, files?: UploadedFile[], options?: { reasoningMode?: boolean }) => void;
   isLoading: boolean;
   isDisabled?: boolean;
   webSearchEnabled?: boolean;

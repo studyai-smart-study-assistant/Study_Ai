@@ -160,6 +160,13 @@ const ChatFooterActions: React.FC<ChatFooterActionsProps> = (props) => {
                                 <p className="text-xs text-muted-foreground">{props.isNewsMode ? 'ON' : 'Search latest news'}</p>
                             </div>
                         </button>
+                        <button onClick={() => toggleMode('reasoning')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted">
+                            <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${props.isReasoningMode ? 'bg-violet-100' : 'bg-muted'}`}><Calculator className={`h-4 w-4 ${props.isReasoningMode ? 'text-violet-600' : 'text-muted-foreground'}`} /></div>
+                            <div>
+                                <p className="text-sm font-semibold text-foreground">Maths & Reasoning</p>
+                                <p className="text-xs text-muted-foreground">{props.isReasoningMode ? 'ON' : 'Step-by-step problem solving'}</p>
+                            </div>
+                        </button>
                         <button onClick={() => { setIsLiveMode(true); setIsToolsOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted">
                             <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-destructive/10"><Radio className="h-4 w-4 text-destructive" /></div>
                             <div>
