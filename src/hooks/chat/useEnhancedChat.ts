@@ -60,7 +60,8 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
   };
 
   const enhancedSendMessage = useCallback(async (input: string, imageUrl?: string, skipAIResponse: boolean = false, reasoningMode: boolean = false) => {
-    if ((!input.trim() && !imageUrl) || isLoading || isResponding) return;
+    const normalizedImageUrl = typeof imageUrl === 'string' && imageUrl.trim() ? imageUrl : undefined;
+    if ((!input.trim() && !normalizedImageUrl) || isLoading || isResponding) return;
 
     if (!currentUser && messages.filter(m => m.role === 'user').length >= GUEST_MESSAGE_LIMIT) {
       setMessageLimitReached(true);
@@ -76,20 +77,20 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
       setStreamingContent('');
       setAgentStatus({ status: 'thinking', text: '🧠 सवाल समझ रहा हूँ...' });
 
-      const isBase64Image = imageUrl?.startsWith('data:image/');
-      const isBase64Pdf = imageUrl?.startsWith('data:application/pdf');
+      const isBase64Image = normalizedImageUrl?.startsWith('data:image/');
+      const isBase64Pdf = normalizedImageUrl?.startsWith('data:application/pdf');
       let messageContent = input.trim();
       let imageBase64: string | undefined;
 
-      if (isBase64Pdf && imageUrl) {
+      if (isBase64Pdf && normalizedImageUrl) {
         messageContent = `[PDF_ATTACHED] 📄 ${messageContent || 'इस PDF के बारे में बताओ'}`;
-        imageBase64 = imageUrl;
-      } else if (isBase64Image && imageUrl) {
+        imageBase64 = normalizedImageUrl;
+      } else if (isBase64Image && normalizedImageUrl) {
         const textPart = messageContent || 'इस image के बारे में बताओ';
-        messageContent = `[IMG_DATA:${imageUrl}]${textPart}`;
-        imageBase64 = imageUrl;
-      } else if (imageUrl) {
-        messageContent = messageContent ? `${messageContent}\n\n[Image: ${imageUrl}]` : `[Image: ${imageUrl}]`;
+        messageContent = `[IMG_DATA:${normalizedImageUrl}]${textPart}`;
+        imageBase64 = normalizedImageUrl;
+      } else if (normalizedImageUrl) {
+        messageContent = messageContent ? `${messageContent}\n\n[Image: ${normalizedImageUrl}]` : `[Image: ${normalizedImageUrl}]`;
       }
 
       const userMessage = await chatDB.addMessage(chatId, messageContent, 'user');
@@ -102,7 +103,7 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
       if (onChatUpdated) onChatUpdated();
 
       if (skipAIResponse) {
-        const botContent = imageUrl ? `[IMG_DATA:${imageUrl}]✨ Image बन गई!` : '✨ Image generated!';
+        const botContent = normalizedImageUrl ? `[IMG_DATA:${normalizedImageUrl}]✨ Image बन गई!` : '✨ Image generated!';
         await chatDB.addMessage(chatId, botContent, 'bot');
         await loadMessages();
         setAgentStatus(null);
