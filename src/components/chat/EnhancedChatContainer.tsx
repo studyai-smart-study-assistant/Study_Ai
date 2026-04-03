@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { chatDB } from '@/lib/db';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { UploadedFile } from '../ChatFooterActions';
 
 interface EnhancedChatContainerProps {
   chatId: string;
@@ -119,6 +120,20 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({ chatId, o
 
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom, streamingContent]);
 
+  const fileToDataUrl = useCallback((file: File) => {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  const getPriorityAttachment = useCallback((files?: UploadedFile[]) => {
+    if (!files?.length) return undefined;
+    return files.find(file => file.type === 'image' || file.type === 'pdf') || files[0];
+  }, []);
+
   return (
     <div className="flex flex-col h-full bg-gradient-to-b from-background to-muted/30 w-full overflow-hidden relative">
       <AlertHandler showLimitAlert={showLimitAlert} onClose={() => setShowLimitAlert(false)} />
@@ -148,8 +163,20 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({ chatId, o
       )}
       
       <ChatFooter 
-        onSend={(msg: string, files?: any, options?: { reasoningMode?: boolean }) => {
-          handleSend(msg, undefined, false, options?.reasoningMode || false);
+        onSend={async (msg: string, files?: UploadedFile[], options?: { reasoningMode?: boolean }) => {
+          let imageBase64: string | undefined;
+          const priorityFile = getPriorityAttachment(files);
+
+          if (priorityFile?.file) {
+            try {
+              imageBase64 = await fileToDataUrl(priorityFile.file);
+            } catch (error) {
+              console.error('Attachment conversion error:', error);
+              toast.error(language === 'hi' ? 'फ़ाइल पढ़ने में समस्या हुई' : 'Failed to process attachment');
+            }
+          }
+
+          handleSend(msg, imageBase64, false, options?.reasoningMode || false);
         }} 
         isLoading={isLoading} 
         isDisabled={isResponding || messageLimitReached}

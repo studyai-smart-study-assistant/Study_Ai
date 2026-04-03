@@ -18,7 +18,8 @@ export const useMessageHandler = ({
 }: UseMessageHandlerProps) => {
   const handleSend = useCallback(
     (input: string, imageUrl?: string, skipAIResponse?: boolean, reasoningMode?: boolean) => {
-      sendMessage(input, imageUrl, skipAIResponse, reasoningMode);
+      const normalizedImageUrl = typeof imageUrl === 'string' && imageUrl.trim() ? imageUrl : undefined;
+      sendMessage(input, normalizedImageUrl, skipAIResponse, reasoningMode);
       scrollToBottom();
     },
     [sendMessage, scrollToBottom]
