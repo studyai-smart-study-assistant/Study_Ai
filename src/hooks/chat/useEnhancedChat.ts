@@ -156,6 +156,12 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
               onToken: (text) => {
                 streamedText += text;
                 setStreamingContent(streamedText);
+                setAgentStatus((prev) => {
+                  if (prev?.status === 'tool_executing' || prev?.status === 'processing_results') {
+                    return prev;
+                  }
+                  return { status: 'responding', text: '💬 Responding...' };
+                });
                 // Update the temp bot message in real-time
                 setMessages(prev => {
                   const updated = [...prev];

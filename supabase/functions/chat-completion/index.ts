@@ -21,9 +21,17 @@ interface Provider {
 function getProviders(): Provider[] {
   const env = Deno.env.toObject();
   const p: Provider[] = [];
-  // Groq first (fastest)
-  const gk = [env.GROQ_API, env.GROQ_API_KEY_1, env.GROQ_API_KEY_2, env.GROQ_API_KEY_3].filter(Boolean);
-  gk.forEach((k, i) => p.push({ name: `groq_${i+1}`, url: GROQ_URL, apiKey: k, model: GROQ_MODEL, type: 'groq' }));
+  // Groq first (strict failover order)
+  const groqKeys = [
+    { key: env.GROQ_API_KEY_1, name: 'groq_key_1' },
+    { key: env.GROQ_API_KEY_2, name: 'groq_key_2' },
+    { key: env.GROQ_API_KEY_3, name: 'groq_key_3' },
+    // Backward-compatible fallback if legacy key is still configured
+    { key: env.GROQ_API, name: 'groq_legacy' },
+  ];
+  groqKeys
+    .filter((entry) => Boolean(entry.key))
+    .forEach((entry) => p.push({ name: entry.name, url: GROQ_URL, apiKey: entry.key!, model: GROQ_MODEL, type: 'groq' }));
   // Gemini
   for (const ek in env) if (ek.startsWith('GOOGLE_API_KEY')) p.push({ name: `gemini_${ek}`, url: GEMINI_URL, apiKey: env[ek], model: GEMINI_MODEL, type: 'gemini' });
   // Lovable
@@ -125,7 +133,7 @@ serve(async (req) => {
     // Process in background
     (async () => {
       try {
-        await write(sseEvent('status', { status: 'thinking', text: '🧠 सवाल समझ रहा हूँ...' }));
+        await write(sseEvent('status', { status: 'thinking', text: '🧠 Thinking...' }));
 
         // Try providers sequentially
         let providerResponse: Response | null = null;
@@ -133,7 +141,7 @@ serve(async (req) => {
 
         for (const provider of providers) {
           try {
-            await write(sseEvent('status', { status: 'connecting', text: `⚡ ${provider.type === 'groq' ? 'Ultra-fast' : provider.type} engine से connect...` }));
+            await write(sseEvent('status', { status: 'connecting', text: `⚡ Connecting ${provider.type === 'groq' ? 'Groq' : provider.type} engine...` }));
 
             const body: any = {
               model: provider.model, messages,
@@ -176,7 +184,7 @@ serve(async (req) => {
           return;
         }
 
-        await write(sseEvent('status', { status: 'generating', text: '✨ जवाब तैयार कर रहा हूँ...', provider: usedProvider }));
+        await write(sseEvent('status', { status: 'generating', text: '✨ Preparing response...', provider: usedProvider }));
 
         // Parse the provider's SSE stream and forward tokens + handle tool calls
         const reader = providerResponse.body.getReader();
@@ -311,7 +319,7 @@ serve(async (req) => {
     });
   } catch (e: unknown) {
     console.error('Fatal:', e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : 'Unknown error' }), {
+    return new Response(JSON.stringify({ error: 'Service temporarily unavailable' }), {
       status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   }
