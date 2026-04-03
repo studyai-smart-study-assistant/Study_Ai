@@ -43,11 +43,12 @@ const ChatFooterActions: React.FC<ChatFooterActionsProps> = (props) => {
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const pdfInputRef = useRef<HTMLInputElement>(null);
 
-    const toggleMode = (mode: 'web' | 'image' | 'deep' | 'news') => {
+    const toggleMode = (mode: 'web' | 'image' | 'deep' | 'news' | 'reasoning') => {
         props.onWebSearchToggle?.(mode === 'web' ? !props.webSearchEnabled : false);
         props.setIsImageMode(mode === 'image' ? !props.isImageMode : false);
         props.setIsDeepThinkingMode(mode === 'deep' ? !props.isDeepThinkingMode : false);
         props.setIsNewsMode(mode === 'news' ? !props.isNewsMode : false);
+        props.setIsReasoningMode(mode === 'reasoning' ? !props.isReasoningMode : false);
         setIsToolsOpen(false);
         props.textareaRef.current?.focus();
     };
