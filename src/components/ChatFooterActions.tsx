@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Plus, Upload, Camera, SlidersHorizontal, Globe, Sparkles, ImageIcon, Telescope, Newspaper, Radio, FileText } from "lucide-react";
+import { Plus, Upload, Camera, SlidersHorizontal, Globe, Sparkles, ImageIcon, Telescope, Newspaper, Radio, FileText, Calculator } from "lucide-react";
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import ImageGallery from '@/components/ImageGallery';
