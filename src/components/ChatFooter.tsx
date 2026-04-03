@@ -14,6 +14,7 @@ interface ChatFooterProps {
   onSend: (message: string, files?: UploadedFile[], options?: { reasoningMode?: boolean }) => void;
   isLoading: boolean;
   isDisabled?: boolean;
+  agentStatus?: { status: string; text: string } | null;
   webSearchEnabled?: boolean;
   onWebSearchToggle?: (enabled: boolean) => void;
   onDeepThinking: (topic: string) => Promise<void>;
@@ -183,6 +184,20 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
         )}
 
         <div className={`bg-card border border-border rounded-2xl shadow-lg transition-all duration-200 ${props.isDisabled ? 'opacity-60' : ''}`}>
+          {props.agentStatus && props.isDisabled && (
+            <div className="px-4 pt-3">
+              <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/40 px-3 py-1 text-xs text-muted-foreground transition-all duration-300">
+                <span className={`h-2 w-2 rounded-full ${props.agentStatus.status === 'responding' ? 'bg-cyan-500 animate-pulse' : 'bg-purple-500 animate-pulse'}`} />
+                <span>{props.agentStatus.status === 'responding' ? 'Responding...' : 'Thinking...'}</span>
+                <span className="flex items-center gap-1">
+                  <span className="h-1 w-1 rounded-full bg-current/60 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="h-1 w-1 rounded-full bg-current/60 animate-bounce" style={{ animationDelay: '120ms' }} />
+                  <span className="h-1 w-1 rounded-full bg-current/60 animate-bounce" style={{ animationDelay: '240ms' }} />
+                </span>
+              </div>
+            </div>
+          )}
+
           <div className="px-4 pt-3 pb-2 flex items-start">
             <Textarea
               ref={textareaRef}

@@ -12,6 +12,7 @@ const statusConfig: Record<string, { icon: React.ElementType; color: string; pul
   thinking: { icon: Brain, color: 'text-purple-500', pulse: true },
   connecting: { icon: Zap, color: 'text-amber-500', pulse: true },
   generating: { icon: Sparkles, color: 'text-cyan-500', pulse: false },
+  responding: { icon: Sparkles, color: 'text-cyan-500', pulse: true },
   tool_executing: { icon: Search, color: 'text-emerald-500', pulse: true },
   processing_results: { icon: Loader2, color: 'text-blue-500', pulse: false },
   done: { icon: CheckCircle, color: 'text-green-500', pulse: false },

@@ -180,6 +180,7 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({ chatId, o
         }} 
         isLoading={isLoading} 
         isDisabled={isResponding || messageLimitReached}
+        agentStatus={agentStatus}
         webSearchEnabled={webSearchEnabled}
         onWebSearchToggle={setWebSearchEnabled}
         onDeepThinking={handleDeepThinking}
