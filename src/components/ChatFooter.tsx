@@ -51,6 +51,7 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
     setIsImageMode(false);
     setDeepThinkingMode(false);
     setIsNewsMode(false);
+    setIsReasoningMode(false);
   }
 
   const handleSend = () => {
