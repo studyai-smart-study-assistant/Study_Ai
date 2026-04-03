@@ -70,8 +70,9 @@ const ChatFooterActions: React.FC<ChatFooterActionsProps> = (props) => {
     const openCameraPicker = async () => {
         // Prompt camera permission first for better Android/iOS UX.
         const stream = await requestCameraPermission('environment', language);
-        if (!stream) return;
-        stream.getTracks().forEach((track) => track.stop());
+        if (stream) {
+            stream.getTracks().forEach((track) => track.stop());
+        }
         cameraInputRef.current?.click();
         setIsAttachOpen(false);
     };
