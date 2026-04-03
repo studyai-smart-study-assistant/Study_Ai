@@ -124,7 +124,7 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
           async (query: string) => {
             setConnectionStatus('reconnecting');
             
-            const searchResult = await generateResponseWithSearch(query, chatHistory, chatId, 'google/gemini-3-flash-preview', webSearchEnabled, imageBase64);
+            const searchResult = await generateResponseWithSearch(query, chatHistory, chatId, 'google/gemini-3-flash-preview', webSearchEnabled, imageBase64, reasoningMode);
             setLastSources(searchResult.sources);
             
             // If agent generated an image, save to gallery
