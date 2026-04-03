@@ -68,6 +68,9 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
     }
 
     setInput('');
+    uploadedFiles.forEach((file) => {
+      if (file.preview) URL.revokeObjectURL(file.preview);
+    });
     setUploadedFiles([]);
     clearAllModes();
   };
@@ -174,14 +177,6 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
       <div className="absolute inset-0 bg-gradient-to-t from-background via-background/90 to-transparent pointer-events-none" />
       <div className="relative max-w-3xl mx-auto px-3 pb-3 pt-2">
         
-        {uploadedFiles.length > 0 && (
-            <div className="flex space-x-2 p-2 overflow-x-auto">
-                {uploadedFiles.map(file => (
-                    <ImagePreview key={(file as any).id || Math.random()} file={file as any} onRemove={() => setUploadedFiles(files => files.filter((f, i) => f !== file))} />
-                ))}
-            </div>
-        )}
-
         <div className={`bg-card border border-border rounded-2xl shadow-lg transition-all duration-200 ${props.isDisabled ? 'opacity-60' : ''}`}>
           <div className="px-4 pt-3 pb-2 flex items-start">
             <Textarea
@@ -196,6 +191,22 @@ const ChatFooter: React.FC<ChatFooterProps> = (props) => {
               rows={1}
             />
           </div>
+          {uploadedFiles.length > 0 && (
+            <div className="px-3 pb-2">
+              <div className="flex space-x-2 overflow-x-auto">
+                {uploadedFiles.map((file) => (
+                  <ImagePreview
+                    key={file.id}
+                    file={file}
+                    onRemove={() => {
+                      if (file.preview) URL.revokeObjectURL(file.preview);
+                      setUploadedFiles((files) => files.filter((f) => f.id !== file.id));
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between px-3 pb-2 pt-0">
             <ChatFooterActions 
