@@ -101,5 +101,5 @@ export async function sendPushNotificationFromClient(params: {
   message: string;
   scheduled_time?: string;
 }): Promise<void> {
-  await supabase.functions.invoke('send-push-notification', { body: params });
+  await supabase.functions.invoke('notification', { body: { action: 'send', ...params } });
 }

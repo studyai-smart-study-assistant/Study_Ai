@@ -90,8 +90,9 @@ const TaskNotificationButton = () => {
       if (taskError) throw taskError;
 
       const scheduleCount = recurrence === 'daily' ? 14 : 8;
-      const { error: pushError } = await supabase.functions.invoke('send-push-notification', {
+      const { error: pushError } = await supabase.functions.invoke('notification', {
         body: {
+          action: 'send',
           user_id: user.id,
           title: `📌 ${taskName.trim()}`,
           message: taskMessage.trim(),

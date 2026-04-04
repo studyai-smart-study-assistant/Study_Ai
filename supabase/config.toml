@@ -14,3 +14,15 @@ verify_jwt = false
 
 [functions.admin-users]
 verify_jwt = false
+
+[functions.notification]
+verify_jwt = false
+
+[functions.send-push-notification]
+verify_jwt = false
+
+[functions.onesignal-identity-sync]
+verify_jwt = false
+
+[functions.analyze-study-pattern]
+verify_jwt = false
