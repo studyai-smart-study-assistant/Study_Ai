@@ -39,11 +39,51 @@ const API_KEY = 'AIzaSyDl0I6IJ91FeA92ZpWfJf1hRGRkjgmntHM';
 const BASE_URL = 'https://www.googleapis.com/youtube/v3';
 
 export class YouTubeService {
+  private static readonly SEARCH_CACHE_KEY = 'studytube_search_cache_v1';
+  private static readonly MAX_CACHE_ENTRIES = 20;
+
+  private static normalizeQuery(query: string): string {
+    return query.trim().toLowerCase();
+  }
+
+  static getCachedSearch(query: string): YouTubeSearchResponse | null {
+    try {
+      const key = this.normalizeQuery(query);
+      if (!key) return null;
+      const raw = localStorage.getItem(this.SEARCH_CACHE_KEY);
+      if (!raw) return null;
+      const cache = JSON.parse(raw) as Record<string, YouTubeSearchResponse>;
+      return cache[key] || null;
+    } catch (error) {
+      console.error('Error reading search cache:', error);
+      return null;
+    }
+  }
+
+  static setCachedSearch(query: string, data: YouTubeSearchResponse): void {
+    try {
+      const key = this.normalizeQuery(query);
+      if (!key) return;
+      const raw = localStorage.getItem(this.SEARCH_CACHE_KEY);
+      const cache = raw ? (JSON.parse(raw) as Record<string, YouTubeSearchResponse>) : {};
+      cache[key] = data;
+
+      const orderedKeys = Object.keys(cache);
+      if (orderedKeys.length > this.MAX_CACHE_ENTRIES) {
+        delete cache[orderedKeys[0]];
+      }
+
+      localStorage.setItem(this.SEARCH_CACHE_KEY, JSON.stringify(cache));
+    } catch (error) {
+      console.error('Error writing search cache:', error);
+    }
+  }
   
   static async searchVideos(
     query: string, 
     maxResults: number = 20,
-    pageToken?: string
+    pageToken?: string,
+    signal?: AbortSignal
   ): Promise<YouTubeSearchResponse> {
     try {
       const params = new URLSearchParams({
@@ -60,7 +100,7 @@ export class YouTubeService {
         params.append('pageToken', pageToken);
       }
 
-      const response = await fetch(`${BASE_URL}/search?${params}`);
+      const response = await fetch(`${BASE_URL}/search?${params}`, { signal });
       
       if (!response.ok) {
         throw new Error(`YouTube API Error: ${response.status}`);
