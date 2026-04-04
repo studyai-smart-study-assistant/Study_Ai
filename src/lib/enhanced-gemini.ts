@@ -1,6 +1,4 @@
 import { toast } from "sonner";
-import { Message } from "./db";
-import { chatDB } from "./db";
 import { supabase } from "@/integrations/supabase/client";
 import { generateComprehensiveAITeacherPrompt, generateAdaptiveUpdatePrompt, AITeacherPromptConfig } from "./ai-teacher-prompt-generator";
 import { validateTopicsAgainstSyllabus } from "@/data/syllabus/syllabusDatabase";
@@ -16,9 +14,19 @@ export interface EnhancedGenerationOptions {
   promptConfig?: AITeacherPromptConfig;
   includeSyllabusValidation?: boolean;
   includeAdaptiveContent?: boolean;
-  userProgressData?: any;
-  performanceData?: any;
+  userProgressData?: Record<string, unknown>;
+  performanceData?: Record<string, unknown>;
   useAITeacherMode?: boolean;
+}
+
+type GenericRecord = Record<string, unknown>;
+
+interface ParsedTopic {
+  topicName: string;
+}
+
+interface ParsedChapter {
+  topics?: ParsedTopic[];
 }
 
 export async function generateEnhancedStudyPlan(
@@ -65,7 +73,7 @@ export async function generateEnhancedStudyPlan(
       toast.success("आपका स्मार्ट स्टडी प्लान तैयार है! चलिए जीत की तैयारी शुरू करते हैं।");
       return studyPlan;
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`❌ Build attempt failed:`, error);
       retryCount++;
       
@@ -101,65 +109,74 @@ async function parseAndValidateAITeacherResponse(responseText: string, examData:
   }
 }
 
-function convertAITeacherJSONToStudyPlan(aiData: any, examData: ExamPlanData): StudyPlan {
+function convertAITeacherJSONToStudyPlan(aiData: GenericRecord, examData: ExamPlanData): StudyPlan {
+  const planOverview = (aiData.plan_overview as GenericRecord | undefined) ?? {};
+  const examPreparationStrategy = (aiData.exam_preparation_strategy as GenericRecord | undefined) ?? {};
+  const weeklyMilestones = Array.isArray(aiData.weekly_milestones) ? aiData.weekly_milestones : [];
+
   return {
-    overview: aiData.plan_overview?.exam_strategy || `Specialized strategy for ${examData.examName}`,
-    totalDaysAvailable: aiData.plan_overview?.total_days_available || 30,
-    dailyStudyHours: aiData.plan_overview?.daily_study_hours || examData.dailyHours,
-    subjectPlans: convertSubjectPlans(aiData.subject_wise_strategy || {}),
-    dailyTasks: convertDailyTasks(aiData.daily_schedule || []),
-    weeklyGoals: convertWeeklyGoals(aiData.weekly_milestones || []),
-    revisionStrategy: aiData.exam_preparation_strategy?.last_week_plan || "Comprehensive Final Revision",
+    overview: (planOverview.exam_strategy as string | undefined) || `Specialized strategy for ${examData.examName}`,
+    totalDaysAvailable: (planOverview.total_days_available as number | undefined) || 30,
+    dailyStudyHours: (planOverview.daily_study_hours as number | undefined) || examData.dailyHours,
+    subjectPlans: convertSubjectPlans((aiData.subject_wise_strategy as GenericRecord | undefined) || {}),
+    dailyTasks: convertDailyTasks((aiData.daily_schedule as GenericRecord[] | undefined) || []),
+    weeklyGoals: convertWeeklyGoals(weeklyMilestones as GenericRecord[]),
+    revisionStrategy: (examPreparationStrategy.last_week_plan as string | undefined) || "Comprehensive Final Revision",
     examTips: extractExamTips(aiData, examData),
-    motivationalQuotes: aiData.daily_motivation_messages || ["आज की मेहनत कल की सफलता है!"],
-    progressMilestones: generateProgressMilestones(aiData.weekly_milestones || []),
+    motivationalQuotes: (aiData.daily_motivation_messages as string[] | undefined) || ["आज की मेहनत कल की सफलता है!"],
+    progressMilestones: generateProgressMilestones(weeklyMilestones as GenericRecord[]),
     personalizedAnalysis: aiData.personalized_analysis,
     adaptiveRecommendations: aiData.adaptive_recommendations
   };
 }
 
-function convertSubjectPlans(subjectStrategy: any): any[] {
-  return Object.entries(subjectStrategy).map(([subjectName, data]: [string, any]) => ({
+function convertSubjectPlans(subjectStrategy: GenericRecord): StudyPlan["subjectPlans"] {
+  return Object.entries(subjectStrategy).map(([subjectName, data]) => {
+    const subjectData = (data as GenericRecord | undefined) ?? {};
+    const chapterBreakdown = (subjectData.chapter_wise_breakdown as GenericRecord[] | undefined) ?? [];
+
+    return ({
     subjectName,
-    priorityLevel: data.priority_ranking <= 2 ? 'high' : 'medium',
-    totalHours: data.total_hours_allocated || 20,
-    chapters: (data.chapter_wise_breakdown || []).map((chapter: any) => ({
-      chapterNumber: chapter.chapter_number || 1,
-      chapterName: chapter.chapter_name,
-      importance: chapter.importance || 'medium',
-      estimatedHours: chapter.estimated_hours || 2,
-      topics: (chapter.topics || []).map((topicName: string) => ({
+    priorityLevel: (subjectData.priority_ranking as number | undefined) <= 2 ? 'high' : 'medium',
+    totalHours: (subjectData.total_hours_allocated as number | undefined) || 20,
+    chapters: chapterBreakdown.map((chapter) => ({
+      chapterNumber: (chapter.chapter_number as number | undefined) || 1,
+      chapterName: (chapter.chapter_name as string | undefined) || "Untitled Chapter",
+      importance: (chapter.importance as string | undefined) || 'medium',
+      estimatedHours: (chapter.estimated_hours as number | undefined) || 2,
+      topics: ((chapter.topics as string[] | undefined) || []).map((topicName: string) => ({
         topicName,
-        importance: chapter.importance || 'medium',
+        importance: (chapter.importance as string | undefined) || 'medium',
         estimatedMinutes: 45,
-        keyPoints: [chapter.study_approach || "Concept focus"],
-        studyTips: chapter.common_mistakes_to_avoid || [],
+        keyPoints: [(chapter.study_approach as string | undefined) || "Concept focus"],
+        studyTips: (chapter.common_mistakes_to_avoid as string[] | undefined) || [],
         practiceQuestions: [`Practice problems for ${topicName}`]
       }))
     }))
-  }));
+  })});
 }
 
-function convertDailyTasks(dailySchedule: any[]): any[] {
-  const tasks: any[] = [];
+function convertDailyTasks(dailySchedule: GenericRecord[]): StudyPlan["dailyTasks"] {
+  const tasks: StudyPlan["dailyTasks"] = [];
   dailySchedule.forEach((day, index) => {
     const sessions = ['morning_session', 'afternoon_session', 'evening_session', 'revision_session'];
     sessions.forEach(sessionKey => {
-      const session = day[sessionKey];
-      if (session && session.subject) {
+      const session = day[sessionKey] as GenericRecord | undefined;
+      const subject = session?.subject as string | undefined;
+      if (session && subject) {
         tasks.push({
           id: `task_${index}_${sessionKey}_${Date.now()}`,
-          date: day.date || new Date(Date.now() + index * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          subject: session.subject,
-          chapter: session.chapter || "Core Study",
-          topics: session.topics || [session.subject],
-          duration: session.duration_minutes || 60,
+          date: (day.date as string | undefined) || new Date(Date.now() + index * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          subject,
+          chapter: (session.chapter as string | undefined) || "Core Study",
+          topics: (session.topics as string[] | undefined) || [subject],
+          duration: (session.duration_minutes as number | undefined) || 60,
           type: sessionKey.includes('revision') ? 'revision' : 'study',
           priority: 'important',
-          description: session.study_method || "Smart learning session",
+          description: (session.study_method as string | undefined) || "Smart learning session",
           completed: false,
-          studyMethod: session.study_method,
-          whyThisTiming: session.why_this_timing
+          studyMethod: session.study_method as string | undefined,
+          whyThisTiming: session.why_this_timing as string | undefined
         });
       }
     });
@@ -167,21 +184,22 @@ function convertDailyTasks(dailySchedule: any[]): any[] {
   return tasks;
 }
 
-function convertWeeklyGoals(weeklyMilestones: any[]): any[] {
+function convertWeeklyGoals(weeklyMilestones: GenericRecord[]): StudyPlan["weeklyGoals"] {
   return weeklyMilestones.map((m, i) => ({
-    week: m.week || i + 1,
-    subjects: m.chapters_to_complete || [],
-    chapters: m.chapters_to_complete || [],
+    week: (m.week as number | undefined) || i + 1,
+    subjects: (m.chapters_to_complete as string[] | undefined) || [],
+    chapters: (m.chapters_to_complete as string[] | undefined) || [],
     targetCompletion: 100,
-    focus: m.goals?.join(', ') || "Weekly Milestone",
+    focus: ((m.goals as string[] | undefined)?.join(', ')) || "Weekly Milestone",
     assessmentMethod: "Self Assessment / Quiz",
     successMetrics: "Completion of topics"
   }));
 }
 
-function extractExamTips(aiData: any, examData: ExamPlanData): string[] {
+function extractExamTips(aiData: GenericRecord, examData: ExamPlanData): string[] {
   const tips: string[] = [];
   const name = examData.examName.toLowerCase();
+  const examPreparationStrategy = (aiData.exam_preparation_strategy as GenericRecord | undefined) ?? {};
   
   // BSEB specific intelligence
   if (name.includes('bihar') || name.includes('bseb')) {
@@ -189,18 +207,18 @@ function extractExamTips(aiData: any, examData: ExamPlanData): string[] {
     tips.push("💡 Use 15 min extra time specifically for reading long-form questions.");
   }
   
-  if (aiData.exam_preparation_strategy?.exam_day_preparation) {
-    tips.push(`📋 ${aiData.exam_preparation_strategy.exam_day_preparation}`);
+  if (examPreparationStrategy.exam_day_preparation) {
+    tips.push(`📋 ${examPreparationStrategy.exam_day_preparation as string}`);
   }
   
   return tips.length > 0 ? tips : ["Stay consistent", "Revise daily", "Make short notes"];
 }
 
-function generateProgressMilestones(milestones: any[]): any[] {
+function generateProgressMilestones(milestones: GenericRecord[]): StudyPlan["progressMilestones"] {
   return milestones.map((m, i) => ({
     week: i + 1,
-    target: m.goals?.[0] || `Week ${i + 1} targets reached`,
-    description: m.success_metrics || "Progress tracking active",
+    target: (m.goals as string[] | undefined)?.[0] || `Week ${i + 1} targets reached`,
+    description: (m.success_metrics as string | undefined) || "Progress tracking active",
     completed: false
   }));
 }
@@ -223,7 +241,7 @@ async function convertNaturalLanguageToStructured(text: string, examData: ExamPl
 async function validateAndEnhanceWithSyllabus(plan: StudyPlan, examData: ExamPlanData): Promise<void> {
   try {
     for (const sub of plan.subjectPlans) {
-      const topics = sub.chapters.flatMap((c: any) => c.topics.map((t: any) => t.topicName));
+      const topics = sub.chapters.flatMap((c: ParsedChapter) => (c.topics || []).map((t: ParsedTopic) => t.topicName));
       validateTopicsAgainstSyllabus(examData.examName, sub.subjectName, topics);
     }
   } catch (e) {
@@ -234,8 +252,8 @@ async function validateAndEnhanceWithSyllabus(plan: StudyPlan, examData: ExamPla
 export async function generateAdaptiveStudyPlanUpdate(
   originalPlan: StudyPlan,
   examData: ExamPlanData,
-  completedTasks: any[],
-  pendingTasks: any[],
+  completedTasks: GenericRecord[],
+  pendingTasks: GenericRecord[],
   userFeedback: string,
   difficulties: string[]
 ): Promise<StudyPlan> {

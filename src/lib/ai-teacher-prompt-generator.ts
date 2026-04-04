@@ -2,6 +2,39 @@
 import { ExamPlanData } from '@/components/study/examplanner/types';
 import { getSyllabusForExam, getSubjectSyllabus } from '@/data/syllabus/syllabusDatabase';
 
+type ProgressSnapshot = Record<string, unknown>;
+
+interface SyllabusChapter {
+  chapterNumber: number;
+  chapterName: string;
+  topics: string[];
+  importance: string;
+  weightage: number;
+  difficulty: string;
+}
+
+interface SyllabusSubject {
+  totalMarks: number;
+  chapters: SyllabusChapter[];
+}
+
+interface ExamSyllabus {
+  examName: string;
+  examPattern: {
+    totalMarks: number;
+    duration: string;
+    markingScheme: string;
+  };
+  subjects: Record<string, SyllabusSubject | undefined>;
+}
+
+interface PlanTaskSummary {
+  subject: string;
+  topic: string;
+  completionTime?: string;
+  plannedDate?: string;
+}
+
 export interface AITeacherPromptConfig {
   includeFullSyllabus: boolean;
   includeLearningStyleAdaptation: boolean;
@@ -21,12 +54,12 @@ export const generateComprehensiveAITeacherPrompt = (
     responseFormat: 'structured_json',
     personalizedMotivation: true
   },
-  userProgress?: any
+  userProgress?: ProgressSnapshot
 ): string => {
 
   // Get comprehensive syllabus data
   const examSyllabus = getSyllabusForExam(examData.examName);
-  const syllabusData = examData.subjects.map(subject => 
+  void examData.subjects.map(subject => 
     getSubjectSyllabus(examData.examName, subject)
   ).filter(Boolean);
 
@@ -60,7 +93,7 @@ ${config.includeFullSyllabus && examSyllabus ? generateSyllabusSection(examSylla
 
 ${config.includeLearningStyleAdaptation ? generateLearningStyleSection(examData) : ''}
 
-${config.includeDetailedStudyMethods ? generateStudyMethodsSection(examData) : ''}
+${config.includeDetailedStudyMethods ? generateStudyMethodsSection() : ''}
 
 ${userProgress ? generateProgressAdaptationSection(userProgress) : ''}
 
@@ -98,7 +131,7 @@ ${userProgress ? generateProgressAdaptationSection(userProgress) : ''}
 
 ${config.responseFormat === 'structured_json' ? generateJSONFormatInstructions() : ''}
 
-${config.personalizedMotivation ? generateMotivationalSection(examData) : ''}
+${config.personalizedMotivation ? generateMotivationalSection() : ''}
 
 **महत्वपूर्ण निर्देश:**
 - सभी सुझाए गए topics और chapters **वास्तव में ${examData.examName} के official syllabus में मौजूद** होने चाहिए
@@ -113,7 +146,7 @@ ${config.personalizedMotivation ? generateMotivationalSection(examData) : ''}
   return basePrompt.trim();
 };
 
-const generateSyllabusSection = (examSyllabus: any, subjects: string[]): string => {
+const generateSyllabusSection = (examSyllabus: ExamSyllabus, subjects: string[]): string => {
   let syllabusSection = `\n**${examSyllabus.examName} का आधिकारिक पाठ्यक्रम (Official Syllabus):**\n`;
   syllabusSection += `परीक्षा पैटर्न: ${examSyllabus.examPattern.totalMarks} अंक, ${examSyllabus.examPattern.duration}, ${examSyllabus.examPattern.markingScheme}\n\n`;
 
@@ -121,7 +154,7 @@ const generateSyllabusSection = (examSyllabus: any, subjects: string[]): string 
     const subjectData = examSyllabus.subjects[subject];
     if (subjectData) {
       syllabusSection += `**${subject} (${subjectData.totalMarks} अंक):**\n`;
-      subjectData.chapters.forEach((chapter: any) => {
+      subjectData.chapters.forEach((chapter) => {
         syllabusSection += `- अध्याय ${chapter.chapterNumber}: ${chapter.chapterName}\n`;
         syllabusSection += `  विषय: ${chapter.topics.join(', ')}\n`;
         syllabusSection += `  महत्व: ${chapter.importance}, वेटेज: ${chapter.weightage}%, कठिनाई: ${chapter.difficulty}\n`;
@@ -145,7 +178,7 @@ const generateLearningStyleSection = (examData: ExamPlanData): string => {
   return `\n**Learning Style Adaptation (${examData.learningStyle}):**\n${styleGuide[examData.learningStyle] || 'Multimodal approach अपनाएं'}\n`;
 };
 
-const generateStudyMethodsSection = (examData: ExamPlanData): string => {
+const generateStudyMethodsSection = (): string => {
   return `\n**विस्तृत अध्ययन विधियाँ शामिल करें:**\n
 - प्रत्येक topic के लिए step-by-step reading sequence
 - Note-making techniques specific to subject
@@ -155,7 +188,7 @@ const generateStudyMethodsSection = (examData: ExamPlanData): string => {
 - Self-testing strategies\n`;
 };
 
-const generateProgressAdaptationSection = (userProgress: any): string => {
+const generateProgressAdaptationSection = (userProgress: ProgressSnapshot): string => {
   return `\n**प्रगति के आधार पर अनुकूलन:**\n
 पिछली प्रगति: ${JSON.stringify(userProgress, null, 2)}
 इस data के आधार पर plan को adjust करें और areas of improvement suggest करें।\n`;
@@ -246,7 +279,7 @@ const generateJSONFormatInstructions = (): string => {
 }\n`;
 };
 
-const generateMotivationalSection = (examData: ExamPlanData): string => {
+const generateMotivationalSection = (): string => {
   return `\n**व्यक्तिगत प्रेरणा और मानसिक तैयारी:**\n
 - Daily motivational quotes और success mantras
 - Progress celebration milestones  
@@ -258,12 +291,13 @@ const generateMotivationalSection = (examData: ExamPlanData): string => {
 
 // Function to generate adaptive prompts for progress updates
 export const generateAdaptiveUpdatePrompt = (
-  originalPlan: any,
-  completedTasks: any[],
-  pendingTasks: any[],
+  originalPlan: unknown,
+  completedTasks: PlanTaskSummary[],
+  pendingTasks: PlanTaskSummary[],
   userFeedback: string,
   difficultiesEncountered: string[]
 ): string => {
+  void originalPlan;
   return `
 मैं अपनी study plan को update करना चाहता हूँ। यहाँ मेरी current progress है:
 
