@@ -1,12 +1,6 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, MessageSquare } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { useLanguage } from '@/contexts/LanguageContext';
-import ClassicTeacherForm from './ClassicTeacherForm';
-import QuickActions from './QuickActions';
 import InteractiveTeacherSetup from '../interactive-teacher/InteractiveTeacherSetup';
 import InteractiveTeacherHistory from '../interactive-teacher/InteractiveTeacherHistory';
 import { useInteractiveTeacher } from '@/hooks/interactive-teacher';
@@ -30,11 +24,18 @@ const TeacherModeTabs: React.FC<TeacherModeTabsProps> = ({
   learningMode,
   setLearningMode
 }) => {
-  const { language } = useLanguage();
-  const navigate = useNavigate();
-  const { startLesson, isProcessing } = useInteractiveTeacher();
+  void onSendMessage;
+  void useVoiceResponse;
+  void setUseVoiceResponse;
+  void selectedDifficulty;
+  void setSelectedDifficulty;
+  void learningMode;
+  void setLearningMode;
 
-  const handleStartInteractiveLesson = (prompt: string, context: any) => {
+  const navigate = useNavigate();
+  const { isProcessing } = useInteractiveTeacher();
+
+  const handleStartInteractiveLesson = (prompt: string, context: unknown) => {
     // Generate session ID and navigate to new page
     const sessionId = `session_${Date.now()}`;
     

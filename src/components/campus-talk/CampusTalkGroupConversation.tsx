@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Send, Image as ImageIcon, Bot, Settings, Paperclip } from 'lucide-react';
+import { ArrowLeft, Send, Bot, Settings, Paperclip } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -21,6 +21,22 @@ interface GMsg {
   message_type: string;
   created_at: string;
   is_ai_response: boolean;
+}
+
+interface GroupMemberRow {
+  user_uid: string;
+  role: string;
+}
+
+interface UserProfileRow {
+  firebase_uid: string;
+  display_name?: string;
+}
+
+interface GeminiChatResponse {
+  generatedText?: string;
+  response?: string;
+  text?: string;
 }
 
 const avatarColors = [
@@ -62,19 +78,20 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
   useEffect(() => {
     const loadNames = async () => {
       const { data: members } = await supabase
-        .from('campus_group_members' as any)
+        .from('campus_group_members')
         .select('user_uid, role')
         .eq('group_id', group.id);
       if (!members) return;
-      const uids = (members as any[]).map((m: any) => m.user_uid);
-      const myMember = (members as any[]).find((m: any) => m.user_uid === currentUser?.uid);
-      if (myMember) setMyRole((myMember as any).role);
+      const typedMembers = members as GroupMemberRow[];
+      const uids = typedMembers.map((m) => m.user_uid);
+      const myMember = typedMembers.find((m) => m.user_uid === currentUser?.uid);
+      if (myMember) setMyRole(myMember.role);
       const { data: profiles } = await supabase
         .from('campus_users')
         .select('firebase_uid, display_name')
         .in('firebase_uid', uids);
       const map: Record<string, string> = {};
-      (profiles || []).forEach(p => { map[p.firebase_uid] = p.display_name || p.firebase_uid.slice(0, 6); });
+      (profiles as UserProfileRow[] | null || []).forEach((p) => { map[p.firebase_uid] = p.display_name || p.firebase_uid.slice(0, 6); });
       map['study-ai'] = '🤖 Study AI';
       setNamesMap(map);
     };
@@ -84,11 +101,11 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
   useEffect(() => {
     const load = async () => {
       const { data, error } = await supabase
-        .from('campus_group_messages' as any)
+        .from('campus_group_messages')
         .select('*')
         .eq('group_id', group.id)
         .order('created_at', { ascending: true });
-      if (!error && data) setMessages(data as any as GMsg[]);
+      if (!error && data) setMessages(data as GMsg[]);
       setLoading(false);
     };
     load();
@@ -103,7 +120,7 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
         event: 'INSERT', schema: 'public', table: 'campus_group_messages',
         filter: `group_id=eq.${group.id}`,
       }, (payload) => {
-        const newMsg = payload.new as any as GMsg;
+        const newMsg = payload.new as GMsg;
         setMessages(prev => prev.some(m => m.id === newMsg.id) ? prev : [...prev, newMsg]);
       })
       .subscribe();
@@ -125,12 +142,12 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
     if (!query || !currentUser) return;
     setAiLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('gemini-chat', {
+      const { data, error } = await supabase.functions.invoke<GeminiChatResponse>('gemini-chat', {
         body: { prompt: `You are Study AI in a group chat. Answer concisely in Hinglish. Question: ${query}`, history: [] }
       });
       if (error) throw error;
       const aiResponse = data?.generatedText || data?.response || data?.text || 'जवाब नहीं मिला।';
-      await supabase.from('campus_group_messages' as any).insert({
+      await supabase.from('campus_group_messages').insert({
         group_id: group.id, sender_uid: 'study-ai',
         text_content: `🤖 Study AI: ${aiResponse}`, message_type: 'text', is_ai_response: true,
       });
@@ -146,7 +163,7 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
     const aiQuery = isAiQuery(content);
     setSending(true);
     try {
-      await supabase.from('campus_group_messages' as any).insert({
+      await supabase.from('campus_group_messages').insert({
         group_id: group.id, sender_uid: currentUser.uid,
         text_content: content, message_type: 'text',
       });
@@ -170,7 +187,7 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
       const isImage = file.type.startsWith('image/');
       const msgType = isAudio ? 'audio' : isImage ? 'image' : 'file';
       
-      await supabase.from('campus_group_messages' as any).insert({
+      await supabase.from('campus_group_messages').insert({
         group_id: group.id, sender_uid: currentUser.uid,
         image_url: publicUrl, message_type: msgType,
         text_content: isAudio ? `🎵 Audio (${file.name})` : null,
