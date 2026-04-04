@@ -14,6 +14,8 @@ import { toast } from 'sonner';
 import PageMeta from '@/components/seo/PageMeta';
 import HighPerformanceAd from '@/components/ads/HighPerformanceAd';
 
+const MAX_RETRIES = 2;
+const INITIAL_BACKOFF_MS = 600;
 
 const StudyTube: React.FC = () => {
   const { language } = useLanguage();
@@ -22,6 +24,9 @@ const StudyTube: React.FC = () => {
   const navigate = useNavigate();
 
   const isMounted = useRef(true);
+  const activeSearchIdRef = useRef(0);
+  const activeSearchControllerRef = useRef<AbortController | null>(null);
+
   const [videos, setVideos] = useState<YouTubeVideo[]>([]);
   const [currentVideo, setCurrentVideo] = useState<YouTubeVideo | null>(null);
   const [relatedVideos, setRelatedVideos] = useState<YouTubeVideo[]>([]);
@@ -29,11 +34,14 @@ const StudyTube: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchHistory, setShowSearchHistory] = useState(false);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>();
-  const [searchError, setSearchError] = useState(false);
-
+  const [showConnectionMessage, setShowConnectionMessage] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   useEffect(() => {
-    return () => { isMounted.current = false; };
+    return () => {
+      isMounted.current = false;
+      activeSearchControllerRef.current?.abort();
+    };
   }, []);
 
   // Restore from mini player if returning to this page
@@ -41,31 +49,95 @@ const StudyTube: React.FC = () => {
     if (miniState.video && !miniState.isMinimized && !currentVideo) {
       setCurrentVideo(miniState.video);
     }
-  }, [miniState.video, miniState.isMinimized]);
+  }, [miniState.video, miniState.isMinimized, currentVideo]);
 
-  const handleSearch = async (query: string, retryCount = 0) => {
-    if (!query.trim()) return;
+  const handleSearch = async (query: string) => {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return;
+
+    const requestId = Date.now();
+    activeSearchIdRef.current = requestId;
+
+    activeSearchControllerRef.current?.abort();
+    const controller = new AbortController();
+    activeSearchControllerRef.current = controller;
+
+    setIsLoading(true);
+    setIsRetrying(false);
+    setShowConnectionMessage(false);
+    setShowSearchHistory(false);
+    setCurrentVideo(null);
+    setSearchQuery(trimmedQuery);
+
+    const cachedResult = YouTubeService.getCachedSearch(trimmedQuery);
+    const hasCachedOrPrevious = !!cachedResult || videos.length > 0;
+
+    if (cachedResult) {
+      setVideos(cachedResult.items || []);
+      setNextPageToken(cachedResult.nextPageToken);
+    }
+
     try {
-      setIsLoading(true);
-      setSearchError(false);
-      setShowSearchHistory(false);
-      setCurrentVideo(null);
-      if (retryCount === 0) setVideos([]);
-      const result = await YouTubeService.searchVideos(query, 20);
-      if (!isMounted.current) return;
-      setVideos(result.items || []);
-      setNextPageToken(result.nextPageToken);
-      setSearchQuery(query);
-    } catch {
-      if (retryCount < 2) {
-        // Auto retry after a short delay
-        setTimeout(() => handleSearch(query, retryCount + 1), 1000);
-        return;
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+        if (controller.signal.aborted || activeSearchIdRef.current !== requestId) return;
+
+        if (attempt > 0) {
+          setIsRetrying(true);
+        }
+
+        try {
+          const result = await YouTubeService.searchVideos(trimmedQuery, 20, undefined, controller.signal);
+
+          if (!isMounted.current || controller.signal.aborted || activeSearchIdRef.current !== requestId) return;
+
+          setVideos(result.items || []);
+          setNextPageToken(result.nextPageToken);
+          setShowConnectionMessage(false);
+          setIsRetrying(false);
+          YouTubeService.setCachedSearch(trimmedQuery, result);
+          return;
+        } catch (error) {
+          if (controller.signal.aborted || activeSearchIdRef.current !== requestId) return;
+
+          console.error('StudyTube search attempt failed:', error);
+
+          if (attempt < MAX_RETRIES) {
+            const waitMs = INITIAL_BACKOFF_MS * Math.pow(2, attempt);
+            await new Promise<void>((resolve) => {
+              const timer = setTimeout(resolve, waitMs);
+              controller.signal.addEventListener(
+                'abort',
+                () => {
+                  clearTimeout(timer);
+                  resolve();
+                },
+                { once: true }
+              );
+            });
+            continue;
+          }
+        }
       }
-      setSearchError(true);
-      toast.error(isHindi ? 'खोज में त्रुटि हुई, फिर से कोशिश करें' : 'Search failed, please retry');
+
+      if (!isMounted.current || controller.signal.aborted || activeSearchIdRef.current !== requestId) return;
+
+      setShowConnectionMessage(true);
+      setIsRetrying(false);
+      setNextPageToken(undefined);
+
+      if (hasCachedOrPrevious) {
+        toast.message(
+          isHindi
+            ? 'कनेक्शन कमजोर है, हाल के नतीजे दिखाए जा रहे हैं'
+            : 'Connection weak, showing recent results'
+        );
+      } else {
+        toast.error(isHindi ? 'अभी वीडियो लोड नहीं हो पा रहे हैं, फिर कोशिश करें' : 'Unable to load videos right now. Please retry.');
+      }
     } finally {
-      if (isMounted.current) setIsLoading(false);
+      if (isMounted.current && activeSearchIdRef.current === requestId && !controller.signal.aborted) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -78,7 +150,9 @@ const StudyTube: React.FC = () => {
     try {
       const related = await YouTubeService.getRelatedVideos(video.id.videoId);
       if (isMounted.current) setRelatedVideos(related || []);
-    } catch {}
+    } catch {
+      // Keep UX smooth; related list is optional.
+    }
   };
 
   const handleBackToSearch = () => {
@@ -91,14 +165,17 @@ const StudyTube: React.FC = () => {
 
   const loadMoreVideos = async () => {
     if (!nextPageToken || !searchQuery || isLoading) return;
+
     try {
       setIsLoading(true);
       const result = await YouTubeService.searchVideos(searchQuery, 20, nextPageToken);
       if (!isMounted.current) return;
-      setVideos(prev => [...prev, ...(result.items || [])]);
+
+      setVideos((prev) => [...prev, ...(result.items || [])]);
       setNextPageToken(result.nextPageToken);
-    } catch {
-      toast.error(isHindi ? 'और वीडियो लोड करने में त्रुटि' : 'Failed to load more');
+    } catch (error) {
+      console.error('Error loading more videos:', error);
+      toast.error(isHindi ? 'और वीडियो लोड करने में समस्या हुई' : 'Could not load more videos now');
     } finally {
       if (isMounted.current) setIsLoading(false);
     }
@@ -106,14 +183,13 @@ const StudyTube: React.FC = () => {
 
   return (
     <PageLayout>
-      <PageMeta 
+      <PageMeta
         title="StudyTube - Educational Videos for Students | StudyAI"
         description="Watch curated educational videos for exam preparation. Study with video lectures in Hindi and English. Perfect for Bihar Board, competitive exams."
         canonicalPath="/study-tube"
         keywords="Educational Videos, Study Videos, Video Lectures, Online Learning, Bihar Board Videos"
       />
       <div className="min-h-screen bg-background">
-        {/* Sticky header */}
         <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
           <div className="max-w-7xl mx-auto px-3 py-2.5 flex items-center gap-2.5">
             {currentVideo ? (
@@ -143,14 +219,16 @@ const StudyTube: React.FC = () => {
           {showSearchHistory && (
             <div className="px-3 pb-3">
               <SearchHistory
-                onSearchSelect={(term) => { handleSearch(term); setShowSearchHistory(false); }}
+                onSearchSelect={(term) => {
+                  handleSearch(term);
+                  setShowSearchHistory(false);
+                }}
                 onClose={() => setShowSearchHistory(false)}
               />
             </div>
           )}
         </div>
 
-        {/* Content */}
         <div className="max-w-7xl mx-auto px-3 py-3">
           {currentVideo ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -158,11 +236,7 @@ const StudyTube: React.FC = () => {
                 <VideoPlayer video={currentVideo} />
               </div>
               <div className="lg:col-span-1">
-                <RelatedVideos
-                  videos={relatedVideos}
-                  onVideoSelect={handleVideoSelect}
-                  isLoading={false}
-                />
+                <RelatedVideos videos={relatedVideos} onVideoSelect={handleVideoSelect} isLoading={false} />
               </div>
             </div>
           ) : (
@@ -173,7 +247,8 @@ const StudyTube: React.FC = () => {
                 isLoading={isLoading}
                 onLoadMore={loadMoreVideos}
                 hasMore={!!nextPageToken}
-                searchError={searchError}
+                showConnectionMessage={showConnectionMessage}
+                isRetrying={isRetrying}
                 onRetry={() => searchQuery && handleSearch(searchQuery)}
               />
               <HighPerformanceAd />

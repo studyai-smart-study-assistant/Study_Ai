@@ -11,7 +11,8 @@ interface VideoGridProps {
   isLoading: boolean;
   onLoadMore: () => void;
   hasMore: boolean;
-  searchError?: boolean;
+  showConnectionMessage?: boolean;
+  isRetrying?: boolean;
   onRetry?: () => void;
 }
 
@@ -21,7 +22,8 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   isLoading,
   onLoadMore,
   hasMore,
-  searchError,
+  showConnectionMessage,
+  isRetrying,
   onRetry
 }) => {
   const { language } = useLanguage();
@@ -40,42 +42,65 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
     );
   }
 
-  if (searchError && videos.length === 0) {
-    return (
-      <div className="text-center py-16">
-        <span className="text-4xl mb-4 block">⚠️</span>
-        <h3 className="text-lg font-semibold text-foreground mb-2">
-          {isHindi ? 'वीडियो लोड नहीं हो पाए' : 'Failed to load videos'}
-        </h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          {isHindi ? 'नेटवर्क में समस्या हो सकती है, फिर से कोशिश करें' : 'Network issue, please try again'}
-        </p>
-        {onRetry && (
-          <Button onClick={onRetry} variant="outline" size="sm" className="rounded-full gap-2">
-            <RefreshCw className="h-4 w-4" />
-            {isHindi ? 'फिर से कोशिश करें' : 'Retry'}
-          </Button>
-        )}
-      </div>
-    );
-  }
-
   if (videos.length === 0 && !isLoading) {
     return (
-      <div className="text-center py-16">
-        <span className="text-4xl mb-4 block">🔍</span>
-        <h3 className="text-lg font-semibold text-foreground mb-1">
-          {isHindi ? 'वीडियो खोजें' : 'Search for videos'}
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          {isHindi ? 'ऊपर सर्च बार में कुछ टाइप करें' : 'Type something in the search bar above'}
-        </p>
+      <div className="text-center py-16 space-y-4">
+        {showConnectionMessage ? (
+          <div className="max-w-md mx-auto rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-left">
+            <p className="text-sm text-amber-900">
+              {isHindi
+                ? 'कनेक्शन कमजोर है, हाल के नतीजे दिखाने की कोशिश हो रही है'
+                : 'Connection weak, showing recent results'}
+            </p>
+            {isRetrying && (
+              <p className="text-xs text-amber-800 mt-1">
+                {isHindi ? 'दोबारा कोशिश की जा रही है…' : 'Retrying...'}
+              </p>
+            )}
+            {onRetry && (
+              <Button onClick={onRetry} variant="outline" size="sm" className="rounded-full gap-2 mt-3">
+                <RefreshCw className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
+                {isHindi ? 'फिर कोशिश करें' : 'Try again'}
+              </Button>
+            )}
+          </div>
+        ) : (
+          <>
+            <span className="text-4xl mb-4 block">🔍</span>
+            <h3 className="text-lg font-semibold text-foreground mb-1">
+              {isHindi ? 'वीडियो खोजें' : 'Search for videos'}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {isHindi ? 'ऊपर सर्च बार में कुछ टाइप करें' : 'Type something in the search bar above'}
+            </p>
+          </>
+        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {showConnectionMessage && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm text-amber-900">
+              {isHindi ? 'कनेक्शन कमजोर है, हाल के नतीजे दिखाए जा रहे हैं' : 'Connection weak, showing recent results'}
+            </p>
+            {isRetrying && (
+              <p className="text-xs text-amber-800 mt-1">
+                {isHindi ? 'दोबारा कनेक्ट करने की कोशिश…' : 'Retrying...'}
+              </p>
+            )}
+          </div>
+          {onRetry && (
+            <Button onClick={onRetry} variant="outline" size="sm" className="rounded-full gap-2 shrink-0">
+              <RefreshCw className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
+              {isHindi ? 'फिर कोशिश करें' : 'Retry'}
+            </Button>
+          )}
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
         {videos.map((video, index) => (
           <VideoCard
