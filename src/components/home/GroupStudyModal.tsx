@@ -150,7 +150,7 @@ export default function GroupStudyModal({ open, onOpenChange, userId }: GroupStu
       return;
     }
 
-    setActiveGroup(data as StudyGroup);
+    setActiveGroup(data as unknown as StudyGroup);
     setJoinCode('');
     toast.success('Group created successfully!');
   };
@@ -176,7 +176,7 @@ export default function GroupStudyModal({ open, onOpenChange, userId }: GroupStu
       return;
     }
 
-    setActiveGroup(data as StudyGroup);
+    setActiveGroup(data as unknown as StudyGroup);
     setJoinCode('');
     toast.success('Joined group successfully!');
   };

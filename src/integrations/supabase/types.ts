@@ -447,6 +447,41 @@ export type Database = {
         }
         Relationships: []
       }
+      group_chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          group_id: string
+          id: string
+          role: string
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          group_id: string
+          id?: string
+          role?: string
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          group_id?: string
+          id?: string
+          role?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_chat_messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "study_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_members: {
         Row: {
           group_id: string
@@ -472,6 +507,41 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_participants: {
+        Row: {
+          group_id: string
+          id: string
+          is_active: boolean
+          joined_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          is_active?: boolean
+          joined_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          is_active?: boolean
+          joined_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_participants_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "study_groups"
             referencedColumns: ["id"]
           },
         ]
@@ -633,73 +703,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
-      }
-      group_participants: {
-        Row: {
-          group_id: string
-          id: string
-          is_active: boolean
-          joined_at: string
-          role: string
-          user_id: string
-        }
-        Insert: {
-          group_id: string
-          id?: string
-          is_active?: boolean
-          joined_at?: string
-          role?: string
-          user_id: string
-        }
-        Update: {
-          group_id?: string
-          id?: string
-          is_active?: boolean
-          joined_at?: string
-          role?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "group_participants_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "study_groups"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      study_group_messages: {
-        Row: {
-          content: string
-          created_at: string
-          group_id: string
-          id: string
-          sender_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          group_id: string
-          id?: string
-          sender_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          group_id?: string
-          id?: string
-          sender_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "study_group_messages_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "study_groups"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       study_groups: {
         Row: {
@@ -902,24 +905,17 @@ export type Database = {
       }
     }
     Functions: {
-      create_study_group: {
-        Args: { p_group_name?: string; p_group_system_prompt?: string }
-        Returns: {
-          created_at: string
-          creator_id: string
-          group_system_prompt: string
-          id: string
-          invite_code: string
-          name: string
-          updated_at: string
-        }
-      }
       create_group_and_add_admin: {
         Args: { admin_id: string; group_name: string }
         Returns: {
           id: string
         }[]
       }
+      create_study_group: {
+        Args: { p_group_name: string; p_group_system_prompt?: string }
+        Returns: Json
+      }
+      generate_invite_code: { Args: never; Returns: string }
       get_user_chats_and_groups: {
         Args: { p_user_id: string }
         Returns: {
@@ -940,15 +936,7 @@ export type Database = {
       }
       join_study_group_by_code: {
         Args: { p_invite_code: string }
-        Returns: {
-          created_at: string
-          creator_id: string
-          group_system_prompt: string
-          id: string
-          invite_code: string
-          name: string
-          updated_at: string
-        }
+        Returns: Json
       }
     }
     Enums: {

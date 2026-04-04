@@ -59,7 +59,7 @@ serve(async (req) => {
       response_format: { type: "json_object" },
     });
 
-    const decisionString = chatCompletion.choices[0].message.content;
+    const decisionString = chatCompletion.choices[0].message.content ?? '{}';
     const decision = JSON.parse(decisionString);
 
     if (decision.should_save && decision.importance_score >= 5) {
@@ -97,8 +97,8 @@ serve(async (req) => {
       });
     }
 
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: unknown) {
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
