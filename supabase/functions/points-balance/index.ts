@@ -46,19 +46,17 @@ Deno.serve(async (req) => {
     }
 
     if (!userPoints) {
-      const { data: newPoints, error: insertError } = await withRetry(() =>
-        supabaseAdmin
-          .from('user_points')
-          .insert({
-            user_id: userId,
-            balance: 1000,
-            level: 1,
-            xp: 0,
-            credits: 100,
-          })
-          .select()
-          .single()
-      );
+      const { data: newPoints, error: insertError } = await supabaseAdmin
+        .from('user_points')
+        .insert({
+          user_id: userId,
+          balance: 1000,
+          level: 1,
+          xp: 0,
+          credits: 100,
+        })
+        .select()
+        .single();
 
       if (insertError) {
         console.error('Error creating user points:', insertError);
