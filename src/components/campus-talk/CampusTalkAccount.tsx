@@ -66,8 +66,9 @@ const CampusTalkAccount: React.FC = () => {
 
       toast.success('नाम अपडेट हो गया! ✅');
       setEditing(false);
-    } catch (err: any) {
-      toast.error('नाम अपडेट करने में समस्या: ' + (err?.message || ''));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      toast.error('नाम अपडेट करने में समस्या: ' + message);
     } finally {
       setSaving(false);
     }

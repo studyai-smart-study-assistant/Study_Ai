@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,14 +10,8 @@ import {
   Clock, 
   BookOpen, 
   Target,
-  TrendingUp,
   Calendar,
-  Star,
-  ChevronRight,
-  Plus,
-  Award,
   Brain,
-  AlertCircle,
   Timer
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -54,6 +48,31 @@ interface WeeklyProgress {
   quizCompleted: boolean;
 }
 
+interface StoredStudyPlan {
+  id: string;
+  dailySchedule?: DetailedTask[];
+  progress?: number;
+}
+
+const parseStoredArray = <T,>(value: string | null): T[] => {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const parseStoredPlan = (value: string | null): StoredStudyPlan | null => {
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as StoredStudyPlan;
+  } catch {
+    return null;
+  }
+};
+
 const DetailedTaskTracker: React.FC = () => {
   const [currentWeekTasks, setCurrentWeekTasks] = useState<DetailedTask[]>([]);
   const [weeklyProgress, setWeeklyProgress] = useState<WeeklyProgress | null>(null);
@@ -62,28 +81,28 @@ const DetailedTaskTracker: React.FC = () => {
   const [isUpdatingProgress, setIsUpdatingProgress] = useState(false);
   const { currentUser } = useAuth();
 
+  const loadCurrentWeekData = useCallback(() => {
+    const activePlan = localStorage.getItem(`active_study_plan_${currentUser?.uid}`);
+    if (!activePlan) return;
+
+    const plan = parseStoredPlan(activePlan);
+    if (!plan?.dailySchedule) return;
+    
+    // Load current week tasks
+    const weekTasks = plan.dailySchedule.filter((task) => {
+      const taskDate = new Date(task.date);
+      return isInCurrentWeek(taskDate);
+    });
+    
+    setCurrentWeekTasks(weekTasks);
+    calculateWeeklyProgress(weekTasks);
+  }, [currentUser]);
+
   useEffect(() => {
     if (currentUser) {
       loadCurrentWeekData();
     }
-  }, [currentUser]);
-
-  const loadCurrentWeekData = () => {
-    const activePlan = localStorage.getItem(`active_study_plan_${currentUser?.uid}`);
-    if (!activePlan) return;
-
-    const plan = JSON.parse(activePlan);
-    const currentWeek = getCurrentWeek();
-    
-    // Load current week tasks
-    const weekTasks = plan.dailySchedule?.filter((task: any) => {
-      const taskDate = new Date(task.date);
-      return isInCurrentWeek(taskDate);
-    }) || [];
-    
-    setCurrentWeekTasks(weekTasks);
-    calculateWeeklyProgress(weekTasks);
-  };
+  }, [currentUser, loadCurrentWeekData]);
 
   const getCurrentWeek = () => {
     const today = new Date();
@@ -140,8 +159,10 @@ const DetailedTaskTracker: React.FC = () => {
       const activePlan = localStorage.getItem(`active_study_plan_${currentUser.uid}`);
       if (!activePlan) return;
 
-      const plan = JSON.parse(activePlan);
-      const updatedSchedule = plan.dailySchedule.map((task: any) => {
+      const plan = parseStoredPlan(activePlan);
+      if (!plan?.dailySchedule) return;
+
+      const updatedSchedule = plan.dailySchedule.map((task) => {
         if (task.id === taskId) {
           return {
             ...task,
@@ -158,7 +179,7 @@ const DetailedTaskTracker: React.FC = () => {
       const updatedPlan = {
         ...plan,
         dailySchedule: updatedSchedule,
-        progress: (updatedSchedule.filter((task: any) => task.completed).length / updatedSchedule.length) * 100
+        progress: (updatedSchedule.filter((task) => task.completed).length / updatedSchedule.length) * 100
       };
 
       localStorage.setItem(`active_study_plan_${currentUser.uid}`, JSON.stringify(updatedPlan));
@@ -166,15 +187,15 @@ const DetailedTaskTracker: React.FC = () => {
       // Update in main plans array
       const allPlans = localStorage.getItem(`advanced_exam_plans_${currentUser.uid}`);
       if (allPlans) {
-        const plans = JSON.parse(allPlans);
-        const updatedPlans = plans.map((p: any) => 
+        const plans = parseStoredArray<StoredStudyPlan>(allPlans);
+        const updatedPlans = plans.map((p) => 
           p.id === plan.id ? updatedPlan : p
         );
         localStorage.setItem(`advanced_exam_plans_${currentUser.uid}`, JSON.stringify(updatedPlans));
       }
 
       // Award points - Fixed to use 'task' instead of 'detailed_task'
-      const task = plan.dailySchedule.find((t: any) => t.id === taskId);
+      const task = plan.dailySchedule.find((t) => t.id === taskId);
       if (task && progress >= 100) {
         await EnhancedPointsSystem.awardTaskCompletionPoints(
           currentUser.uid,

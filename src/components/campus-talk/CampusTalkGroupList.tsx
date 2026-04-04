@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Plus, Users } from 'lucide-react';
@@ -35,6 +35,16 @@ interface Props {
   searchQuery: string;
 }
 
+interface GroupMembershipRow {
+  group_id: string;
+  role: string;
+}
+
+interface LastMessageRow {
+  text_content: string | null;
+  created_at: string | null;
+}
+
 const CampusTalkGroupList: React.FC<Props> = ({ searchQuery }) => {
   const { currentUser } = useAuth();
   const [groups, setGroups] = useState<CampusGroup[]>([]);
@@ -42,12 +52,12 @@ const CampusTalkGroupList: React.FC<Props> = ({ searchQuery }) => {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<CampusGroup | null>(null);
 
-  const loadGroups = async () => {
+  const loadGroups = useCallback(async () => {
     if (!currentUser) return;
     try {
       // Get groups where user is member
       const { data: memberships } = await supabase
-        .from('campus_group_members' as any)
+        .from('campus_group_members')
         .select('group_id, role')
         .eq('user_uid', currentUser.uid);
 
@@ -57,37 +67,39 @@ const CampusTalkGroupList: React.FC<Props> = ({ searchQuery }) => {
         return;
       }
 
-      const groupIds = (memberships as any[]).map((m: any) => m.group_id);
+      const typedMemberships = memberships as GroupMembershipRow[];
+      const groupIds = typedMemberships.map((m) => m.group_id);
       const roleMap: Record<string, string> = {};
-      (memberships as any[]).forEach((m: any) => { roleMap[m.group_id] = m.role; });
+      typedMemberships.forEach((m) => { roleMap[m.group_id] = m.role; });
 
       const { data: groupsData } = await supabase
-        .from('campus_groups' as any)
+        .from('campus_groups')
         .select('*')
         .in('id', groupIds);
 
       if (!groupsData) { setGroups([]); setLoading(false); return; }
 
       const enriched = await Promise.all(
-        (groupsData as any[]).map(async (g: any) => {
+        groupsData.map(async (g) => {
           const { count } = await supabase
-            .from('campus_group_members' as any)
+            .from('campus_group_members')
             .select('*', { count: 'exact', head: true })
             .eq('group_id', g.id);
 
           const { data: lastMsg } = await supabase
-            .from('campus_group_messages' as any)
+            .from('campus_group_messages')
             .select('text_content, message_type, created_at')
             .eq('group_id', g.id)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
+          const typedLastMsg = lastMsg as LastMessageRow | null;
 
           return {
             ...g,
             member_count: count || 0,
-            last_message: (lastMsg as any)?.text_content || 'No messages yet',
-            last_message_time: (lastMsg as any)?.created_at,
+            last_message: typedLastMsg?.text_content || 'No messages yet',
+            last_message_time: typedLastMsg?.created_at,
             my_role: roleMap[g.id] || 'member',
           };
         })
@@ -99,27 +111,29 @@ const CampusTalkGroupList: React.FC<Props> = ({ searchQuery }) => {
         return tb - ta;
       });
 
-      setGroups(enriched);
+      setGroups(enriched as CampusGroup[]);
     } catch (err) {
       console.error('Error loading groups:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser]);
 
   useEffect(() => {
-    if (currentUser) loadGroups();
-  }, [currentUser]);
+    if (currentUser) {
+      void loadGroups();
+    }
+  }, [currentUser, loadGroups]);
 
   useEffect(() => {
     if (!currentUser) return;
     const channel = supabase
       .channel('campus-group-updates')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'campus_group_messages' }, () => loadGroups())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'campus_group_members' }, () => loadGroups())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'campus_group_messages' }, () => { void loadGroups(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'campus_group_members' }, () => { void loadGroups(); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [currentUser]);
+  }, [currentUser, loadGroups]);
 
   const filtered = groups.filter(g =>
     !searchQuery || g.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -138,7 +152,7 @@ const CampusTalkGroupList: React.FC<Props> = ({ searchQuery }) => {
       <div className="fixed inset-0 z-[60] bg-background">
         <CampusTalkGroupConversation
           group={selectedGroup}
-          onBack={() => { setSelectedGroup(null); loadGroups(); }}
+          onBack={() => { setSelectedGroup(null); void loadGroups(); }}
         />
       </div>
     );
@@ -149,7 +163,7 @@ const CampusTalkGroupList: React.FC<Props> = ({ searchQuery }) => {
       <div className="fixed inset-0 z-[60] bg-background">
         <CampusTalkCreateGroup
           onBack={() => setShowCreate(false)}
-          onCreated={(group) => { setShowCreate(false); setSelectedGroup(group); loadGroups(); }}
+          onCreated={(group) => { setShowCreate(false); setSelectedGroup(group); void loadGroups(); }}
         />
       </div>
     );

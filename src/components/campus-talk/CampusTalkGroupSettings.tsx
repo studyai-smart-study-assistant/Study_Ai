@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Camera, UserPlus, UserMinus, Shield, ShieldCheck, Crown, Lock, Unlock, Pencil, Check, LogOut } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { ArrowLeft, Camera, UserPlus, UserMinus, Shield, ShieldCheck, Crown, Lock, Pencil, LogOut } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -12,6 +12,17 @@ import type { CampusGroup } from './CampusTalkGroupList';
 interface Member {
   user_uid: string;
   role: string;
+  display_name?: string;
+  avatar_url?: string | null;
+}
+
+interface CampusMemberRow {
+  user_uid: string;
+  role: string;
+}
+
+interface CampusUserRow {
+  firebase_uid: string;
   display_name?: string;
   avatar_url?: string | null;
 }
@@ -41,33 +52,30 @@ const CampusTalkGroupSettings: React.FC<Props> = ({ group, myRole, onBack, onGro
   const [onlyAdminsSend, setOnlyAdminsSend] = useState(group.only_admins_send);
   const [onlyAdminsAdd, setOnlyAdminsAdd] = useState(group.only_admins_add_members);
   const [showAddMember, setShowAddMember] = useState(false);
-  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<CampusUserRow[]>([]);
   const [addSearch, setAddSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const isOwnerOrAdmin = myRole === 'owner' || myRole === 'admin';
 
-  useEffect(() => {
-    loadMembers();
-  }, [group.id]);
-
-  const loadMembers = async () => {
+  const loadMembers = useCallback(async () => {
     const { data: memberData } = await supabase
-      .from('campus_group_members' as any)
+      .from('campus_group_members')
       .select('user_uid, role')
       .eq('group_id', group.id);
 
     if (!memberData) return;
 
-    const uids = (memberData as any[]).map((m: any) => m.user_uid);
+    const typedMemberData = memberData as CampusMemberRow[];
+    const uids = typedMemberData.map((m) => m.user_uid);
     const { data: profiles } = await supabase
       .from('campus_users')
       .select('firebase_uid, display_name, avatar_url')
       .in('firebase_uid', uids);
 
-    const enriched = (memberData as any[]).map((m: any) => {
-      const p = (profiles || []).find(x => x.firebase_uid === m.user_uid);
+    const enriched = typedMemberData.map((m): Member => {
+      const p = (profiles as CampusUserRow[] | null)?.find((x) => x.firebase_uid === m.user_uid);
       return {
         ...m,
         display_name: p?.display_name || m.user_uid.slice(0, 8),
@@ -82,14 +90,18 @@ const CampusTalkGroupSettings: React.FC<Props> = ({ group, myRole, onBack, onGro
     });
 
     setMembers(enriched);
-  };
+  }, [group.id]);
+
+  useEffect(() => {
+    void loadMembers();
+  }, [loadMembers]);
 
   const handleUpdateGroup = async () => {
     if (!isOwnerOrAdmin) return;
     setSaving(true);
     try {
       await supabase
-        .from('campus_groups' as any)
+        .from('campus_groups')
         .update({
           name: groupName.trim(),
           description: groupDesc.trim() || null,
@@ -102,8 +114,9 @@ const CampusTalkGroupSettings: React.FC<Props> = ({ group, myRole, onBack, onGro
       toast.success('Group अपडेट हो गया ✅');
       setEditingName(false);
       onGroupUpdated();
-    } catch (err: any) {
-      toast.error('Update error: ' + (err?.message || ''));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      toast.error('Update error: ' + message);
     } finally {
       setSaving(false);
     }
@@ -116,35 +129,38 @@ const CampusTalkGroupSettings: React.FC<Props> = ({ group, myRole, onBack, onGro
       const path = `group-avatars/${group.id}/${Date.now()}.${file.name.split('.').pop()}`;
       await supabase.storage.from('chat_media').upload(path, file);
       const { data: { publicUrl } } = supabase.storage.from('chat_media').getPublicUrl(path);
-      await supabase.from('campus_groups' as any).update({ avatar_url: publicUrl }).eq('id', group.id);
+      await supabase.from('campus_groups').update({ avatar_url: publicUrl }).eq('id', group.id);
       toast.success('Group photo अपडेट हुआ!');
-    } catch { toast.error('Photo upload error'); }
+    } catch (err: unknown) {
+      console.error('Photo upload error', err);
+      toast.error('Photo upload error');
+    }
   };
 
   const handleMakeAdmin = async (uid: string) => {
     if (!isOwnerOrAdmin) return;
-    await supabase.from('campus_group_members' as any).update({ role: 'admin' }).eq('group_id', group.id).eq('user_uid', uid);
+    await supabase.from('campus_group_members').update({ role: 'admin' }).eq('group_id', group.id).eq('user_uid', uid);
     toast.success('Admin बना दिया!');
     loadMembers();
   };
 
   const handleRemoveAdmin = async (uid: string) => {
     if (myRole !== 'owner') return;
-    await supabase.from('campus_group_members' as any).update({ role: 'member' }).eq('group_id', group.id).eq('user_uid', uid);
+    await supabase.from('campus_group_members').update({ role: 'member' }).eq('group_id', group.id).eq('user_uid', uid);
     toast.success('Admin हटा दिया');
     loadMembers();
   };
 
   const handleRemoveMember = async (uid: string) => {
     if (!isOwnerOrAdmin) return;
-    await supabase.from('campus_group_members' as any).delete().eq('group_id', group.id).eq('user_uid', uid);
+    await supabase.from('campus_group_members').delete().eq('group_id', group.id).eq('user_uid', uid);
     toast.success('Member हटा दिया');
     loadMembers();
   };
 
   const handleLeaveGroup = async () => {
     if (!currentUser) return;
-    await supabase.from('campus_group_members' as any).delete().eq('group_id', group.id).eq('user_uid', currentUser.uid);
+    await supabase.from('campus_group_members').delete().eq('group_id', group.id).eq('user_uid', currentUser.uid);
     toast.success('Group छोड़ दिया');
     onBack();
   };
@@ -160,7 +176,7 @@ const CampusTalkGroupSettings: React.FC<Props> = ({ group, myRole, onBack, onGro
 
   const handleAddMember = async (uid: string) => {
     try {
-      await supabase.from('campus_group_members' as any).insert({
+      await supabase.from('campus_group_members').insert({
         group_id: group.id,
         user_uid: uid,
         role: 'member',
@@ -168,7 +184,10 @@ const CampusTalkGroupSettings: React.FC<Props> = ({ group, myRole, onBack, onGro
       toast.success('Member जोड़ दिया!');
       setShowAddMember(false);
       loadMembers();
-    } catch { toast.error('Error adding member'); }
+    } catch (err: unknown) {
+      console.error('Error adding member', err);
+      toast.error('Error adding member');
+    }
   };
 
   const canAddMembers = !group.only_admins_add_members || isOwnerOrAdmin;

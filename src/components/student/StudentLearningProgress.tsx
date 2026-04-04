@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, Target, BarChart, Clock, Award, Trophy } from 'lucide-react';
+import { BookOpen, Target, BarChart, Clock, Trophy } from 'lucide-react';
 import { 
   PieChart, 
   Pie, 
@@ -17,7 +17,7 @@ import {
 } from 'recharts';
 
 interface StudentLearningProgressProps {
-  currentUser: any;
+  currentUser: { uid: string } | null;
 }
 
 interface SubjectProgress {
@@ -35,6 +35,45 @@ interface WeeklyActivity {
   studyTime: number;
   quizzes: number;
 }
+
+interface PointsHistoryItem {
+  timestamp?: string;
+  type?: string;
+  points?: number;
+  description?: string;
+}
+
+interface ChatMessageItem {
+  sender?: string;
+  content?: string;
+}
+
+interface ChatHistoryItem {
+  messages?: ChatMessageItem[];
+}
+
+interface StudySessionItem {
+  duration?: number;
+  date?: string;
+  timestamp?: string;
+}
+
+interface QuizResultItem {
+  subject?: string;
+  topic?: string;
+  totalQuestions?: number;
+  correctAnswers?: number;
+}
+
+const parseStoredArray = <T,>(value: string | null): T[] => {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+};
 
 const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ currentUser }) => {
   const [loading, setLoading] = useState(true);
@@ -61,12 +100,6 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
     'अन्य विषय': ['other', 'अन्य', 'general', 'सामान्य']
   };
   
-  useEffect(() => {
-    if (currentUser) {
-      loadRealProgressData();
-    }
-  }, [currentUser]);
-
   const analyzeMessageContent = (message: string): string => {
     const lowerMessage = message.toLowerCase();
     
@@ -79,7 +112,7 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
     return 'अन्य विषय';
   };
 
-  const loadRealProgressData = async () => {
+  const loadRealProgressData = useCallback(async () => {
     if (!currentUser) return;
     
     setLoading(true);
@@ -87,10 +120,10 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
       console.log('Loading real student progress data...');
       
       // Get all user data from localStorage
-      const pointsHistory = JSON.parse(localStorage.getItem(`${currentUser.uid}_points_history`) || '[]');
-      const chatHistory = JSON.parse(localStorage.getItem(`teacher_chats_${currentUser.uid}`) || '[]');
-      const studySessions = JSON.parse(localStorage.getItem(`${currentUser.uid}_study_sessions`) || '[]');
-      const quizResults = JSON.parse(localStorage.getItem(`${currentUser.uid}_quiz_results`) || '[]');
+      const pointsHistory = parseStoredArray<PointsHistoryItem>(localStorage.getItem(`${currentUser.uid}_points_history`));
+      const chatHistory = parseStoredArray<ChatHistoryItem>(localStorage.getItem(`teacher_chats_${currentUser.uid}`));
+      const studySessions = parseStoredArray<StudySessionItem>(localStorage.getItem(`${currentUser.uid}_study_sessions`));
+      const quizResults = parseStoredArray<QuizResultItem>(localStorage.getItem(`${currentUser.uid}_quiz_results`));
       
       // Calculate subject-wise progress
       const subjectStats = calculateSubjectProgress(pointsHistory, chatHistory, quizResults);
@@ -99,12 +132,12 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
       const weeklyStats = calculateWeeklyActivity(pointsHistory, studySessions);
       
       // Calculate total study time
-      const totalTime = studySessions.reduce((total: number, session: any) => {
+      const totalTime = studySessions.reduce((total: number, session) => {
         return total + (session.duration || 0);
       }, 0);
       
       // Count real achievements
-      const realAchievements = pointsHistory.filter((item: any) => 
+      const realAchievements = pointsHistory.filter((item) => 
         ['achievement', 'quiz', 'streak', 'goal_completed'].includes(item.type)
       ).length;
       
@@ -128,9 +161,19 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser, calculateSubjectProgress, calculateWeeklyActivity]);
 
-  const calculateSubjectProgress = (pointsHistory: any[], chatHistory: any[], quizResults: any[]) => {
+  useEffect(() => {
+    if (currentUser) {
+      void loadRealProgressData();
+    }
+  }, [currentUser, loadRealProgressData]);
+
+  const calculateSubjectProgress = (
+    pointsHistory: PointsHistoryItem[],
+    chatHistory: ChatHistoryItem[],
+    quizResults: QuizResultItem[],
+  ) => {
     const subjectData: { [key: string]: SubjectProgress } = {};
     
     // Initialize subjects
@@ -146,15 +189,15 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
     });
     
     // Analyze chat messages for subject engagement
-    chatHistory.forEach((chat: any) => {
+    chatHistory.forEach((chat) => {
       if (chat.messages) {
-        chat.messages.forEach((message: any) => {
+        chat.messages.forEach((message) => {
           if (message.sender === 'user') {
-            const subject = analyzeMessageContent(message.content);
+            const subject = analyzeMessageContent(message.content || '');
             subjectData[subject].totalQuestions += 1;
             
             // Simple heuristic: if user asks detailed questions, consider it engagement
-            if (message.content.length > 50) {
+            if ((message.content || '').length > 50) {
               subjectData[subject].correctAnswers += 1;
             }
           }
@@ -163,7 +206,7 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
     });
     
     // Analyze quiz results
-    quizResults.forEach((quiz: any) => {
+    quizResults.forEach((quiz) => {
       const subject = quiz.subject || analyzeMessageContent(quiz.topic || '');
       if (subjectData[subject]) {
         subjectData[subject].totalQuestions += quiz.totalQuestions || 0;
@@ -172,7 +215,7 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
     });
     
     // Analyze points history for subject-specific activities
-    pointsHistory.forEach((item: any) => {
+    pointsHistory.forEach((item) => {
       if (item.description) {
         const subject = analyzeMessageContent(item.description);
         subjectData[subject].studyTime += item.points || 0;
@@ -190,7 +233,7 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
       }));
   };
 
-  const calculateWeeklyActivity = (pointsHistory: any[], studySessions: any[]) => {
+  const calculateWeeklyActivity = (pointsHistory: PointsHistoryItem[], studySessions: StudySessionItem[]) => {
     const days = ['रवि', 'सोम', 'मंगल', 'बुध', 'गुरु', 'शुक्र', 'शनि'];
     const weeklyData: { [key: string]: WeeklyActivity } = {};
     
@@ -203,7 +246,7 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
     const weekStart = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
     
     // Aggregate points from last 7 days
-    pointsHistory.forEach((item: any) => {
+    pointsHistory.forEach((item) => {
       const itemDate = new Date(item.timestamp);
       if (itemDate >= weekStart) {
         const dayIndex = itemDate.getDay();
@@ -217,7 +260,7 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
     });
     
     // Aggregate study time from last 7 days
-    studySessions.forEach((session: any) => {
+    studySessions.forEach((session) => {
       const sessionDate = new Date(session.date || session.timestamp);
       if (sessionDate >= weekStart) {
         const dayIndex = sessionDate.getDay();
