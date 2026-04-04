@@ -560,7 +560,7 @@ const Index = () => {
           open={isGroupStudyOpen}
           onOpenChange={setIsGroupStudyOpen}
           userId={currentUser?.uid}
-          onOpenGroup={(groupId) => navigate(`/group-study/${groupId}`)}
+          onOpenGroup={(groupId) => navigate(`/group-chat/${groupId}`)}
         />
         <SignupPromptDialog 
           open={showSignupPrompt}

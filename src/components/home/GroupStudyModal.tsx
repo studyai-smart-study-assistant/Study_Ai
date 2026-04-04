@@ -56,6 +56,7 @@ export default function GroupStudyModal({ open, onOpenChange, userId, onOpenGrou
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [recentGroups, setRecentGroups] = useState<RecentGroupItem[]>([]);
+  const [memberProfiles, setMemberProfiles] = useState<Record<string, string>>({});
 
   const memberCount = members.length;
   const canInviteMore = memberCount < 50;
@@ -177,7 +178,25 @@ export default function GroupStudyModal({ open, onOpenChange, userId, onOpenGrou
       return;
     }
 
-    setMembers((data || []) as GroupMember[]);
+    const memberRows = (data || []) as GroupMember[];
+    setMembers(memberRows);
+
+    const memberIds = memberRows.map((m) => m.user_id);
+    if (!memberIds.length) {
+      setMemberProfiles({});
+      return;
+    }
+
+    const { data: profileRows } = await supabase
+      .from('profiles')
+      .select('user_id, display_name, email')
+      .in('user_id', memberIds);
+
+    const map: Record<string, string> = {};
+    for (const profile of profileRows || []) {
+      map[profile.user_id] = profile.display_name || profile.email || `User ${profile.user_id.slice(0, 6)}`;
+    }
+    setMemberProfiles(map);
   };
 
   const handleCreateGroup = async () => {
@@ -422,7 +441,7 @@ export default function GroupStudyModal({ open, onOpenChange, userId, onOpenGrou
                 <div className="space-y-2">
                   {members.map((member) => (
                     <div key={member.user_id} className="flex items-center justify-between p-2 rounded bg-background">
-                      <span className="text-sm truncate">{member.user_id}</span>
+                      <span className="text-sm truncate">{memberProfiles[member.user_id] || 'Student'}</span>
                       <Badge variant="outline" className="capitalize">{member.role}</Badge>
                     </div>
                   ))}

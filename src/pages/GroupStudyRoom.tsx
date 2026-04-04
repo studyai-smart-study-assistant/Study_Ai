@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, ImagePlus, Paperclip, Send, Sparkles, Users } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ArrowLeft, ImagePlus, Info, Paperclip, Send, Sparkles, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { streamChatCompletion } from '@/lib/streamingChat';
 
@@ -42,6 +43,7 @@ export default function GroupStudyRoom() {
   const [reasoningMode, setReasoningMode] = useState(false);
   const [selectedImageBase64, setSelectedImageBase64] = useState<string | undefined>();
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [showGroupInfo, setShowGroupInfo] = useState(false);
 
   const isLoggedIn = !!currentUser?.uid;
   const currentUid = currentUser?.uid;
@@ -278,6 +280,34 @@ export default function GroupStudyRoom() {
 
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="gap-1"><Users className="h-3 w-3" />{members.length}</Badge>
+          <Dialog open={showGroupInfo} onOpenChange={setShowGroupInfo}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Info className="h-4 w-4 mr-1" /> Group Info
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{group?.name || 'Group Study'}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">Invite Code</p>
+                  <p className="text-lg font-semibold tracking-wide">{group?.invite_code || '---'}</p>
+                </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground mb-2">Members ({members.length})</p>
+                  <div className="space-y-1 max-h-40 overflow-auto">
+                    {members.map((member) => (
+                      <p key={member.user_id} className="text-sm">
+                        {profiles[member.user_id] || 'Student'}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
           <Button variant="outline" size="sm" onClick={leaveGroup}>Leave</Button>
         </div>
       </header>
