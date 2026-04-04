@@ -1,11 +1,45 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
+interface ChatMessageListItem {
+  id: string;
+  text: string;
+  sender: string;
+  timestamp: number;
+  type: string;
+}
+
+interface UserChatListItem {
+  id: string;
+  name: string;
+  partnerId: string;
+  timestamp: number;
+  type: 'user';
+}
+
+interface LeaderboardItem {
+  id: string;
+  name: string;
+  points: number;
+  level: number;
+  photoURL: string | null;
+  rank: number;
+  streak: number;
+}
+
+interface PointsHistoryItem {
+  id: string;
+  type: string;
+  points: number;
+  description: string;
+  timestamp: string;
+}
+
 // Group details
 export async function getGroupDetails(groupId: string) {
   try {
     // For now, return basic group info from chat_messages table
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('chat_messages')
       .select('*')
       .eq('chat_id', groupId)
@@ -41,9 +75,10 @@ export async function getGroupDetails(groupId: string) {
 // Listen for messages (realtime)
 export function listenForMessages(
   chatId: string, 
-  isGroup: boolean, 
-  callback: (messages: any[]) => void
+  _isGroup: boolean, 
+  callback: (messages: ChatMessageListItem[]) => void
 ): () => void {
+  void _isGroup;
   // Initial fetch
   const fetchMessages = async () => {
     const { data, error } = await supabase
@@ -51,6 +86,7 @@ export function listenForMessages(
       .select('*')
       .eq('chat_id', chatId)
       .order('created_at', { ascending: true });
+    if (error) console.error('Error fetching messages:', error);
     
     if (data) {
       const formattedMessages = data.map(msg => ({
@@ -93,8 +129,9 @@ export async function sendMessage(
   chatId: string, 
   senderId: string, 
   text: string, 
-  isGroup?: boolean
+  _isGroup?: boolean
 ) {
+  void _isGroup;
   const { error } = await supabase
     .from('chat_messages')
     .insert({
@@ -112,10 +149,12 @@ export async function sendMessage(
 
 // Delete message
 export async function deleteMessage(
-  chatId: string, 
+  _chatId: string, 
   messageId: string, 
-  isGroup?: boolean
+  _isGroup?: boolean
 ) {
+  void _chatId;
+  void _isGroup;
   const { error } = await supabase
     .from('chat_messages')
     .delete()
@@ -129,10 +168,12 @@ export async function deleteMessage(
 
 // Toggle save message (mark as important)
 export async function toggleSaveMessage(
-  chatId: string, 
+  _chatId: string, 
   messageId: string, 
-  isGroup?: boolean
+  _isGroup?: boolean
 ): Promise<boolean> {
+  void _chatId;
+  void _isGroup;
   // For now, just return toggled state
   // This would need a saved_messages table for full implementation
   console.log('Toggle save message:', messageId);
@@ -180,7 +221,7 @@ export async function createChatGroup(
 }
 
 // Get user chats
-export async function getUserChats(userId: string): Promise<any[]> {
+export async function getUserChats(userId: string): Promise<UserChatListItem[]> {
   try {
     const { data, error } = await supabase
       .from('campus_chats')
@@ -204,14 +245,15 @@ export async function getUserChats(userId: string): Promise<any[]> {
 }
 
 // Get user groups
-export async function getUserGroups(userId: string): Promise<any[]> {
+export async function getUserGroups(_userId: string): Promise<unknown[]> {
+  void _userId;
   // For now, return empty array
   // This would need a groups table for full implementation
   return [];
 }
 
 // Get leaderboard data
-export async function getLeaderboardData(): Promise<any[]> {
+export async function getLeaderboardData(): Promise<LeaderboardItem[]> {
   try {
     const { data: profiles, error } = await supabase
       .from('profiles')
@@ -239,7 +281,7 @@ export async function getLeaderboardData(): Promise<any[]> {
 // Observe leaderboard data
 export function observeLeaderboardData(
   limit: number,
-  callback: (data: any[]) => void
+  callback: (data: LeaderboardItem[]) => void
 ): () => void {
   // Initial fetch
   const fetchData = async () => {
@@ -271,7 +313,7 @@ export function observeLeaderboardData(
 }
 
 // Get user points history
-export async function getUserPointsHistory(userId: string): Promise<any[]> {
+export async function getUserPointsHistory(userId: string): Promise<PointsHistoryItem[]> {
   try {
     const { data, error } = await supabase
       .from('points_transactions')

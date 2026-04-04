@@ -5,6 +5,39 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+type AdminRequest = {
+  action?: string;
+  userId?: string;
+  blocked?: boolean;
+  points?: number;
+};
+
+type ProfileRow = {
+  user_id: string;
+  provider?: string;
+  [key: string]: unknown;
+};
+
+type UserPointsRow = {
+  user_id: string;
+  balance?: number;
+  xp?: number;
+  level?: number;
+  credits?: number;
+};
+
+type UserRoleRow = {
+  user_id: string;
+  role: string;
+};
+
+type AuthUser = {
+  id: string;
+  last_sign_in_at?: string | null;
+  app_metadata?: { provider?: string };
+  email_confirmed_at?: string | null;
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -35,7 +68,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const { action, userId, blocked, points } = await req.json();
+    const { action, userId, blocked, points } = await req.json() as AdminRequest;
 
     if (action === 'list') {
       // Get all profiles
@@ -58,10 +91,10 @@ Deno.serve(async (req) => {
       // Get auth users for last sign in
       const { data: { users: authUsers } } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
 
-      const enriched = (profiles || []).map((p: any) => {
-        const pts = (allPoints || []).find((pt: any) => pt.user_id === p.user_id);
-        const roles = (allRoles || []).filter((r: any) => r.user_id === p.user_id).map((r: any) => r.role);
-        const authUser = (authUsers || []).find((u: any) => u.id === p.user_id);
+      const enriched = ((profiles || []) as ProfileRow[]).map((p) => {
+        const pts = ((allPoints || []) as UserPointsRow[]).find((pt) => pt.user_id === p.user_id);
+        const roles = ((allRoles || []) as UserRoleRow[]).filter((r) => r.user_id === p.user_id).map((r) => r.role);
+        const authUser = ((authUsers || []) as AuthUser[]).find((u) => u.id === p.user_id);
         return {
           ...p,
           balance: pts?.balance || 0,
