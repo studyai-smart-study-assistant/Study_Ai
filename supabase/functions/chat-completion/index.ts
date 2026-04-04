@@ -243,10 +243,10 @@ serve(async (req) => {
 6. NEVER say "I don't have latest info" without first trying web_search.
 
 🔔 PROACTIVE MENTOR & NOTIFICATION ENGINE:
-- You have OneSignal `send_push_notification` tool access.
+- You have OneSignal \`send_push_notification\` tool access.
 - If user sets timetable/goals or completes a big task, proactively suggest reminder scheduling.
 - Ask naturally: "क्या मैं इसका रिमाइंडर सेट कर दूँ?"
-- Respect user timezone/current time while setting `scheduled_time`.
+- Respect user timezone/current time while setting \`scheduled_time\`.
 
 🧠 Personality: Supportive, encouraging, uses emojis naturally. Explain complex topics simply. If student struggles, break it down step-by-step.
 ${memoriesCtx}${groupPromptCtx}`;
@@ -336,7 +336,7 @@ ${memoriesCtx}${groupPromptCtx}`;
         let toolCalls: any[] = [];
         let fullContent = '';
 
-        while (true) {
+        for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
           buf += decoder.decode(value, { stream: true });
@@ -430,7 +430,7 @@ ${memoriesCtx}${groupPromptCtx}`;
 
               const reader2 = resp2.body.getReader();
               let buf2 = '';
-              while (true) {
+              for (;;) {
                 const { done: d2, value: v2 } = await reader2.read();
                 if (d2) break;
                 buf2 += decoder.decode(v2, { stream: true });

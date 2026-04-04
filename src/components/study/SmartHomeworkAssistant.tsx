@@ -121,7 +121,7 @@ const SmartHomeworkAssistant: React.FC<SmartHomeworkAssistantProps> = ({ onSendM
     }
   };
 
-  const useSuggestion = (suggestion: string) => {
+  const applySuggestion = (suggestion: string) => {
     setCurrentQuestion(suggestion);
     // Auto-detect subject based on suggestion
     if (suggestion.includes('2x') || suggestion.includes('solve')) {
@@ -154,7 +154,7 @@ const SmartHomeworkAssistant: React.FC<SmartHomeworkAssistantProps> = ({ onSendM
                 key={index}
                 variant="outline"
                 size="sm"
-                onClick={() => useSuggestion(suggestion)}
+                onClick={() => applySuggestion(suggestion)}
                 className="justify-start text-left h-auto p-3"
               >
                 <HelpCircle className="h-4 w-4 mr-2 flex-shrink-0" />
