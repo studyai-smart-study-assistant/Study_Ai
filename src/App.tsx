@@ -71,6 +71,12 @@ function App() {
 
       if (session?.user?.id) {
         await syncOneSignalIdentity(session.user.id);
+        await supabase.functions.invoke('analyze-study-pattern', {
+          body: {
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
+            auto_schedule: true,
+          },
+        });
       }
     };
 
@@ -81,6 +87,12 @@ function App() {
 
       if (session?.user?.id) {
         await syncOneSignalIdentity(session.user.id);
+        await supabase.functions.invoke('analyze-study-pattern', {
+          body: {
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
+            auto_schedule: true,
+          },
+        });
       } else if (event === 'SIGNED_OUT') {
         await logoutOneSignal();
       }

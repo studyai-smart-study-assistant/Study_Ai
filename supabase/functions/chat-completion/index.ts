@@ -59,7 +59,9 @@ const TOOLS = [
           user_id: { type: 'string', description: 'Supabase Auth user id. Must map to OneSignal external id.' },
           title: { type: 'string', description: 'Push title' },
           message: { type: 'string', description: 'Push body message' },
-          scheduled_time: { type: 'string', description: 'Optional ISO timestamp for scheduled delivery' }
+          scheduled_time: { type: 'string', description: 'Optional ISO timestamp for scheduled delivery' },
+          recurrence: { type: 'string', description: 'Optional recurrence: once, daily, weekly, monthly' },
+          schedule_count: { type: 'number', description: 'Optional number of future reminders to schedule' }
         },
         required: ['user_id', 'title', 'message']
       }
@@ -80,6 +82,8 @@ async function sendPushNotificationViaOneSignal(args: {
   title: string;
   message: string;
   scheduled_time?: string;
+  recurrence?: string;
+  schedule_count?: string;
 }): Promise<string> {
   const appId = Deno.env.get('ONESIGNAL_APP_ID');
   const restKey = Deno.env.get('ONESIGNAL_REST_API_KEY');
@@ -97,6 +101,7 @@ async function sendPushNotificationViaOneSignal(args: {
   };
 
   if (args.scheduled_time) payload.send_after = args.scheduled_time;
+  if (args.recurrence) payload.data = { ...(payload.data as Record<string, unknown> || {}), recurrence: args.recurrence, schedule_count: args.schedule_count || null };
 
   const response = await fetch('https://api.onesignal.com/notifications', {
     method: 'POST',
@@ -159,6 +164,8 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
       title: args.title,
       message: args.message,
       scheduled_time: args.scheduled_time,
+      recurrence: args.recurrence,
+      schedule_count: args.schedule_count,
     });
   }
   if (name === 'generate_image') {
@@ -234,6 +241,12 @@ serve(async (req) => {
 4. You can call MULTIPLE tools in PARALLEL when needed (e.g., web_search + fetch_news simultaneously).
 5. After getting tool results, synthesize them into a clear, helpful response in Hinglish.
 6. NEVER say "I don't have latest info" without first trying web_search.
+
+🔔 PROACTIVE MENTOR & NOTIFICATION ENGINE:
+- You have OneSignal `send_push_notification` tool access.
+- If user sets timetable/goals or completes a big task, proactively suggest reminder scheduling.
+- Ask naturally: "क्या मैं इसका रिमाइंडर सेट कर दूँ?"
+- Respect user timezone/current time while setting `scheduled_time`.
 
 🧠 Personality: Supportive, encouraging, uses emojis naturally. Explain complex topics simply. If student struggles, break it down step-by-step.
 ${memoriesCtx}${groupPromptCtx}`;

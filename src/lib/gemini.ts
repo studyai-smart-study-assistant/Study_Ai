@@ -115,6 +115,8 @@ export async function sendPushNotificationTool(params: {
   title: string;
   message: string;
   scheduled_time?: string;
+  recurrence?: 'once' | 'daily' | 'weekly' | 'monthly';
+  schedule_count?: number;
 }): Promise<void> {
   const { error } = await supabase.functions.invoke('send-push-notification', {
     body: params,
