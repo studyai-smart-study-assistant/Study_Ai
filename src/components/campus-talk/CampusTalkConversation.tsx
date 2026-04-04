@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Send, Image as ImageIcon, Bot, Mic, Paperclip } from 'lucide-react';
+import { ArrowLeft, Send, Bot, Paperclip } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import {
-  MessageLongPressMenu, ReplyPreview, QuotedMessage, ReactionsDisplay,
+  MessageLongPressMenu, ReplyPreview, ReactionsDisplay,
   useSwipeToReply, useLongPress,
   type MessageAction
 } from './MessageInteractions';
@@ -40,6 +40,7 @@ const getColor = (name: string) => {
 };
 
 const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerName, partnerAvatar, onBack }) => {
+  void partnerUid;
   const { currentUser } = useAuth();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [text, setText] = useState('');
@@ -127,7 +128,12 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
 
     setSending(true);
     try {
-      const insertData: any = {
+      const insertData: {
+        chat_id: string;
+        sender_uid: string;
+        text_content: string;
+        message_type: string;
+      } = {
         chat_id: chatId,
         sender_uid: currentUser.uid,
         text_content: content,
@@ -144,11 +150,12 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
       
       // Store reply reference locally
       if (currentReply) {
-        const newMsgId = `reply-${Date.now()}`;
+        void `reply-${Date.now()}`;
         // We handle replies visually via local state since campus_messages doesn't have reply columns
       }
-    } catch (err: any) {
-      toast.error('Message भेजने में error: ' + (err?.message || ''));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      toast.error('Message भेजने में error: ' + message);
     } finally { setSending(false); }
   };
 
@@ -289,7 +296,6 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
                 <MessageBubble
                   msg={msg}
                   isMine={isMine}
-                  partnerName={partnerName}
                   reactions={reactions[msg.id]}
                   onLongPress={(e) => handleLongPress(msg, e)}
                   formatTime={formatTime}
@@ -386,13 +392,12 @@ const SwipeableMessage: React.FC<{ children: React.ReactNode; onSwipe: () => voi
 interface MessageBubbleProps {
   msg: Msg;
   isMine: boolean;
-  partnerName: string;
   reactions?: Record<string, string[]>;
   onLongPress: (e: React.TouchEvent | React.MouseEvent) => void;
   formatTime: (ts: string) => string;
 }
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ msg, isMine, partnerName, reactions, onLongPress, formatTime }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({ msg, isMine, reactions, onLongPress, formatTime }) => {
   const longPressHandlers = useLongPress(onLongPress, 500);
 
   return (

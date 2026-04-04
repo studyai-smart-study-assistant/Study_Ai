@@ -17,6 +17,15 @@ interface Provider {
   name: string; url: string; apiKey: string; model: string; type: 'groq'|'gemini'|'lovable';
 }
 
+type TavilyResult = { title?: string; url?: string; content?: string };
+type TavilyResponse = { answer?: string; results?: TavilyResult[] };
+type ChatHistoryItem = { role: string; content: unknown };
+type ToolCallDelta = { index?: number; id?: string; function?: { name?: string; arguments?: string } };
+type ParsedSSEDelta = { content?: string; tool_calls?: ToolCallDelta[] };
+type ParsedSSEChunk = { choices?: Array<{ delta?: ParsedSSEDelta }> };
+type AccumulatedToolCall = { id: string; name: string; arguments: string };
+type ToolUsageArgs = { query?: string; topic?: string };
+
 function getProviders(): Provider[] {
   const env = Deno.env.toObject();
   const p: Provider[] = [];
@@ -134,12 +143,15 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
           body: JSON.stringify({ api_key: key, query: args.query, max_results: 5, search_depth: 'basic', include_answer: true }),
         });
         if (!r.ok) continue;
-        const d = await r.json();
+        const d = await r.json() as TavilyResponse;
         let out = '';
         if (d.answer) out += `Summary: ${d.answer}\n\n`;
-        out += (d.results || []).map((x: any) => `[${x.title}](${x.url}): ${x.content?.slice(0,250)}`).join('\n\n');
+        out += (d.results || []).map((x) => `[${x.title}](${x.url}): ${x.content?.slice(0,250)}`).join('\n\n');
         return out || 'No results found';
-      } catch { continue; }
+      } catch (err: unknown) {
+        console.warn('web_search tool failed for one Tavily key', err);
+        continue;
+      }
     }
     return 'Web search temporarily unavailable. Please provide answer from your knowledge.';
   }
@@ -154,9 +166,12 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
         body: JSON.stringify({ api_key: tavilyKey, query: q, max_results: 6, search_depth: 'basic', topic: 'news' }),
       });
       if (!r.ok) return 'News fetch failed';
-      const d = await r.json();
-      return (d.results || []).map((x: any, i: number) => `${i+1}. **${x.title}**\n${x.content?.slice(0,200)}\n🔗 ${x.url}`).join('\n\n') || 'No news found';
-    } catch { return 'News service unavailable'; }
+      const d = await r.json() as TavilyResponse;
+      return (d.results || []).map((x, i: number) => `${i+1}. **${x.title}**\n${x.content?.slice(0,200)}\n🔗 ${x.url}`).join('\n\n') || 'No news found';
+    } catch (err: unknown) {
+      console.warn('fetch_news tool failed', err);
+      return 'News service unavailable';
+    }
   }
   if (name === 'send_push_notification') {
     return await sendPushNotificationViaOneSignal({
@@ -204,14 +219,14 @@ serve(async (req) => {
       const { data: { user } } = await uc.auth.getUser();
       if (user && !memoriesCtx) {
         const { data: mems } = await uc.from('user_memories').select('memory_key,memory_value').eq('user_id', user.id).order('importance', { ascending: false }).limit(15);
-        if (mems?.length) memoriesCtx = `\n🧠 Mind Vault:\n${mems.map((m: any) => `- ${m.memory_key}: ${m.memory_value}`).join('\n')}`;
+        if (mems?.length) memoriesCtx = `\n🧠 Mind Vault:\n${mems.map((m) => `- ${m.memory_key}: ${m.memory_value}`).join('\n')}`;
       }
 
       // Group context
       if (user && groupId) {
         const { data: groupData } = await uc.from('study_groups').select('group_system_prompt').eq('id', groupId).maybeSingle();
         const { data: participants } = await uc.from('group_participants').select('user_id').eq('group_id', groupId).eq('is_active', true);
-        const memberIds = participants?.map((p: any) => p.user_id) || [];
+        const memberIds = participants?.map((p) => p.user_id) || [];
         if (memberIds.length) {
           const { data: groupMems } = await uc.from('user_memories').select('user_id,memory_key,memory_value,importance').in('user_id', memberIds).order('importance', { ascending: false }).limit(100);
           if (groupMems?.length) {
@@ -243,10 +258,10 @@ serve(async (req) => {
 6. NEVER say "I don't have latest info" without first trying web_search.
 
 🔔 PROACTIVE MENTOR & NOTIFICATION ENGINE:
-- You have OneSignal `send_push_notification` tool access.
+- You have OneSignal \`send_push_notification\` tool access.
 - If user sets timetable/goals or completes a big task, proactively suggest reminder scheduling.
 - Ask naturally: "क्या मैं इसका रिमाइंडर सेट कर दूँ?"
-- Respect user timezone/current time while setting `scheduled_time`.
+- Respect user timezone/current time while setting \`scheduled_time\`.
 
 🧠 Personality: Supportive, encouraging, uses emojis naturally. Explain complex topics simply. If student struggles, break it down step-by-step.
 ${memoriesCtx}${groupPromptCtx}`;
@@ -254,8 +269,8 @@ ${memoriesCtx}${groupPromptCtx}`;
     if (userContext) systemPrompt += `\n\n📋 Recent conversation context:\n${userContext}`;
     if (reasoningMode) systemPrompt += `\n\n📐 REASONING MODE ACTIVE: Solve step-by-step with detailed mathematical/logical working. Show your thought process clearly.`;
 
-    const mappedHistory = history.map((m: any) => ({ role: m.role === 'bot' ? 'assistant' : m.role, content: m.content }));
-    const userContent: any = imageBase64
+    const mappedHistory = (history as ChatHistoryItem[]).map((m) => ({ role: m.role === 'bot' ? 'assistant' : m.role, content: m.content }));
+    const userContent: string | Array<{ type: string; text?: string; image_url?: { url: string } }> = imageBase64
       ? [{ type: 'text', text: prompt || 'इस image को analyze करो' }, { type: 'image_url', image_url: { url: imageBase64 } }]
       : prompt;
 
@@ -280,7 +295,7 @@ ${memoriesCtx}${groupPromptCtx}`;
           try {
             await write(sseEvent('status', { status: 'connecting', text: `⚡ ${provider.type === 'groq' ? 'Ultra-fast Qwen' : provider.type === 'gemini' ? 'Gemini' : 'Lovable AI'} connecting...` }));
 
-            const body: any = {
+            const body: Record<string, unknown> = {
               model: provider.model,
               messages,
               temperature: reasoningMode ? 0.5 : 0.7,
@@ -333,10 +348,10 @@ ${memoriesCtx}${groupPromptCtx}`;
         const reader = providerResponse.body.getReader();
         const decoder = new TextDecoder();
         let buf = '';
-        let toolCalls: any[] = [];
+        const toolCalls: AccumulatedToolCall[] = [];
         let fullContent = '';
 
-        while (true) {
+        for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
           buf += decoder.decode(value, { stream: true });
@@ -350,7 +365,7 @@ ${memoriesCtx}${groupPromptCtx}`;
             const json = line.slice(6).trim();
             if (json === '[DONE]') continue;
             try {
-              const parsed = JSON.parse(json);
+              const parsed = JSON.parse(json) as ParsedSSEChunk;
               const delta = parsed.choices?.[0]?.delta;
               if (!delta) continue;
 
@@ -372,7 +387,9 @@ ${memoriesCtx}${groupPromptCtx}`;
                   if (tc.function?.arguments) toolCalls[idx].arguments += tc.function.arguments;
                 }
               }
-            } catch { /* partial JSON */ }
+            } catch (err: unknown) {
+              console.debug('Ignoring partial/invalid SSE JSON chunk', err);
+            }
           }
         }
 
@@ -398,7 +415,11 @@ ${memoriesCtx}${groupPromptCtx}`;
           // Execute all tools in parallel
           const toolResults = await Promise.all(validCalls.map(async (tc) => {
             let args: Record<string, string> = {};
-            try { args = JSON.parse(tc.arguments); } catch {}
+            try {
+              args = JSON.parse(tc.arguments) as Record<string, string>;
+            } catch (err: unknown) {
+              console.warn('Tool argument parse failed', { tool: tc.name, error: err });
+            }
             const result = await executeTool(tc.name, args);
             return { id: tc.id, name: tc.name, result };
           }));
@@ -419,7 +440,7 @@ ${memoriesCtx}${groupPromptCtx}`;
               if (provider.type === 'gemini') headers['X-goog-api-key'] = provider.apiKey;
               else headers['Authorization'] = `Bearer ${provider.apiKey}`;
 
-              const body2: any = { model: provider.model, messages: toolMessages, temperature: 0.7, max_tokens: 8192, stream: true };
+              const body2: Record<string, unknown> = { model: provider.model, messages: toolMessages, temperature: 0.7, max_tokens: 8192, stream: true };
               const ctrl2 = new AbortController();
               const tid2 = setTimeout(() => ctrl2.abort(), 20000);
               const resp2 = await fetch(provider.url, { method: 'POST', headers, body: JSON.stringify(body2), signal: ctrl2.signal });
@@ -430,7 +451,7 @@ ${memoriesCtx}${groupPromptCtx}`;
 
               const reader2 = resp2.body.getReader();
               let buf2 = '';
-              while (true) {
+              for (;;) {
                 const { done: d2, value: v2 } = await reader2.read();
                 if (d2) break;
                 buf2 += decoder.decode(v2, { stream: true });
@@ -449,18 +470,27 @@ ${memoriesCtx}${groupPromptCtx}`;
                       const cleaned2 = c2.replace(/<think>[\s\S]*?<\/think>/g, '');
                       if (cleaned2) await write(sseEvent('token', { content: cleaned2 }));
                     }
-                  } catch {}
+                  } catch (err: unknown) {
+                    console.debug('Ignoring partial/invalid follow-up SSE JSON chunk', err);
+                  }
                 }
               }
               break;
-            } catch { continue; }
+            } catch (err: unknown) {
+              console.warn('Follow-up provider call failed', err);
+              continue;
+            }
           }
 
           // Send tool usage info
           await write(sseEvent('tools_used', {
             tools: toolResults.map(t => {
-              let parsedArgs: any = {};
-              try { parsedArgs = JSON.parse(validCalls.find(c => c.id === t.id)?.arguments || '{}'); } catch {}
+              let parsedArgs: ToolUsageArgs = {};
+              try {
+                parsedArgs = JSON.parse(validCalls.find(c => c.id === t.id)?.arguments || '{}') as ToolUsageArgs;
+              } catch (err: unknown) {
+                console.warn('Tool usage args parse failed', err);
+              }
               return { name: t.name, query: parsedArgs.query || parsedArgs.topic || '' };
             })
           }));
@@ -470,9 +500,17 @@ ${memoriesCtx}${groupPromptCtx}`;
         await write('data: [DONE]\n\n');
       } catch (e) {
         console.error('Stream error:', e);
-        try { await write(sseEvent('error', { error: 'Processing failed' })); } catch {}
+        try {
+          await write(sseEvent('error', { error: 'Processing failed' }));
+        } catch (streamErr: unknown) {
+          console.warn('Failed to write SSE error event', streamErr);
+        }
       } finally {
-        try { await writer.close(); } catch {}
+        try {
+          await writer.close();
+        } catch (closeErr: unknown) {
+          console.warn('Failed to close SSE writer', closeErr);
+        }
       }
     })();
 

@@ -8,8 +8,8 @@ import {
   Sparkles, Plus, History, Bookmark, MessageCircle,
   GraduationCap, Send, Trophy, User, Info,
   LogOut, Wallet, Moon, Sun, Youtube,
-  FileText, Brain, BookOpen, CalendarDays, PenTool,
-  MessageSquare, MoreHorizontal, Trash2
+  FileText, Brain, CalendarDays, PenTool,
+  MessageSquare
 } from 'lucide-react';
 import { 
   Sheet, SheetContent, SheetClose 
@@ -26,16 +26,30 @@ interface SidebarProps {
   onClose: () => void;
 }
 
+interface ChatSession {
+  id?: string;
+  title?: string;
+  timestamp?: number;
+}
+
+interface NavItemProps {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  path: string;
+  prefetch: () => Promise<unknown>;
+}
+
 // Helper to get recent chats from localStorage
 const getRecentChats = (): { id: string; title: string; time: number }[] => {
   try {
     const raw = localStorage.getItem('chat_sessions');
     if (!raw) return [];
-    const sessions = JSON.parse(raw);
+    const sessions = JSON.parse(raw) as ChatSession[] | unknown;
     return (Array.isArray(sessions) ? sessions : [])
-      .sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0))
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
       .slice(0, 8)
-      .map((s: any) => ({ id: s.id, title: s.title || 'New Chat', time: s.timestamp }));
+      .map((s) => ({ id: s.id || '', title: s.title || 'New Chat', time: s.timestamp || 0 }))
+      .filter((s) => s.id);
   } catch {
     return [];
   }
@@ -70,7 +84,14 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    try { await logout(); onClose(); } catch {} finally { setIsLoggingOut(false); }
+    try {
+      await logout();
+      onClose();
+    } catch (error: unknown) {
+      console.warn('Logout failed', error);
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   const close = isMobile ? onClose : undefined;
@@ -95,7 +116,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   ];
 
   // --- SMART PREFETCHING NavItem ---
-  const NavItem = ({ icon: Icon, label, path, prefetch }: { icon: any; label: string; path: string; prefetch: () => Promise<any> }) => {
+  const NavItem = ({ icon: Icon, label, path, prefetch }: NavItemProps) => {
     const active = location.pathname === path;
 
     const handleMouseEnter = () => {

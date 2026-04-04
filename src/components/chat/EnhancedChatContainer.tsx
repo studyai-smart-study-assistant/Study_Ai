@@ -19,11 +19,32 @@ interface EnhancedChatContainerProps {
   onChatUpdated?: () => void;
 }
 
+interface NewsArticle {
+  title: string;
+  description?: string;
+  source?: string;
+  url: string;
+  pubDate?: string;
+}
+
+interface NewsResponse {
+  success?: boolean;
+  articles?: NewsArticle[];
+}
+
+interface DeepThinkingResponse {
+  success?: boolean;
+  error?: string;
+  response?: string;
+  searchCount?: number;
+  sources?: Array<{ title: string; url: string }>;
+}
+
 const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({ chatId, onChatUpdated }) => {
   const { 
     messages, isLoading, isResponding, showLimitAlert, setShowLimitAlert,
-    loadMessages, sendMessage, messageLimitReached, enhancedSendMessage,
-    getChatStats, webSearchEnabled, setWebSearchEnabled, lastSources,
+    loadMessages, messageLimitReached, enhancedSendMessage,
+    webSearchEnabled, setWebSearchEnabled, lastSources,
     agentStatus, streamingContent, prefetchContext,
   } = useEnhancedChat(chatId, onChatUpdated);
   
@@ -62,29 +83,30 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({ chatId, o
     scrollToBottom();
 
     try {
-      let { data, error } = await supabase.functions.invoke('fetch-news', { body: { query } });
+      const { data, error } = await supabase.functions.invoke<NewsResponse>('fetch-news', { body: { query } });
       if (error) throw error;
-      if (!data?.success || !data.articles?.length) {
+      let resolvedData = data;
+      if (!resolvedData?.success || !resolvedData.articles?.length) {
         const fallback = await supabase.functions.invoke('fetch-news', { body: { category: 'education' } });
-        if (fallback.data?.success && fallback.data?.articles?.length) data = fallback.data;
+        if (fallback.data?.success && fallback.data?.articles?.length) resolvedData = fallback.data as NewsResponse;
         else throw new Error('No news found');
       }
 
-      const articles = data.articles.slice(0, 8);
+      const articles = (resolvedData.articles || []).slice(0, 8);
       let newsContent = `📰 **"${query}" — ताज़ा खबरें**\n\n`;
-      articles.forEach((a: any, i: number) => {
+      articles.forEach((a, i: number) => {
         newsContent += `**${i + 1}. ${a.title}**\n`;
         if (a.description) newsContent += `${a.description.slice(0, 150)}...\n`;
         newsContent += `🔗 [${a.source}](${a.url}) • ${a.pubDate ? new Date(a.pubDate).toLocaleDateString('hi-IN') : 'आज'}\n\n`;
       });
 
-      setDeepThinkingSources(articles.map((a: any) => ({ title: a.title, url: a.url })));
+      setDeepThinkingSources(articles.map((a) => ({ title: a.title, url: a.url })));
       await chatDB.addMessage(chatId, newsContent, 'bot');
       await loadMessages();
       scrollToBottom();
       if (onChatUpdated) onChatUpdated();
       toast.success(language === 'hi' ? `✅ ${articles.length} खबरें मिलीं` : `✅ ${articles.length} news articles found`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('News fetch error:', err);
       toast.error(language === 'hi' ? 'खबरें लाने में समस्या हुई' : 'Failed to fetch news');
       enhancedSendMessage(`📰 [NEWS] ${query} — इस विषय की आज की ताज़ा खबरें बताओ।`);
@@ -101,7 +123,7 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({ chatId, o
 
     try {
       const { data: authData } = await supabase.auth.getUser();
-      const { data, error } = await supabase.functions.invoke('deep-thinking', {
+      const { data, error } = await supabase.functions.invoke<DeepThinkingResponse>('deep-thinking', {
         body: {
           topic,
           user_id: authData.user?.id,
@@ -118,7 +140,7 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({ chatId, o
       scrollToBottom();
       if (onChatUpdated) onChatUpdated();
       toast.success(language === 'hi' ? `✅ Deep Thinking पूरी — ${data.sources?.length || 0} sources` : `✅ Done — ${data.sources?.length || 0} sources`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Deep Thinking error:', err);
       toast.error(language === 'hi' ? 'गहन रिसर्च में समस्या हुई' : 'Deep research failed');
       enhancedSendMessage(`🔬 [DEEP RESEARCH] ${topic} — इस विषय पर गहन जानकारी दो।`);

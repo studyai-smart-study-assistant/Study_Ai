@@ -11,6 +11,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+type TavilyResult = {
+  title: string;
+  url: string;
+  content?: string;
+  published_date?: string;
+  score?: number;
+};
+
+type TavilySearchResponse = {
+  results?: TavilyResult[];
+  answer?: string;
+};
+
+type ChatHistoryItem = { role: string; content: string };
+type ChatCompletionResponse = { choices?: Array<{ message?: { content?: string } }> };
+
 // ─── Tavily Key Pool (Round-Robin) ──────────────────────────
 function getTavilyApiKeys(): string[] {
   const keys: string[] = [];
@@ -36,7 +52,7 @@ async function searchTavily(
   keys: string[],
   depth: 'basic' | 'advanced' = 'advanced',
   maxResults = 8
-): Promise<{ results: any[]; answer?: string }> {
+): Promise<{ results: TavilyResult[]; answer?: string }> {
   for (let attempt = 0; attempt < keys.length; attempt++) {
     const apiKey = getNextTavilyKey(keys);
     try {
@@ -55,7 +71,11 @@ async function searchTavily(
 
       if (response.status === 429 || response.status === 403) {
         console.warn(`⚠️ Tavily key rate limited, rotating...`);
-        try { await response.text(); } catch {}
+        try {
+          await response.text();
+        } catch (readErr: unknown) {
+          console.warn('Failed reading Tavily rate-limit body', readErr);
+        }
         continue;
       }
 
@@ -65,9 +85,9 @@ async function searchTavily(
         throw new Error(`Tavily failed: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as TavilySearchResponse;
       return {
-        results: (data.results || []).map((r: any) => ({
+        results: (data.results || []).map((r) => ({
           title: r.title,
           url: r.url,
           content: r.content?.substring(0, 800),
@@ -76,7 +96,7 @@ async function searchTavily(
         })),
         answer: data.answer,
       };
-    } catch (e) {
+    } catch (e: unknown) {
       if (attempt === keys.length - 1) throw e;
     }
   }
@@ -138,7 +158,12 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, history = [], user_id, notify_on_complete = false } = await req.json();
+    const { topic, history = [], user_id, notify_on_complete = false } = await req.json() as {
+      topic?: string;
+      history?: ChatHistoryItem[];
+      user_id?: string;
+      notify_on_complete?: boolean;
+    };
 
     if (!topic || typeof topic !== 'string') {
       return new Response(
@@ -163,7 +188,7 @@ serve(async (req) => {
 
     // Aggregate all unique results
     const seenUrls = new Set<string>();
-    const allResults: any[] = [];
+    const allResults: TavilyResult[] = [];
     const allSources: { title: string; url: string }[] = [];
 
     for (const result of searchResults) {
@@ -220,7 +245,7 @@ Format with clear markdown headings. Cite sources inline. Make it educational, i
 
     const messages = [
       { role: 'system', content: systemPrompt },
-      ...history.map((msg: any) => ({
+      ...history.map((msg) => ({
         role: msg.role === 'user' ? 'user' : 'assistant',
         content: msg.content,
       })),
@@ -245,7 +270,11 @@ Format with clear markdown headings. Cite sources inline. Make it educational, i
     // Fallback to flash if pro fails
     if (!aiResponse.ok) {
       console.warn(`⚠️ Gemini Pro failed (${aiResponse.status}), falling back to flash...`);
-      try { await aiResponse.text(); } catch {}
+      try {
+        await aiResponse.text();
+      } catch (readErr: unknown) {
+        console.warn('Failed reading AI fallback response body', readErr);
+      }
       
       aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
@@ -267,7 +296,7 @@ Format with clear markdown headings. Cite sources inline. Make it educational, i
       throw new Error(`AI synthesis failed: ${aiResponse.status} — ${errText}`);
     }
 
-    const aiData = await aiResponse.json();
+    const aiData = await aiResponse.json() as ChatCompletionResponse;
     const responseText = aiData.choices?.[0]?.message?.content || 'Deep analysis could not be generated.';
 
     console.log(`✅ Deep Thinking complete — ${responseText.length} chars, ${allSources.length} sources`);
@@ -279,8 +308,9 @@ Format with clear markdown headings. Cite sources inline. Make it educational, i
           title: 'Deep Thinking Complete ✅',
           message: `"${topic.substring(0, 60)}" पर आपका deep analysis तैयार है।`,
         });
-      } catch (notifyError: any) {
-        console.error('Deep Thinking push notify failed:', notifyError.message);
+      } catch (notifyError: unknown) {
+        const notifyMessage = notifyError instanceof Error ? notifyError.message : String(notifyError);
+        console.error('Deep Thinking push notify failed:', notifyMessage);
       }
     }
 
@@ -294,10 +324,11 @@ Format with clear markdown headings. Cite sources inline. Make it educational, i
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error: any) {
-    console.error('Deep Thinking error:', error.message);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown deep thinking error';
+    console.error('Deep Thinking error:', errorMessage);
     return new Response(
-      JSON.stringify({ error: error.message, success: false }),
+      JSON.stringify({ error: errorMessage, success: false }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

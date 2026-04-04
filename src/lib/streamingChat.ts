@@ -97,7 +97,7 @@ export async function streamChatCompletion(
     return null;
   };
 
-  while (true) {
+  for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
     buf += decoder.decode(value, { stream: true });

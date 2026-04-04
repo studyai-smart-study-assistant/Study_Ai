@@ -13,7 +13,7 @@ interface ProviderConfig {
   endpoint: string;
   model: string;
   authHeader: (key: string) => { [key: string]: string };
-  requestFormat: (prompt: string, history: any[]) => any;
+  requestFormat: (prompt: string, history: ChatHistoryMessage[]) => unknown;
 }
 
 interface ApiResponse {
@@ -23,6 +23,17 @@ interface ApiResponse {
   provider: string;
   model: string;
   keyUsed: string;
+}
+
+interface ChatHistoryMessage {
+  role: string;
+  content: string;
+}
+
+interface GeminiChatInvokeResponse {
+  response?: string;
+  error?: string;
+  keyUsed?: string;
 }
 
 class ApiKeyRotationService {
@@ -42,7 +53,7 @@ class ApiKeyRotationService {
       endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent",
       model: "gemini-3-flash-preview",
       authHeader: (key: string) => ({ "X-goog-api-key": key }),
-      requestFormat: (prompt: string, history: any[]) => ({
+      requestFormat: (prompt: string, history: ChatHistoryMessage[]) => ({
         contents: [
           ...history.map(msg => ({
             parts: [{ text: msg.content }],
@@ -56,7 +67,7 @@ class ApiKeyRotationService {
       endpoint: "https://api.kluster.ai/v1/chat/completions",
       model: "klusterai/Meta-Llama-3.1-8B-Instruct-Turbo",
       authHeader: (key: string) => ({ "Authorization": `Bearer ${key}` }),
-      requestFormat: (prompt: string, history: any[]) => ({
+      requestFormat: (prompt: string, history: ChatHistoryMessage[]) => ({
         model: "klusterai/Meta-Llama-3.1-8B-Instruct-Turbo",
         messages: [
           ...history,
@@ -68,7 +79,7 @@ class ApiKeyRotationService {
       endpoint: "https://api.deepseek.com/chat/completions",
       model: "deepseek-chat",
       authHeader: (key: string) => ({ "Authorization": `Bearer ${key}` }),
-      requestFormat: (prompt: string, history: any[]) => ({
+      requestFormat: (prompt: string, history: ChatHistoryMessage[]) => ({
         model: "deepseek-chat",
         messages: [
           { role: "system", content: "You are a helpful assistant." },
@@ -82,7 +93,7 @@ class ApiKeyRotationService {
       endpoint: "https://api.openai.com/v1/chat/completions",
       model: "gpt-4o-mini",
       authHeader: (key: string) => ({ "Authorization": `Bearer ${key}` }),
-      requestFormat: (prompt: string, history: any[]) => ({
+      requestFormat: (prompt: string, history: ChatHistoryMessage[]) => ({
         model: "gpt-4o-mini",
         messages: [
           ...history,
@@ -145,7 +156,7 @@ class ApiKeyRotationService {
     key: string;
     endpoint: string;
     authHeader: { [key: string]: string };
-    requestFormat: (prompt: string, history: any[]) => any;
+    requestFormat: (prompt: string, history: ChatHistoryMessage[]) => unknown;
     provider: string;
     model: string;
   } {
@@ -157,10 +168,10 @@ class ApiKeyRotationService {
     }
 
     const now = Date.now();
-    let currentProviderIdx = this.currentProviderIndex[feature];
+    const currentProviderIdx = this.currentProviderIndex[feature];
     
     // Try current provider first
-    let pool = pools[currentProviderIdx];
+    const pool = pools[currentProviderIdx];
     
     // Check if rotation is needed
     if (now - pool.lastRotation > this.ROTATION_INTERVAL) {
@@ -184,9 +195,13 @@ class ApiKeyRotationService {
   }
 
   // Make API request via Supabase Edge Function (secure)
-  async makeApiRequest(prompt: string, history: any[] = [], feature: 'default' | 'interactive-teacher' | 'interactive-quiz' = 'default'): Promise<ApiResponse> {
+  async makeApiRequest(
+    prompt: string,
+    history: ChatHistoryMessage[] = [],
+    feature: 'default' | 'interactive-teacher' | 'interactive-quiz' = 'default',
+  ): Promise<ApiResponse> {
     try {
-      const { data, error } = await supabase.functions.invoke('gemini-chat', {
+      const { data, error } = await supabase.functions.invoke<GeminiChatInvokeResponse>('gemini-chat', {
         body: { prompt, history, apiKeyType: feature }
       });
 
@@ -202,11 +217,12 @@ class ApiKeyRotationService {
         model: 'gemini-3-flash-preview',
         keyUsed: data.keyUsed || 'hidden'
       };
-    } catch (err: any) {
-      console.error('Edge function call failed:', err?.message || err);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Edge function error';
+      console.error('Edge function call failed:', errorMessage);
       return {
         success: false,
-        error: err?.message || 'Edge function error',
+        error: errorMessage,
         provider: 'gemini',
         model: 'gemini-3-flash-preview',
         keyUsed: 'hidden'
@@ -244,8 +260,8 @@ class ApiKeyRotationService {
   }
 
   // Get rotation stats
-  getRotationStats(): { [feature: string]: any } {
-    const stats: { [feature: string]: any } = {};
+  getRotationStats(): { [feature: string]: RotationStats } {
+    const stats: { [feature: string]: RotationStats } = {};
     
     Object.keys(this.pools).forEach(feature => {
       const pools = this.pools[feature];
@@ -287,6 +303,16 @@ class ApiKeyRotationService {
       return health;
     }, {} as { [provider: string]: boolean });
   }
+}
+
+interface RotationStats {
+  currentProvider: string;
+  providers: Array<{
+    provider: string;
+    currentKeyIndex: number;
+    totalKeys: number;
+    timeSinceRotation: number;
+  }>;
 }
 
 // Export singleton instance

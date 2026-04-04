@@ -8,6 +8,12 @@ const corsHeaders = {
 const LOVABLE_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 const GOOGLE_NATIVE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 
+type MessageContentPart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string | MessageContentPart[] };
+type AIRequestBody = { model?: string; messages: ChatMessage[]; max_tokens?: number };
+type AIResponseBody = { choices?: Array<{ message?: { content?: string } }> };
+type HistoryItem = { role: string; content: string };
+
 // ─── Google API Key Pool (Round-Robin) ──────────────────────
 function getGoogleApiKeys(): string[] {
   const keys: string[] = [];
@@ -30,7 +36,7 @@ function getNextGoogleApiKey(): string {
 }
 
 // ─── Fallback AI Call: Lovable Gateway → Google Native API (with key rotation) ──
-async function callAI(body: any): Promise<any> {
+async function callAI(body: AIRequestBody): Promise<AIResponseBody> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   const nativeModel = body.model?.replace('google/', '') || 'gemini-2.5-flash';
 
@@ -76,7 +82,11 @@ async function callAI(body: any): Promise<any> {
     }
     if (response.status === 429 || response.status === 403) {
       console.warn(`⚠️ Key#${_keyIndex % keys.length} rate limited, trying next...`);
-      try { await response.text(); } catch {}
+      try {
+        await response.text();
+      } catch (readError: unknown) {
+        console.warn('Failed to read limited-key response body', readError);
+      }
       continue;
     }
     const errText = await response.text();
@@ -90,7 +100,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const { prompt, imageBase64, history = [] } = await req.json();
+    const { prompt, imageBase64, history = [] } = await req.json() as { prompt?: string; imageBase64?: string; history?: HistoryItem[] };
     if (!prompt) throw new Error('Prompt is required');
 
     const systemMessage = {
@@ -98,7 +108,7 @@ serve(async (req) => {
       content: `You are Study AI Live, a real-time multimodal assistant built by Ajit Kumar. Keep responses SHORT (1-3 sentences max) because replies are spoken aloud. Always use any provided image for visual grounding before answering. NEVER guess visual details when no image is provided. If camera image is missing, clearly say you cannot see the camera yet and ask user to hold camera steady and try again. Respond in the same language as the user (Hindi or English).`
     };
 
-    const messages: any[] = [systemMessage];
+    const messages: ChatMessage[] = [systemMessage];
 
     // Add history
     for (const msg of history.slice(-10)) {
@@ -119,7 +129,7 @@ serve(async (req) => {
       });
     }
 
-    const userContent: any[] = [];
+    const userContent: MessageContentPart[] = [];
     const match = imageBase64.match(/^data:(image\/[^;]+);base64,(.+)$/);
     if (match) {
       userContent.push({
