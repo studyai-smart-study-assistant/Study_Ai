@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { 
   Menu, Plus, Sparkles, FileText, BookOpen, GraduationCap, Trophy, Clock,
-  Bookmark, User, LogOut, Moon, Sun, MessageSquare, MessageCircle, Youtube, Wallet, Info,
+  Bookmark, User, Users, LogOut, Moon, Sun, MessageSquare, MessageCircle, Youtube, Wallet, Info,
   X, ArrowUp, ClipboardList, LogIn
 } from 'lucide-react';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import SignupPromptDialog from '@/components/home/SignupPromptDialog';
 import PageMeta from '@/components/seo/PageMeta';
 import HighPerformanceAd from '@/components/ads/HighPerformanceAd';
+import GroupStudyModal from '@/components/home/GroupStudyModal';
 
 const rotatingTexts = [
     "Unlock All Features! 🚀",
@@ -95,6 +96,7 @@ const Index = () => {
   const { theme, toggleTheme } = useTheme();
   const { avatarUrl: profileAvatarUrl } = useAvatarUrl(currentUser?.uid);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isGroupStudyOpen, setIsGroupStudyOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -161,6 +163,16 @@ const Index = () => {
     } else {
       navigate(path);
     }
+  };
+
+  const openGroupStudyModal = () => {
+    if (!currentUser) {
+      toast.info('Please log in to use Group Study.', {
+        action: { label: 'Login', onClick: () => navigate('/login') },
+      });
+      return;
+    }
+    setIsGroupStudyOpen(true);
   };
 
   const featureItems = [
@@ -231,6 +243,14 @@ const Index = () => {
                   >
                     <Plus className="w-4 h-4" />
                     New Chat
+                  </Button>
+                  <Button
+                    onClick={() => { openGroupStudyModal(); setIsSidebarOpen(false); }}
+                    className="w-full justify-start gap-3 mt-2"
+                    variant="outline"
+                  >
+                    <Users className="w-4 h-4" />
+                    Group Study
                   </Button>
                 </div>
   
@@ -380,7 +400,17 @@ const Index = () => {
                     </svg>
                   </button>
                 )}
-  
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="rounded-full px-3 gap-2"
+                  onClick={openGroupStudyModal}
+                >
+                  <Users className="h-4 w-4" />
+                  <span className="hidden sm:inline">Group</span>
+                </Button>
+
                 <Button
                   variant="ghost"
                   size="icon"
@@ -525,9 +555,15 @@ const Index = () => {
             </main>
           </div>
         </div>
-      </div>
-      <SignupPromptDialog 
-        open={showSignupPrompt} 
+        </div>
+        <GroupStudyModal
+          open={isGroupStudyOpen}
+          onOpenChange={setIsGroupStudyOpen}
+          userId={currentUser?.uid}
+          onOpenGroup={(groupId) => navigate(`/group-study/${groupId}`)}
+        />
+        <SignupPromptDialog 
+          open={showSignupPrompt}
         onOpenChange={setShowSignupPrompt} 
       />
     </ErrorBoundary>
