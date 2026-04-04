@@ -51,12 +51,69 @@ const TOOLS = [
   },
   {
     type: 'function', function: {
+      name: 'send_push_notification',
+      description: 'Send proactive push notification via OneSignal to a specific user. Use when user sets study goals, finishes major tasks (e.g., notes completed), or asks reminder. Ask: "Kya main iska reminder set kar doon?" before scheduling.',
+      parameters: {
+        type: 'object',
+        properties: {
+          user_id: { type: 'string', description: 'Supabase Auth user id. Must map to OneSignal external id.' },
+          title: { type: 'string', description: 'Push title' },
+          message: { type: 'string', description: 'Push body message' },
+          scheduled_time: { type: 'string', description: 'Optional ISO timestamp for scheduled delivery' }
+        },
+        required: ['user_id', 'title', 'message']
+      }
+    }
+  },
+  {
+    type: 'function', function: {
       name: 'generate_image',
       description: 'Generate image from text. Only when user explicitly asks to create/draw/generate/make an image or picture.',
       parameters: { type: 'object', properties: { prompt: { type: 'string' } }, required: ['prompt'] }
     }
   }
 ];
+
+
+async function sendPushNotificationViaOneSignal(args: {
+  user_id: string;
+  title: string;
+  message: string;
+  scheduled_time?: string;
+}): Promise<string> {
+  const appId = Deno.env.get('ONESIGNAL_APP_ID');
+  const restKey = Deno.env.get('ONESIGNAL_REST_API_KEY');
+
+  if (!appId || !restKey) {
+    return 'Notification service unavailable: OneSignal secrets are missing.';
+  }
+
+  const payload: Record<string, unknown> = {
+    app_id: appId,
+    include_aliases: { external_id: [args.user_id] },
+    target_channel: 'push',
+    headings: { en: args.title, hi: args.title },
+    contents: { en: args.message, hi: args.message },
+  };
+
+  if (args.scheduled_time) payload.send_after = args.scheduled_time;
+
+  const response = await fetch('https://api.onesignal.com/notifications', {
+    method: 'POST',
+    headers: {
+      Authorization: `Key ${restKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    return `Push failed: ${response.status} ${JSON.stringify(data)}`;
+  }
+
+  return `Push sent successfully to ${args.user_id}. Notification ID: ${data.id || 'unknown'}`;
+}
 
 // Execute tools
 async function executeTool(name: string, args: Record<string, string>): Promise<string> {
@@ -95,6 +152,14 @@ async function executeTool(name: string, args: Record<string, string>): Promise<
       const d = await r.json();
       return (d.results || []).map((x: any, i: number) => `${i+1}. **${x.title}**\n${x.content?.slice(0,200)}\n🔗 ${x.url}`).join('\n\n') || 'No news found';
     } catch { return 'News service unavailable'; }
+  }
+  if (name === 'send_push_notification') {
+    return await sendPushNotificationViaOneSignal({
+      user_id: args.user_id,
+      title: args.title,
+      message: args.message,
+      scheduled_time: args.scheduled_time,
+    });
   }
   if (name === 'generate_image') {
     return `[Image generation requested: "${args.prompt}"] — Image generation will be handled client-side.`;
@@ -312,6 +377,7 @@ ${memoriesCtx}${groupPromptCtx}`;
               web_search: '🔍 Internet पर latest जानकारी खोज रहा हूँ...',
               fetch_news: '📰 ताज़ा खबरें निकाल रहा हूँ...',
               generate_image: '🎨 Image बना रहा हूँ...',
+              send_push_notification: '🔔 Reminder notification भेज रहा हूँ...',
             };
             await write(sseEvent('status', { status: 'tool_executing', text: statusTexts[tc.name] || '🔧 Tool चला रहा हूँ...', tool: tc.name }));
           }

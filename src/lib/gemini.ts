@@ -109,6 +109,22 @@ async function parseSSEStream(body: ReadableStream<Uint8Array>): Promise<string>
   return result;
 }
 
+
+export async function sendPushNotificationTool(params: {
+  user_id: string;
+  title: string;
+  message: string;
+  scheduled_time?: string;
+}): Promise<void> {
+  const { error } = await supabase.functions.invoke('send-push-notification', {
+    body: params,
+  });
+
+  if (error) {
+    throw new Error(error.message || 'Push notification भेजने में समस्या हुई।');
+  }
+}
+
 export interface WebSearchSource {
   title: string;
   url: string;
@@ -263,6 +279,8 @@ export async function generateResponseWithSearch(
       toast.success(`📝 Notes तैयार हैं!`, { duration: 2000 });
     } else if (toolUsed === 'generate_quiz') {
       toast.success(`🎯 Quiz तैयार है!`, { duration: 2000 });
+    } else if (toolUsed === 'send_push_notification') {
+      toast.success(`🔔 Reminder set हो गया!`, { duration: 2000 });
     } else if (webSearchUsed) {
       toast.success(`🌐 वेब सर्च के साथ जवाब तैयार है`, { duration: 2000 });
     } else {

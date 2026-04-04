@@ -83,6 +83,45 @@ async function searchTavily(
   throw new Error('All Tavily keys exhausted');
 }
 
+
+async function sendOneSignalNotification(params: {
+  userId: string;
+  title: string;
+  message: string;
+  scheduledTime?: string;
+}): Promise<void> {
+  const appId = Deno.env.get('ONESIGNAL_APP_ID');
+  const restApiKey = Deno.env.get('ONESIGNAL_REST_API_KEY');
+  if (!appId || !restApiKey) {
+    console.warn('OneSignal keys missing. Skipping push notification.');
+    return;
+  }
+
+  const payload: Record<string, unknown> = {
+    app_id: appId,
+    include_aliases: { external_id: [params.userId] },
+    target_channel: 'push',
+    headings: { en: params.title, hi: params.title },
+    contents: { en: params.message, hi: params.message },
+  };
+
+  if (params.scheduledTime) payload.send_after = params.scheduledTime;
+
+  const response = await fetch('https://api.onesignal.com/notifications', {
+    method: 'POST',
+    headers: {
+      Authorization: `Key ${restApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OneSignal push failed: ${response.status} ${errorText}`);
+  }
+}
+
 // Generate search sub-queries for multi-angle research
 function generateSubQueries(topic: string): string[] {
   return [
@@ -99,7 +138,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, history = [] } = await req.json();
+    const { topic, history = [], user_id, notify_on_complete = false } = await req.json();
 
     if (!topic || typeof topic !== 'string') {
       return new Response(
@@ -232,6 +271,18 @@ Format with clear markdown headings. Cite sources inline. Make it educational, i
     const responseText = aiData.choices?.[0]?.message?.content || 'Deep analysis could not be generated.';
 
     console.log(`✅ Deep Thinking complete — ${responseText.length} chars, ${allSources.length} sources`);
+
+    if (notify_on_complete && user_id) {
+      try {
+        await sendOneSignalNotification({
+          userId: user_id,
+          title: 'Deep Thinking Complete ✅',
+          message: `"${topic.substring(0, 60)}" पर आपका deep analysis तैयार है।`,
+        });
+      } catch (notifyError: any) {
+        console.error('Deep Thinking push notify failed:', notifyError.message);
+      }
+    }
 
     return new Response(
       JSON.stringify({
