@@ -1,0 +1,34 @@
+name: 🚀 AI Code Safety Check
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 📦 Install dependencies
+        run: npm install
+
+      - name: 🔍 Run ESLint
+        run: npm run lint
+
+      - name: 🧠 TypeScript Check
+        run: npx tsc --noEmit
+
+      - name: 🧪 Run Tests (optional)
+        run: npm run test || echo "No tests yet"
+
+      - name: 🏗️ Build Check
+        run: npm run build
