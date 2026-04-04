@@ -379,8 +379,8 @@ export default function GroupStudyModal({ open, onOpenChange, userId, onOpenGrou
               <Button variant="outline" size="sm" className="w-full" onClick={copyCode}>
                 <Copy className="h-4 w-4 mr-2" /> Copy Code
               </Button>
-              <Button className="w-full" onClick={() => openRecentGroup(activeGroup.id, true)}>
-                Go to Group Room
+              <Button size="lg" className="w-full font-semibold" onClick={() => openRecentGroup(activeGroup.id, true)}>
+                Open Full Group Chat
               </Button>
             </div>
 
