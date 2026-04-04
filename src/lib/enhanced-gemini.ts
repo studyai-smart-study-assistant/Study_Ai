@@ -1,6 +1,4 @@
 import { toast } from "sonner";
-import { Message } from "./db";
-import { chatDB } from "./db";
 import { supabase } from "@/integrations/supabase/client";
 import { generateComprehensiveAITeacherPrompt, generateAdaptiveUpdatePrompt, AITeacherPromptConfig } from "./ai-teacher-prompt-generator";
 import { validateTopicsAgainstSyllabus } from "@/data/syllabus/syllabusDatabase";
@@ -16,9 +14,67 @@ export interface EnhancedGenerationOptions {
   promptConfig?: AITeacherPromptConfig;
   includeSyllabusValidation?: boolean;
   includeAdaptiveContent?: boolean;
-  userProgressData?: any;
-  performanceData?: any;
+  userProgressData?: unknown;
+  performanceData?: unknown;
   useAITeacherMode?: boolean;
+}
+
+interface AITeacherChapter {
+  chapter_number?: number;
+  chapter_name?: string;
+  importance?: "high" | "medium" | "low";
+  estimated_hours?: number;
+  topics?: string[];
+  study_approach?: string;
+  common_mistakes_to_avoid?: string[];
+}
+
+interface AITeacherSubjectStrategy {
+  priority_ranking?: number;
+  total_hours_allocated?: number;
+  chapter_wise_breakdown?: AITeacherChapter[];
+}
+
+interface AITeacherSession {
+  subject?: string;
+  chapter?: string;
+  topics?: string[];
+  duration_minutes?: number;
+  study_method?: string;
+  why_this_timing?: string;
+}
+
+type AITeacherDaySchedule = Record<string, AITeacherSession | string | undefined> & {
+  date?: string;
+};
+
+interface AITeacherWeeklyMilestone {
+  week?: number;
+  chapters_to_complete?: string[];
+  goals?: string[];
+  success_metrics?: string;
+}
+
+interface AITeacherPlanOverview {
+  exam_strategy?: string;
+  total_days_available?: number;
+  daily_study_hours?: number;
+}
+
+interface AITeacherExamStrategy {
+  last_week_plan?: string;
+  exam_day_preparation?: string;
+}
+
+interface AITeacherResponse {
+  plan_overview?: AITeacherPlanOverview;
+  subject_wise_strategy?: Record<string, AITeacherSubjectStrategy>;
+  daily_schedule?: AITeacherDaySchedule[];
+  weekly_milestones?: AITeacherWeeklyMilestone[];
+  exam_preparation_strategy?: AITeacherExamStrategy;
+  daily_motivation_messages?: string[];
+  personalized_analysis?: unknown;
+  adaptive_recommendations?: unknown;
 }
 
 export async function generateEnhancedStudyPlan(
@@ -65,7 +121,7 @@ export async function generateEnhancedStudyPlan(
       toast.success("आपका स्मार्ट स्टडी प्लान तैयार है! चलिए जीत की तैयारी शुरू करते हैं।");
       return studyPlan;
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`❌ Build attempt failed:`, error);
       retryCount++;
       
@@ -101,7 +157,7 @@ async function parseAndValidateAITeacherResponse(responseText: string, examData:
   }
 }
 
-function convertAITeacherJSONToStudyPlan(aiData: any, examData: ExamPlanData): StudyPlan {
+function convertAITeacherJSONToStudyPlan(aiData: AITeacherResponse, examData: ExamPlanData): StudyPlan {
   return {
     overview: aiData.plan_overview?.exam_strategy || `Specialized strategy for ${examData.examName}`,
     totalDaysAvailable: aiData.plan_overview?.total_days_available || 30,
@@ -118,14 +174,14 @@ function convertAITeacherJSONToStudyPlan(aiData: any, examData: ExamPlanData): S
   };
 }
 
-function convertSubjectPlans(subjectStrategy: any): any[] {
-  return Object.entries(subjectStrategy).map(([subjectName, data]: [string, any]) => ({
+function convertSubjectPlans(subjectStrategy: Record<string, AITeacherSubjectStrategy>): StudyPlan["subjectPlans"] {
+  return Object.entries(subjectStrategy).map(([subjectName, data]) => ({
     subjectName,
     priorityLevel: data.priority_ranking <= 2 ? 'high' : 'medium',
     totalHours: data.total_hours_allocated || 20,
-    chapters: (data.chapter_wise_breakdown || []).map((chapter: any) => ({
+    chapters: (data.chapter_wise_breakdown || []).map((chapter) => ({
       chapterNumber: chapter.chapter_number || 1,
-      chapterName: chapter.chapter_name,
+      chapterName: chapter.chapter_name || "Core Concepts",
       importance: chapter.importance || 'medium',
       estimatedHours: chapter.estimated_hours || 2,
       topics: (chapter.topics || []).map((topicName: string) => ({
@@ -140,12 +196,12 @@ function convertSubjectPlans(subjectStrategy: any): any[] {
   }));
 }
 
-function convertDailyTasks(dailySchedule: any[]): any[] {
-  const tasks: any[] = [];
+function convertDailyTasks(dailySchedule: AITeacherDaySchedule[]): StudyPlan["dailyTasks"] {
+  const tasks: StudyPlan["dailyTasks"] = [];
   dailySchedule.forEach((day, index) => {
     const sessions = ['morning_session', 'afternoon_session', 'evening_session', 'revision_session'];
     sessions.forEach(sessionKey => {
-      const session = day[sessionKey];
+      const session = day[sessionKey] as AITeacherSession | undefined;
       if (session && session.subject) {
         tasks.push({
           id: `task_${index}_${sessionKey}_${Date.now()}`,
@@ -167,19 +223,20 @@ function convertDailyTasks(dailySchedule: any[]): any[] {
   return tasks;
 }
 
-function convertWeeklyGoals(weeklyMilestones: any[]): any[] {
+function convertWeeklyGoals(weeklyMilestones: AITeacherWeeklyMilestone[]): StudyPlan["weeklyGoals"] {
   return weeklyMilestones.map((m, i) => ({
     week: m.week || i + 1,
+    startDate: new Date().toISOString().split("T")[0],
+    endDate: new Date().toISOString().split("T")[0],
     subjects: m.chapters_to_complete || [],
     chapters: m.chapters_to_complete || [],
     targetCompletion: 100,
     focus: m.goals?.join(', ') || "Weekly Milestone",
-    assessmentMethod: "Self Assessment / Quiz",
-    successMetrics: "Completion of topics"
+    assessment: "Self Assessment / Quiz"
   }));
 }
 
-function extractExamTips(aiData: any, examData: ExamPlanData): string[] {
+function extractExamTips(aiData: AITeacherResponse, examData: ExamPlanData): string[] {
   const tips: string[] = [];
   const name = examData.examName.toLowerCase();
   
@@ -196,12 +253,13 @@ function extractExamTips(aiData: any, examData: ExamPlanData): string[] {
   return tips.length > 0 ? tips : ["Stay consistent", "Revise daily", "Make short notes"];
 }
 
-function generateProgressMilestones(milestones: any[]): any[] {
+function generateProgressMilestones(milestones: AITeacherWeeklyMilestone[]): StudyPlan["progressMilestones"] {
   return milestones.map((m, i) => ({
     week: i + 1,
-    target: m.goals?.[0] || `Week ${i + 1} targets reached`,
+    title: m.goals?.[0] || `Week ${i + 1} targets reached`,
     description: m.success_metrics || "Progress tracking active",
-    completed: false
+    reward: "Great progress!",
+    criteria: m.goals || ["Complete weekly targets"]
   }));
 }
 
@@ -223,10 +281,10 @@ async function convertNaturalLanguageToStructured(text: string, examData: ExamPl
 async function validateAndEnhanceWithSyllabus(plan: StudyPlan, examData: ExamPlanData): Promise<void> {
   try {
     for (const sub of plan.subjectPlans) {
-      const topics = sub.chapters.flatMap((c: any) => c.topics.map((t: any) => t.topicName));
+      const topics = sub.chapters.flatMap((c) => c.topics.map((t) => t.topicName));
       validateTopicsAgainstSyllabus(examData.examName, sub.subjectName, topics);
     }
-  } catch (e) {
+  } catch {
     console.warn("Official syllabus validation skipped to ensure stability.");
   }
 }
@@ -234,8 +292,8 @@ async function validateAndEnhanceWithSyllabus(plan: StudyPlan, examData: ExamPla
 export async function generateAdaptiveStudyPlanUpdate(
   originalPlan: StudyPlan,
   examData: ExamPlanData,
-  completedTasks: any[],
-  pendingTasks: any[],
+  completedTasks: unknown[],
+  pendingTasks: unknown[],
   userFeedback: string,
   difficulties: string[]
 ): Promise<StudyPlan> {
