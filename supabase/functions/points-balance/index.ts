@@ -34,13 +34,11 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { data: userPoints, error: fetchError } = await withRetry(() =>
-      supabaseAdmin
-        .from('user_points')
-        .select('balance, xp, level, credits, created_at, updated_at')
-        .eq('user_id', userId)
-        .maybeSingle()
-    );
+    const { data: userPoints, error: fetchError } = await supabaseAdmin
+      .from('user_points')
+      .select('balance, xp, level, credits, created_at, updated_at')
+      .eq('user_id', userId)
+      .maybeSingle();
 
     if (fetchError) {
       console.error('Error fetching user points:', fetchError);
