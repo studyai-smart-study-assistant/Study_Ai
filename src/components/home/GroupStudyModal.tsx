@@ -13,6 +13,7 @@ interface GroupStudyModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userId?: string;
+  onOpenGroup?: (groupId: string) => void;
 }
 
 interface StudyGroup {
@@ -29,6 +30,13 @@ interface GroupMember {
   joined_at: string;
 }
 
+interface RecentGroupItem {
+  group_id: string;
+  is_active: boolean;
+  joined_at: string;
+  group: StudyGroup;
+}
+
 interface SearchProfile {
   user_id: string;
   display_name: string | null;
@@ -38,7 +46,7 @@ interface SearchProfile {
 const GROUP_PROMPT = 'तुम अब एक स्टडी ग्रुप में हो। यहाँ कई छात्र एक साथ पढ़ रहे हैं। तुम्हें हर छात्र के Mind Vault का एक्सेस है। तुम्हें यह पहचानना है कि किसने सवाल पूछा है और उस छात्र की पिछली पसंद/नापसंद के आधार पर जवाब देना है ताकि एक Personalized Classroom वाली फील आए।';
 const RPC_NOT_FOUND_CODE = 'PGRST202';
 
-export default function GroupStudyModal({ open, onOpenChange, userId }: GroupStudyModalProps) {
+export default function GroupStudyModal({ open, onOpenChange, userId, onOpenGroup }: GroupStudyModalProps) {
   const [joinCode, setJoinCode] = useState('');
   const [groupName, setGroupName] = useState('Study Group');
   const [activeGroup, setActiveGroup] = useState<StudyGroup | null>(null);
@@ -47,6 +55,7 @@ export default function GroupStudyModal({ open, onOpenChange, userId }: GroupStu
   const [searchResults, setSearchResults] = useState<SearchProfile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [recentGroups, setRecentGroups] = useState<RecentGroupItem[]>([]);
 
   const memberCount = members.length;
   const canInviteMore = memberCount < 50;
@@ -56,6 +65,7 @@ export default function GroupStudyModal({ open, onOpenChange, userId }: GroupStu
   useEffect(() => {
     if (!open || !userId) return;
     loadCurrentMembership();
+    loadRecentGroups();
   }, [open, userId]);
 
   useEffect(() => {
@@ -116,6 +126,44 @@ export default function GroupStudyModal({ open, onOpenChange, userId }: GroupStu
     setActiveGroup(group as StudyGroup);
   };
 
+  const loadRecentGroups = async () => {
+    if (!userId) return;
+
+    const { data: joinedRows, error } = await supabase
+      .from('group_participants')
+      .select('group_id, is_active, joined_at')
+      .eq('user_id', userId)
+      .order('joined_at', { ascending: false })
+      .limit(10);
+
+    if (error || !joinedRows?.length) {
+      setRecentGroups([]);
+      return;
+    }
+
+    const groupIds = joinedRows.map((row) => row.group_id);
+    const { data: groups } = await supabase
+      .from('study_groups')
+      .select('id, name, invite_code, creator_id, group_system_prompt')
+      .in('id', groupIds);
+
+    const groupMap = new Map((groups || []).map((g) => [g.id, g as StudyGroup]));
+    const merged = joinedRows
+      .map((row) => {
+        const group = groupMap.get(row.group_id);
+        if (!group) return null;
+        return {
+          group_id: row.group_id,
+          is_active: !!row.is_active,
+          joined_at: row.joined_at,
+          group,
+        } as RecentGroupItem;
+      })
+      .filter(Boolean) as RecentGroupItem[];
+
+    setRecentGroups(merged);
+  };
+
   const loadMembers = async (groupId: string) => {
     const { data, error } = await supabase
       .from('group_participants')
@@ -157,6 +205,7 @@ export default function GroupStudyModal({ open, onOpenChange, userId }: GroupStu
     }
 
     setActiveGroup(data as StudyGroup);
+    loadRecentGroups();
     setJoinCode('');
     toast.success('Group created successfully!');
   };
@@ -189,8 +238,24 @@ export default function GroupStudyModal({ open, onOpenChange, userId }: GroupStu
     }
 
     setActiveGroup(data as StudyGroup);
+    loadRecentGroups();
     setJoinCode('');
     toast.success('Joined group successfully!');
+  };
+
+  const openRecentGroup = async (groupId: string, isActive: boolean) => {
+    if (!userId) return;
+
+    if (!isActive) {
+      await supabase
+        .from('group_participants')
+        .update({ is_active: true, joined_at: new Date().toISOString() })
+        .eq('group_id', groupId)
+        .eq('user_id', userId);
+    }
+
+    onOpenChange(false);
+    onOpenGroup?.(groupId);
   };
 
   const handleMemberSearch = async () => {
@@ -351,6 +416,29 @@ export default function GroupStudyModal({ open, onOpenChange, userId }: GroupStu
                   ))}
                 </div>
               </ScrollArea>
+            </div>
+          </div>
+        )}
+
+        {recentGroups.length > 0 && (
+          <div className="space-y-2 pt-2">
+            <p className="text-xs text-muted-foreground font-medium">Recently Joined Groups</p>
+            <div className="rounded-md border p-2 space-y-2 max-h-32 overflow-y-auto">
+              {recentGroups.map((item) => (
+                <button
+                  key={item.group_id}
+                  onClick={() => openRecentGroup(item.group_id, item.is_active)}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-left hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium truncate">{item.group.name}</span>
+                    <Badge variant={item.is_active ? 'secondary' : 'outline'}>
+                      {item.is_active ? 'Open' : 'Rejoin'}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{item.group.invite_code}</p>
+                </button>
+              ))}
             </div>
           </div>
         )}
