@@ -1,15 +1,12 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from "@/integrations/supabase/client";
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { ArrowLeft, Send, Image, Mic, File, Users, Phone, Video } from 'lucide-react';
 import GroupAvatar from './GroupAvatar';
-
-const supabaseAny = supabase as unknown as SupabaseClient<any>;
 
 interface Message {
   id: string;
@@ -42,14 +39,6 @@ const SupabaseChatInterface: React.FC<SupabaseChatInterfaceProps> = ({
   const { currentUser } = useAuth();
 
   useEffect(() => {
-    if (groupId && currentUser) {
-      loadMessages();
-      loadMemberCount();
-      setupRealtimeSubscription();
-    }
-  }, [groupId, currentUser]);
-
-  useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
@@ -57,11 +46,11 @@ const SupabaseChatInterface: React.FC<SupabaseChatInterfaceProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const loadMessages = async () => {
+  const loadMessages = useCallback(async () => {
     try {
       setIsLoading(true);
       
-      const { data, error } = await supabaseAny
+      const { data, error } = await supabase
         .from('group_messages')
         .select('*')
         .eq('group_id', groupId)
@@ -87,11 +76,11 @@ const SupabaseChatInterface: React.FC<SupabaseChatInterfaceProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [groupId, currentUser]);
 
-  const loadMemberCount = async () => {
+  const loadMemberCount = useCallback(async () => {
     try {
-      const { count, error } = await supabaseAny
+      const { count, error } = await supabase
         .from('group_members')
         .select('*', { count: 'exact', head: true })
         .eq('group_id', groupId);
@@ -101,9 +90,9 @@ const SupabaseChatInterface: React.FC<SupabaseChatInterfaceProps> = ({
     } catch (error) {
       console.error('Error loading member count:', error);
     }
-  };
+  }, [groupId]);
 
-  const setupRealtimeSubscription = () => {
+  const setupRealtimeSubscription = useCallback(() => {
     const channel = supabase
       .channel(`group-${groupId}`)
       .on(
@@ -128,7 +117,15 @@ const SupabaseChatInterface: React.FC<SupabaseChatInterfaceProps> = ({
     return () => {
       supabase.removeChannel(channel);
     };
-  };
+  }, [groupId, currentUser]);
+
+  useEffect(() => {
+    if (!groupId || !currentUser) return;
+    void loadMessages();
+    void loadMemberCount();
+    const cleanup = setupRealtimeSubscription();
+    return cleanup;
+  }, [groupId, currentUser, loadMessages, loadMemberCount, setupRealtimeSubscription]);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !currentUser || isSending) return;
@@ -136,7 +133,7 @@ const SupabaseChatInterface: React.FC<SupabaseChatInterfaceProps> = ({
     try {
       setIsSending(true);
       
-      const { error } = await supabaseAny
+      const { error } = await supabase
         .from('group_messages')
         .insert({
           group_id: groupId,
@@ -172,7 +169,7 @@ const SupabaseChatInterface: React.FC<SupabaseChatInterfaceProps> = ({
       if (uploadError) throw uploadError;
 
       // Send message with image path
-      const { error: messageError } = await supabaseAny
+      const { error: messageError } = await supabase
         .from('group_messages')
         .insert({
           group_id: groupId,

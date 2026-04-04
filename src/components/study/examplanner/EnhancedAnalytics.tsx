@@ -1,7 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/student/Badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,14 +19,7 @@ import {
   Cell
 } from 'recharts';
 import { 
-  TrendingUp, 
-  Clock, 
-  Target, 
-  Award, 
-  Calendar,
-  BarChart3,
-  PieChart as PieChartIcon,
-  Activity
+  BarChart3
 } from 'lucide-react';
 import { StudyPlan, ExamPlanData, UserProgress } from './types';
 
@@ -38,11 +30,46 @@ interface EnhancedAnalyticsProps {
 }
 
 interface AnalyticsData {
-  weeklyProgress: any[];
-  subjectPerformance: any[];
-  timeDistribution: any[];
-  performanceTrends: any[];
+  weeklyProgress: WeeklyProgressPoint[];
+  subjectPerformance: SubjectPerformancePoint[];
+  timeDistribution: TimeDistributionPoint[];
+  performanceTrends: PerformanceTrendPoint[];
   studyEffectiveness: number;
+}
+
+interface WeeklyProgressPoint {
+  week: string;
+  tasksCompleted: number;
+  targetTasks: number;
+  hoursStudied: number;
+  averageScore: number;
+}
+
+interface SubjectPerformancePoint {
+  subject: string;
+  score: number;
+  timeSpent: number;
+  tasksCompleted: number;
+  difficulty: number;
+}
+
+interface TimeDistributionPoint {
+  name: string;
+  value: number;
+  color: string;
+}
+
+interface PerformanceTrendPoint {
+  day: string;
+  performance: number;
+  timeSpent: number;
+  focus: number;
+}
+
+interface PerformanceInsight {
+  type: 'success' | 'warning' | 'info';
+  title: string;
+  description: string;
 }
 
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#ff0000'];
@@ -55,11 +82,7 @@ const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
 
-  useEffect(() => {
-    generateAnalyticsData();
-  }, [userProgress, studyPlan]);
-
-  const generateAnalyticsData = () => {
+  const generateAnalyticsData = useCallback(() => {
     // Mock data generation - in real app, this would come from actual user data
     const weeklyProgress = Array.from({ length: 8 }, (_, i) => ({
       week: `Week ${i + 1}`,
@@ -99,12 +122,16 @@ const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({
       performanceTrends,
       studyEffectiveness
     });
-  };
+  }, [examData.subjects]);
 
-  const getPerformanceInsights = () => {
+  useEffect(() => {
+    generateAnalyticsData();
+  }, [generateAnalyticsData, userProgress, studyPlan]);
+
+  const getPerformanceInsights = (): PerformanceInsight[] => {
     if (!analyticsData) return [];
 
-    const insights = [];
+    const insights: PerformanceInsight[] = [];
     
     // Best performing subject
     const bestSubject = analyticsData.subjectPerformance.reduce((max, current) => 
@@ -133,7 +160,7 @@ const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({
 
     // Consistency check
     const weeklyScores = analyticsData.weeklyProgress.map(w => w.averageScore);
-    const consistency = weeklyScores.every(score => score > 70);
+    const consistency = weeklyScores.every((score) => score > 70);
     if (consistency) {
       insights.push({
         type: 'success',
@@ -217,7 +244,7 @@ const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({
                       paddingAngle={5}
                       dataKey="value"
                     >
-                      {analyticsData.timeDistribution.map((entry, index) => (
+                      {analyticsData.timeDistribution.map((_entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
