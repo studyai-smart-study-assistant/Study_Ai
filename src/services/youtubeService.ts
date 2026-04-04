@@ -1,3 +1,5 @@
+import { supabase } from '@/integrations/supabase/client';
+
 export interface YouTubeVideo {
   id: {
     videoId?: string;
@@ -35,9 +37,6 @@ export interface YouTubeSearchResponse {
   };
 }
 
-const API_KEY = 'AIzaSyDl0I6IJ91FeA92ZpWfJf1hRGRkjgmntHM';
-const BASE_URL = 'https://www.googleapis.com/youtube/v3';
-
 export class YouTubeService {
   
   static async searchVideos(
@@ -46,27 +45,20 @@ export class YouTubeService {
     pageToken?: string
   ): Promise<YouTubeSearchResponse> {
     try {
-      const params = new URLSearchParams({
-        part: 'snippet',
-        q: query,
-        type: 'video',
-        maxResults: maxResults.toString(),
-        key: API_KEY,
-        order: 'relevance',
-        safeSearch: 'strict'
+      const { data, error } = await supabase.functions.invoke<YouTubeSearchResponse>('youtube-search', {
+        body: {
+          action: 'search',
+          query,
+          maxResults,
+          pageToken
+        }
       });
 
-      if (pageToken) {
-        params.append('pageToken', pageToken);
+      if (error) {
+        throw new Error(error.message || 'YouTube proxy error');
       }
 
-      const response = await fetch(`${BASE_URL}/search?${params}`);
-      
-      if (!response.ok) {
-        throw new Error(`YouTube API Error: ${response.status}`);
-      }
-
-      return await response.json();
+      return data;
     } catch (error) {
       console.error('Error searching videos:', error);
       throw error;
@@ -75,20 +67,18 @@ export class YouTubeService {
 
   static async getVideoDetails(videoId: string): Promise<YouTubeVideo | null> {
     try {
-      const params = new URLSearchParams({
-        part: 'snippet,statistics',
-        id: videoId,
-        key: API_KEY
+      const { data, error } = await supabase.functions.invoke<{ items: YouTubeVideo[] }>('youtube-search', {
+        body: {
+          action: 'videoDetails',
+          videoId
+        }
       });
 
-      const response = await fetch(`${BASE_URL}/videos?${params}`);
-      
-      if (!response.ok) {
-        throw new Error(`YouTube API Error: ${response.status}`);
+      if (error) {
+        throw new Error(error.message || 'YouTube proxy error');
       }
 
-      const data = await response.json();
-      return data.items[0] || null;
+      return data?.items?.[0] || null;
     } catch (error) {
       console.error('Error getting video details:', error);
       return null;
@@ -97,30 +87,18 @@ export class YouTubeService {
 
   static async getRelatedVideos(videoId: string): Promise<YouTubeVideo[]> {
     try {
-      // Get channel info first
-      const videoDetails = await this.getVideoDetails(videoId);
-      if (!videoDetails) return [];
-
-      const channelId = videoDetails.snippet.channelId;
-      
-      // Search for more videos from the same channel
-      const params = new URLSearchParams({
-        part: 'snippet',
-        channelId: channelId,
-        type: 'video',
-        maxResults: '10',
-        key: API_KEY,
-        order: 'relevance'
+      const { data, error } = await supabase.functions.invoke<{ items: YouTubeVideo[] }>('youtube-search', {
+        body: {
+          action: 'relatedVideos',
+          videoId
+        }
       });
 
-      const response = await fetch(`${BASE_URL}/search?${params}`);
-      
-      if (!response.ok) {
-        throw new Error(`YouTube API Error: ${response.status}`);
+      if (error) {
+        throw new Error(error.message || 'YouTube proxy error');
       }
 
-      const data = await response.json();
-      return data.items || [];
+      return data?.items || [];
     } catch (error) {
       console.error('Error getting related videos:', error);
       return [];
