@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { Toaster as ToastToaster } from '@/components/ui/toaster';
@@ -14,9 +13,11 @@ import ErrorBoundary from '@/components/common/ErrorBoundary';
 import AppShell from '@/components/layout/AppShell';
 import PageSkeleton from '@/components/common/PageSkeleton';
 
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { useAppPermissions } from '@/hooks/useAppPermissions';
 import { usePagePrefetcher } from '@/hooks/usePagePrefetcher'; // Import the new hook
+import { supabase } from '@/integrations/supabase/client';
+import { initOneSignal, logoutOneSignal, syncOneSignalIdentity } from '@/services/oneSignalService';
 
 // Lazy load pages for better performance
 const Index = lazy(() => import('@/pages/Index'));
@@ -59,6 +60,49 @@ const PageWrapper = ({ children, variant = 'default' }: { children: React.ReactN
 function App() {
   useAppPermissions();
   usePagePrefetcher(); // Activate the page prefetcher
+
+  useEffect(() => {
+    let mounted = true;
+
+    const syncIdentity = async () => {
+      await initOneSignal();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!mounted) return;
+
+      if (session?.user?.id) {
+        await syncOneSignalIdentity(session.user.id);
+        await supabase.functions.invoke('analyze-study-pattern', {
+          body: {
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
+            auto_schedule: true,
+          },
+        });
+      }
+    };
+
+    syncIdentity();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
+      if (session?.user?.id) {
+        await syncOneSignalIdentity(session.user.id);
+        await supabase.functions.invoke('analyze-study-pattern', {
+          body: {
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
+            auto_schedule: true,
+          },
+        });
+      } else if (event === 'SIGNED_OUT') {
+        await logoutOneSignal();
+      }
+    });
+
+    return () => {
+      mounted = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   return (
     <Router>

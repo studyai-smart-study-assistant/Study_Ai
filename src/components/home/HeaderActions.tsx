@@ -6,6 +6,7 @@ import { LogIn, UserCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ChatHistory from '@/components/ChatHistory';
 import NotificationBell from '@/components/notifications/NotificationBell';
+import TaskNotificationButton from '@/components/notifications/TaskNotificationButton';
 import { useAuth } from '@/hooks/useAuth';
 
 interface HeaderActionsProps {
@@ -46,7 +47,17 @@ const HeaderActions: React.FC<HeaderActionsProps> = ({ currentChatId, onSelectCh
         <NotificationBell className="text-purple-600 hover:text-purple-700 hover:bg-purple-100 dark:text-purple-400 dark:hover:bg-purple-900/40" />
       </motion.div>
       
-      {currentUser ? (
+      
+      {currentUser && (
+        <motion.div
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <TaskNotificationButton />
+        </motion.div>
+      )}
+
+{currentUser ? (
         <motion.div
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}

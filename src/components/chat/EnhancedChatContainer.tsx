@@ -100,7 +100,14 @@ const EnhancedChatContainer: React.FC<EnhancedChatContainerProps> = ({ chatId, o
     scrollToBottom();
 
     try {
-      const { data, error } = await supabase.functions.invoke('deep-thinking', { body: { topic } });
+      const { data: authData } = await supabase.auth.getUser();
+      const { data, error } = await supabase.functions.invoke('deep-thinking', {
+        body: {
+          topic,
+          user_id: authData.user?.id,
+          notify_on_complete: document.hidden,
+        },
+      });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Deep thinking failed');
       if (data.sources?.length > 0) setDeepThinkingSources(data.sources);
