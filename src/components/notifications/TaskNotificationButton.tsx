@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -10,15 +10,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 type Recurrence = 'daily' | 'weekly' | 'monthly';
-
-interface NotificationTask {
-  id: string;
-  task_name: string;
-  task_message: string;
-  recurrence: Recurrence;
-  scheduled_time: string;
-  is_active: boolean;
-}
 
 const buildScheduleISO = (timeValue: string): string => {
   const [hours, minutes] = timeValue.split(':').map(Number);
@@ -36,30 +27,6 @@ const TaskNotificationButton = () => {
   const [recurrence, setRecurrence] = useState<Recurrence>('daily');
   const [timeValue, setTimeValue] = useState('19:00');
   const [loading, setLoading] = useState(false);
-  const [tasks, setTasks] = useState<NotificationTask[]>([]);
-
-  const timezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata', []);
-
-  const loadTasks = async () => {
-    const { data, error } = await supabase
-      .from('notification_tasks')
-      .select('id, task_name, task_message, recurrence, scheduled_time, is_active')
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    if (error) {
-      console.error(error);
-      return;
-    }
-
-    setTasks((data || []) as NotificationTask[]);
-  };
-
-  useEffect(() => {
-    if (open) {
-      loadTasks();
-    }
-  }, [open]);
 
   const handleCreateTask = async () => {
     if (!taskName.trim()) {
@@ -69,27 +36,12 @@ const TaskNotificationButton = () => {
 
     setLoading(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Please login first');
 
       const scheduledTime = buildScheduleISO(timeValue);
-
-      const { error: taskError } = await supabase.from('notification_tasks').upsert({
-        user_id: user.id,
-        task_name: taskName.trim(),
-        task_message: taskMessage.trim(),
-        recurrence,
-        scheduled_time: scheduledTime,
-        timezone,
-        is_active: true,
-      }, { onConflict: 'user_id,task_name' });
-
-      if (taskError) throw taskError;
-
       const scheduleCount = recurrence === 'daily' ? 14 : 8;
+
       const { error: pushError } = await supabase.functions.invoke('notification', {
         body: {
           action: 'send',
@@ -100,7 +52,6 @@ const TaskNotificationButton = () => {
           recurrence,
           schedule_count: scheduleCount,
           task_name: taskName.trim(),
-          timezone,
         },
       });
 
@@ -109,9 +60,10 @@ const TaskNotificationButton = () => {
       toast.success('Task notification scheduled successfully ✅');
       setTaskName('');
       setTaskMessage('Time to study! Your scheduled session is ready 📚');
-      await loadTasks();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to schedule task notification');
+      setOpen(false);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to schedule';
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -123,7 +75,7 @@ const TaskNotificationButton = () => {
         <Button
           variant="ghost"
           size="icon"
-          className="text-purple-600 hover:text-purple-700 hover:bg-purple-100 dark:text-purple-400 dark:hover:bg-purple-900/40 rounded-full transition-all duration-300 hover:shadow-lg"
+          className="text-primary hover:text-primary/80 hover:bg-primary/10 rounded-full transition-all duration-300"
           title="Task reminders"
         >
           <CalendarPlus className="h-5 w-5" />
@@ -168,20 +120,6 @@ const TaskNotificationButton = () => {
             <BellRing className="h-4 w-4 mr-2" />
             {loading ? 'Scheduling...' : 'Schedule Task Notification'}
           </Button>
-
-          <div className="pt-2 border-t">
-            <p className="text-sm font-medium mb-2">Your Active Tasks</p>
-            <div className="max-h-40 overflow-auto space-y-2">
-              {tasks.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No tasks yet.</p>
-              ) : tasks.map((task) => (
-                <div key={task.id} className="rounded-md border px-2 py-1 text-xs">
-                  <p className="font-medium">{task.task_name}</p>
-                  <p className="text-muted-foreground">{task.recurrence} • {new Date(task.scheduled_time).toLocaleString()}</p>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </DialogContent>
     </Dialog>
