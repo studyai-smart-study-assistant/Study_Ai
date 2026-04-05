@@ -112,14 +112,13 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
     return 'अन्य विषय';
   };
 
-  const calculateSubjectProgress = useCallback((
+  const calculateSubjectProgress = (
     pointsHistory: PointsHistoryItem[],
     chatHistory: ChatHistoryItem[],
     quizResults: QuizResultItem[],
   ) => {
     const subjectData: { [key: string]: SubjectProgress } = {};
     
-    // Initialize subjects
     Object.keys(subjectKeywords).forEach((subject, index) => {
       subjectData[subject] = {
         name: subject,
@@ -131,15 +130,12 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
       };
     });
     
-    // Analyze chat messages for subject engagement
     chatHistory.forEach((chat) => {
       if (chat.messages) {
         chat.messages.forEach((message) => {
           if (message.sender === 'user') {
             const subject = analyzeMessageContent(message.content || '');
             subjectData[subject].totalQuestions += 1;
-            
-            // Simple heuristic: if user asks detailed questions, consider it engagement
             if ((message.content || '').length > 50) {
               subjectData[subject].correctAnswers += 1;
             }
@@ -148,7 +144,6 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
       }
     });
     
-    // Analyze quiz results
     quizResults.forEach((quiz) => {
       const subject = quiz.subject || analyzeMessageContent(quiz.topic || '');
       if (subjectData[subject]) {
@@ -157,7 +152,6 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
       }
     });
     
-    // Analyze points history for subject-specific activities
     pointsHistory.forEach((item) => {
       if (item.description) {
         const subject = analyzeMessageContent(item.description);
@@ -165,7 +159,6 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
       }
     });
     
-    // Calculate progress percentages
     return Object.values(subjectData)
       .filter(subject => subject.totalQuestions > 0 || subject.studyTime > 0)
       .map(subject => ({
