@@ -112,63 +112,6 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
     return 'अन्य विषय';
   };
 
-  const loadRealProgressData = useCallback(async () => {
-    if (!currentUser) return;
-    
-    setLoading(true);
-    try {
-      console.log('Loading real student progress data...');
-      
-      // Get all user data from localStorage
-      const pointsHistory = parseStoredArray<PointsHistoryItem>(localStorage.getItem(`${currentUser.uid}_points_history`));
-      const chatHistory = parseStoredArray<ChatHistoryItem>(localStorage.getItem(`teacher_chats_${currentUser.uid}`));
-      const studySessions = parseStoredArray<StudySessionItem>(localStorage.getItem(`${currentUser.uid}_study_sessions`));
-      const quizResults = parseStoredArray<QuizResultItem>(localStorage.getItem(`${currentUser.uid}_quiz_results`));
-      
-      // Calculate subject-wise progress
-      const subjectStats = calculateSubjectProgress(pointsHistory, chatHistory, quizResults);
-      
-      // Calculate weekly activity
-      const weeklyStats = calculateWeeklyActivity(pointsHistory, studySessions);
-      
-      // Calculate total study time
-      const totalTime = studySessions.reduce((total: number, session) => {
-        return total + (session.duration || 0);
-      }, 0);
-      
-      // Count real achievements
-      const realAchievements = pointsHistory.filter((item) => 
-        ['achievement', 'quiz', 'streak', 'goal_completed'].includes(item.type)
-      ).length;
-      
-      setSubjectProgress(subjectStats);
-      setWeeklyActivity(weeklyStats);
-      setTotalStudyTime(Math.floor(totalTime / 60)); // Convert to minutes
-      setAchievements(realAchievements);
-      
-      console.log('Real progress data loaded:', {
-        subjects: subjectStats.length,
-        achievements: realAchievements,
-        studyTime: totalTime
-      });
-      
-    } catch (error) {
-      console.error('Error loading real progress data:', error);
-      // Fallback to show empty state rather than fake data
-      setSubjectProgress([]);
-      setWeeklyActivity([]);
-      setAchievements(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [currentUser, calculateSubjectProgress, calculateWeeklyActivity]);
-
-  useEffect(() => {
-    if (currentUser) {
-      void loadRealProgressData();
-    }
-  }, [currentUser, loadRealProgressData]);
-
   const calculateSubjectProgress = (
     pointsHistory: PointsHistoryItem[],
     chatHistory: ChatHistoryItem[],
@@ -176,7 +119,6 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
   ) => {
     const subjectData: { [key: string]: SubjectProgress } = {};
     
-    // Initialize subjects
     Object.keys(subjectKeywords).forEach((subject, index) => {
       subjectData[subject] = {
         name: subject,
@@ -188,15 +130,12 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
       };
     });
     
-    // Analyze chat messages for subject engagement
     chatHistory.forEach((chat) => {
       if (chat.messages) {
         chat.messages.forEach((message) => {
           if (message.sender === 'user') {
             const subject = analyzeMessageContent(message.content || '');
             subjectData[subject].totalQuestions += 1;
-            
-            // Simple heuristic: if user asks detailed questions, consider it engagement
             if ((message.content || '').length > 50) {
               subjectData[subject].correctAnswers += 1;
             }
@@ -205,7 +144,6 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
       }
     });
     
-    // Analyze quiz results
     quizResults.forEach((quiz) => {
       const subject = quiz.subject || analyzeMessageContent(quiz.topic || '');
       if (subjectData[subject]) {
@@ -214,7 +152,6 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
       }
     });
     
-    // Analyze points history for subject-specific activities
     pointsHistory.forEach((item) => {
       if (item.description) {
         const subject = analyzeMessageContent(item.description);
@@ -222,7 +159,6 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
       }
     });
     
-    // Calculate progress percentages
     return Object.values(subjectData)
       .filter(subject => subject.totalQuestions > 0 || subject.studyTime > 0)
       .map(subject => ({
@@ -271,7 +207,27 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
     
     return Object.values(weeklyData);
   };
-  
+
+  useEffect(() => {
+    if (!currentUser) return;
+    setLoading(true);
+    try {
+      const pointsHistory = parseStoredArray<PointsHistoryItem>(localStorage.getItem(`${currentUser.uid}_points_history`));
+      const chatHistory = parseStoredArray<ChatHistoryItem>(localStorage.getItem(`teacher_chats_${currentUser.uid}`));
+      const studySessions = parseStoredArray<StudySessionItem>(localStorage.getItem(`${currentUser.uid}_study_sessions`));
+      const quizResults = parseStoredArray<QuizResultItem>(localStorage.getItem(`${currentUser.uid}_quiz_results`));
+      
+      setSubjectProgress(calculateSubjectProgress(pointsHistory, chatHistory, quizResults));
+      setWeeklyActivity(calculateWeeklyActivity(pointsHistory, studySessions));
+      setTotalStudyTime(Math.floor(studySessions.reduce((t, s) => t + (s.duration || 0), 0) / 60));
+      setAchievements(pointsHistory.filter(i => ['achievement','quiz','streak','goal_completed'].includes(i.type || '')).length);
+    } catch (error) {
+      console.error('Error loading progress:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUser]);
+
   const calculateOverallProgress = () => {
     if (subjectProgress.length === 0) return 0;
     const totalProgress = subjectProgress.reduce((sum, subject) => sum + subject.progress, 0);

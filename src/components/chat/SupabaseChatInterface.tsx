@@ -51,21 +51,19 @@ const SupabaseChatInterface: React.FC<SupabaseChatInterfaceProps> = ({
       setIsLoading(true);
       
       const { data, error } = await supabase
-        .from('group_messages')
+        .from('group_chat_messages')
         .select('*')
         .eq('group_id', groupId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
 
-      // Add sender names and ensure proper typing
-      const messagesWithNames: Message[] = data.map(msg => ({
+      const messagesWithNames: Message[] = (data || []).map((msg) => ({
         id: msg.id,
         sender_id: msg.sender_id,
         sender_name: msg.sender_id === currentUser?.uid ? 'You' : `User ${msg.sender_id.slice(-4)}`,
         text_content: msg.content,
-        image_path: msg.file_url,
-        message_type: msg.message_type as 'text' | 'image' | 'voice' | 'file',
+        message_type: (msg.role === 'assistant' ? 'text' : 'text') as 'text',
         created_at: msg.created_at
       }));
 
@@ -81,9 +79,10 @@ const SupabaseChatInterface: React.FC<SupabaseChatInterfaceProps> = ({
   const loadMemberCount = useCallback(async () => {
     try {
       const { count, error } = await supabase
-        .from('group_members')
+        .from('group_participants')
         .select('*', { count: 'exact', head: true })
-        .eq('group_id', groupId);
+        .eq('group_id', groupId)
+        .eq('is_active', true);
 
       if (error) throw error;
       setMemberCount(count || 0);
@@ -100,16 +99,20 @@ const SupabaseChatInterface: React.FC<SupabaseChatInterfaceProps> = ({
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'group_messages',
+          table: 'group_chat_messages',
           filter: `group_id=eq.${groupId}`
         },
         (payload) => {
-          const newMessage = {
-            ...payload.new,
-            sender_name: payload.new.sender_id === currentUser?.uid ? 'You' : `User ${payload.new.sender_id.slice(-4)}`
-          } as Message;
-          
-          setMessages(prev => [...prev, newMessage]);
+          const raw = payload.new as Record<string, unknown>;
+          const newMsg: Message = {
+            id: raw.id as string,
+            sender_id: raw.sender_id as string,
+            sender_name: (raw.sender_id as string) === currentUser?.uid ? 'You' : `User ${(raw.sender_id as string).slice(-4)}`,
+            text_content: raw.content as string,
+            message_type: 'text',
+            created_at: raw.created_at as string,
+          };
+          setMessages(prev => [...prev, newMsg]);
         }
       )
       .subscribe();
@@ -134,16 +137,15 @@ const SupabaseChatInterface: React.FC<SupabaseChatInterfaceProps> = ({
       setIsSending(true);
       
       const { error } = await supabase
-        .from('group_messages')
+        .from('group_chat_messages')
         .insert({
           group_id: groupId,
           sender_id: currentUser.uid,
-          message_type: 'text',
+          role: 'user',
           content: newMessage.trim()
         });
 
       if (error) throw error;
-      
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
@@ -159,51 +161,34 @@ const SupabaseChatInterface: React.FC<SupabaseChatInterfaceProps> = ({
 
     try {
       setIsSending(true);
-      
-      // Upload to Supabase Storage
       const fileName = `${groupId}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from('chat_media')
-        .upload(fileName, file);
-
+      const { error: uploadError } = await supabase.storage.from('chat_media').upload(fileName, file);
       if (uploadError) throw uploadError;
 
-      // Send message with image path
+      const { data: urlData } = supabase.storage.from('chat_media').getPublicUrl(fileName);
+
       const { error: messageError } = await supabase
-        .from('group_messages')
+        .from('group_chat_messages')
         .insert({
           group_id: groupId,
           sender_id: currentUser.uid,
-          message_type: 'image',
-          file_url: fileName
+          role: 'user',
+          content: `![image](${urlData.publicUrl})`
         });
 
       if (messageError) throw messageError;
-      
-      toast.success('Image sent successfully!');
+      toast.success('Image sent!');
     } catch (error) {
       console.error('Error uploading image:', error);
       toast.error('Failed to send image');
     } finally {
       setIsSending(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const getImageUrl = (imagePath: string) => {
-    const { data } = supabase.storage
-      .from('chat_media')
-      .getPublicUrl(imagePath);
-    return data.publicUrl;
-  };
-
   const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -214,91 +199,47 @@ const SupabaseChatInterface: React.FC<SupabaseChatInterfaceProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-white to-purple-50 dark:from-gray-900 dark:to-purple-950/30">
+    <div className="flex flex-col h-full bg-gradient-to-b from-background to-muted/30">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-purple-200 dark:border-purple-800 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm">
+      <div className="flex items-center justify-between p-4 border-b border-border bg-background/50 backdrop-blur-sm">
         <div className="flex items-center space-x-3">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={onBack}
-            className="hover:bg-purple-100 dark:hover:bg-purple-900/40"
-          >
+          <Button variant="ghost" size="icon" onClick={onBack}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          
           <GroupAvatar groupName={groupName} size="md" />
-          
           <div>
-            <h2 className="font-semibold text-gray-900 dark:text-gray-100">{groupName}</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center">
+            <h2 className="font-semibold text-foreground">{groupName}</h2>
+            <p className="text-sm text-muted-foreground flex items-center">
               <Users className="h-3 w-3 mr-1" />
               {memberCount} members
             </p>
           </div>
         </div>
-
         <div className="flex items-center space-x-2">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            className="hover:bg-purple-100 dark:hover:bg-purple-900/40"
-          >
-            <Phone className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon"
-            className="hover:bg-purple-100 dark:hover:bg-purple-900/40"
-          >
-            <Video className="h-4 w-4" />
-          </Button>
+          <Button variant="ghost" size="icon"><Phone className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon"><Video className="h-4 w-4" /></Button>
         </div>
       </div>
 
-      {/* Messages Area */}
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {isLoading ? (
           <div className="flex justify-center py-8">
-            <div className="animate-spin w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full"></div>
+            <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full"></div>
           </div>
         ) : messages.length > 0 ? (
           messages.map((message) => (
-            <div 
-              key={message.id}
-              className={`flex ${message.sender_id === currentUser?.uid ? 'justify-end' : 'justify-start'}`}
-            >
+            <div key={message.id} className={`flex ${message.sender_id === currentUser?.uid ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
                 message.sender_id === currentUser?.uid
-                  ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white'
-                  : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-card border border-border'
               }`}>
                 {message.sender_id !== currentUser?.uid && (
-                  <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 mb-1">
-                    {message.sender_name}
-                  </p>
+                  <p className="text-xs font-semibold text-primary mb-1">{message.sender_name}</p>
                 )}
-                
-                {message.message_type === 'text' && (
-                  <p className="text-sm">{message.text_content}</p>
-                )}
-                
-                {message.message_type === 'image' && message.image_path && (
-                  <div className="space-y-2">
-                    <img 
-                      src={getImageUrl(message.image_path)}
-                      alt="Shared image"
-                      className="max-w-full h-auto rounded"
-                      loading="lazy"
-                    />
-                  </div>
-                )}
-                
-                <p className={`text-xs mt-1 ${
-                  message.sender_id === currentUser?.uid 
-                    ? 'text-purple-100' 
-                    : 'text-gray-500 dark:text-gray-400'
-                }`}>
+                <p className="text-sm">{message.text_content}</p>
+                <p className={`text-xs mt-1 ${message.sender_id === currentUser?.uid ? 'opacity-70' : 'text-muted-foreground'}`}>
                   {formatTime(message.created_at)}
                 </p>
               </div>
@@ -307,73 +248,30 @@ const SupabaseChatInterface: React.FC<SupabaseChatInterfaceProps> = ({
         ) : (
           <div className="text-center py-8">
             <GroupAvatar groupName={groupName} size="lg" className="mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400">
-              Start the conversation in {groupName}
-            </p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-              Share text, images, voice messages and files
-            </p>
+            <p className="text-muted-foreground">Start the conversation in {groupName}</p>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
-      <div className="p-4 border-t border-purple-200 dark:border-purple-800 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm">
+      {/* Input */}
+      <div className="p-4 border-t border-border bg-background/50 backdrop-blur-sm">
         <div className="flex items-center space-x-2">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImageUpload}
-            accept="image/*"
-            className="hidden"
-          />
-          
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isSending}
-            className="hover:bg-purple-100 dark:hover:bg-purple-900/40"
-          >
+          <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+          <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isSending}>
             <Image className="h-4 w-4" />
           </Button>
-          
-          <Button 
-            variant="ghost" 
-            size="icon"
-            disabled={true}
-            className="hover:bg-purple-100 dark:hover:bg-purple-900/40 opacity-50"
-            title="Voice messages coming soon"
-          >
-            <Mic className="h-4 w-4" />
-          </Button>
-          
-          <Button 
-            variant="ghost" 
-            size="icon"
-            disabled={true}
-            className="hover:bg-purple-100 dark:hover:bg-purple-900/40 opacity-50"
-            title="File sharing coming soon"
-          >
-            <File className="h-4 w-4" />
-          </Button>
-          
+          <Button variant="ghost" size="icon" disabled title="Coming soon"><Mic className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" disabled title="Coming soon"><File className="h-4 w-4" /></Button>
           <div className="flex-1 flex items-center space-x-2">
             <Input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Type a message..."
-              className="border-purple-200 dark:border-purple-800 focus:border-purple-500"
               disabled={isSending}
             />
-            
-            <Button 
-              onClick={handleSendMessage}
-              disabled={!newMessage.trim() || isSending}
-              className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600"
-            >
+            <Button onClick={handleSendMessage} disabled={!newMessage.trim() || isSending} className="bg-primary hover:bg-primary/90">
               <Send className="h-4 w-4" />
             </Button>
           </div>
