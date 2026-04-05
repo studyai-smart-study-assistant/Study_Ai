@@ -228,7 +228,7 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
     }
   }, [currentUser]);
 
-
+  const calculateOverallProgress = () => {
     if (subjectProgress.length === 0) return 0;
     const totalProgress = subjectProgress.reduce((sum, subject) => sum + subject.progress, 0);
     return Math.round(totalProgress / subjectProgress.length);
