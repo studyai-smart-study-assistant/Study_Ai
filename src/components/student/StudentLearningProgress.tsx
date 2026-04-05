@@ -207,8 +207,28 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
     
     return Object.values(weeklyData);
   };
-  
-  const calculateOverallProgress = () => {
+
+  useEffect(() => {
+    if (!currentUser) return;
+    setLoading(true);
+    try {
+      const pointsHistory = parseStoredArray<PointsHistoryItem>(localStorage.getItem(`${currentUser.uid}_points_history`));
+      const chatHistory = parseStoredArray<ChatHistoryItem>(localStorage.getItem(`teacher_chats_${currentUser.uid}`));
+      const studySessions = parseStoredArray<StudySessionItem>(localStorage.getItem(`${currentUser.uid}_study_sessions`));
+      const quizResults = parseStoredArray<QuizResultItem>(localStorage.getItem(`${currentUser.uid}_quiz_results`));
+      
+      setSubjectProgress(calculateSubjectProgress(pointsHistory, chatHistory, quizResults));
+      setWeeklyActivity(calculateWeeklyActivity(pointsHistory, studySessions));
+      setTotalStudyTime(Math.floor(studySessions.reduce((t, s) => t + (s.duration || 0), 0) / 60));
+      setAchievements(pointsHistory.filter(i => ['achievement','quiz','streak','goal_completed'].includes(i.type || '')).length);
+    } catch (error) {
+      console.error('Error loading progress:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUser]);
+
+
     if (subjectProgress.length === 0) return 0;
     const totalProgress = subjectProgress.reduce((sum, subject) => sum + subject.progress, 0);
     return Math.round(totalProgress / subjectProgress.length);
