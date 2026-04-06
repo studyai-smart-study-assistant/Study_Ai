@@ -1,6 +1,25 @@
-
 import { useState, useEffect } from 'react';
-import { chatDB } from '@/lib/db';
+import { chatDB, type Chat, type Message } from '@/lib/db';
+
+export interface InteractiveTeacherChatMetadata {
+  subject: string;
+  chapter: string;
+  studentName: string;
+  context: unknown;
+  messageCount: number;
+}
+
+export type InteractiveTeacherChatMessage = Omit<Message, 'chatId' | 'role'> &
+  Partial<Pick<Message, 'chatId' | 'role' | 'bookmarked' | 'liked' | 'editedAt'>> & {
+    isQuestion?: boolean;
+    awaitingResponse?: boolean;
+  };
+
+type InteractiveTeacherStoredChat = Chat & {
+  type?: string;
+  metadata?: Partial<InteractiveTeacherChatMetadata>;
+  messages: InteractiveTeacherChatMessage[];
+};
 
 export interface InteractiveTeacherChat {
   id: string;
@@ -9,28 +28,45 @@ export interface InteractiveTeacherChat {
   chapter: string;
   studentName: string;
   timestamp: number;
-  messages: any[];
-  context: any;
+  messages: InteractiveTeacherChatMessage[];
+  context: InteractiveTeacherChatMetadata['context'] | null;
+}
+
+interface SaveInteractiveTeacherChatInput {
+  title: string;
+  subject: string;
+  chapter: string;
+  studentName: string;
+  messages: InteractiveTeacherChatMessage[];
+  context: InteractiveTeacherChatMetadata['context'];
 }
 
 export const useInteractiveTeacherHistory = () => {
   const [chats, setChats] = useState<InteractiveTeacherChat[]>([]);
-  
+
   const loadHistory = async () => {
     try {
       const allChats = await chatDB.getAllChats();
       const interactiveChats = allChats
-        .filter(chat => (chat as any).type === 'interactive-teacher')
-        .map(chat => ({
-          id: chat.id,
-          title: chat.title,
-          subject: (chat as any).metadata?.subject || '',
-          chapter: (chat as any).metadata?.chapter || '',
-          studentName: (chat as any).metadata?.studentName || '',
-          timestamp: chat.timestamp,
-          messages: chat.messages,
-          context: (chat as any).metadata?.context || null
-        }))
+        .filter((chat) => {
+          const typedChat = chat as InteractiveTeacherStoredChat;
+          return typedChat.type === 'interactive-teacher';
+        })
+        .map((chat) => {
+          const typedChat = chat as InteractiveTeacherStoredChat;
+          const metadata = typedChat.metadata;
+
+          return {
+            id: typedChat.id,
+            title: typedChat.title,
+            subject: metadata?.subject || '',
+            chapter: metadata?.chapter || '',
+            studentName: metadata?.studentName || '',
+            timestamp: typedChat.timestamp,
+            messages: typedChat.messages,
+            context: metadata?.context || null
+          };
+        })
         .sort((a, b) => b.timestamp - a.timestamp); // Sort by newest first
       setChats(interactiveChats);
       console.log('Loaded', interactiveChats.length, 'interactive teacher chats');
@@ -39,19 +75,12 @@ export const useInteractiveTeacherHistory = () => {
     }
   };
 
-  const saveChat = async (chat: {
-    title: string;
-    subject: string;
-    chapter: string;
-    studentName: string;
-    messages: any[];
-    context: any;
-  }) => {
+  const saveChat = async (chat: SaveInteractiveTeacherChatInput) => {
     try {
       console.log('Saving chat with', chat.messages.length, 'messages');
-      
+
       const newChat = await chatDB.createNewChat();
-      const updatedChat = {
+      const updatedChat: InteractiveTeacherStoredChat = {
         ...newChat,
         type: 'interactive-teacher',
         title: chat.title,
@@ -65,11 +94,11 @@ export const useInteractiveTeacherHistory = () => {
           messageCount: chat.messages.length // Track message count for debugging
         }
       };
-      
+
       // Save the complete chat data
       await chatDB.saveChat(updatedChat);
       console.log('Successfully saved chat with', chat.messages.length, 'messages');
-      
+
       // Reload history to show updated data
       await loadHistory();
       return newChat.id;
@@ -79,25 +108,24 @@ export const useInteractiveTeacherHistory = () => {
     }
   };
 
-  const updateChat = async (chatId: string, messages: any[]) => {
+  const updateChat = async (chatId: string, messages: InteractiveTeacherChatMessage[]) => {
     try {
       console.log('Updating chat', chatId, 'with', messages.length, 'messages');
-      
+
       const existingChat = await chatDB.getChat(chatId);
       if (existingChat) {
-        // Cast to any to access metadata safely
-        const chatWithMetadata = existingChat as any;
-        
-        const updatedChat = {
+        const chatWithMetadata = existingChat as InteractiveTeacherStoredChat;
+
+        const updatedChat: InteractiveTeacherStoredChat = {
           ...existingChat,
-          messages: messages, // Update with new messages
+          messages, // Update with new messages
           timestamp: Date.now(), // Update timestamp
           metadata: {
             ...chatWithMetadata.metadata,
             messageCount: messages.length
           }
         };
-        
+
         await chatDB.saveChat(updatedChat);
         await loadHistory();
         console.log('Successfully updated chat with', messages.length, 'messages');
