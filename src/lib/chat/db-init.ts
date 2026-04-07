@@ -32,7 +32,7 @@ export function getItem(key: string): any {
     const data = localStorage.getItem(STORAGE_KEY);
     if (!data) return null;
     
-    const parsedData = JSON.parse(data);
+    const parsedData = safeParseStore(data);
     return parsedData[key];
   } catch (error) {
     console.error("Error reading from storage:", error);
@@ -44,7 +44,7 @@ export function getItem(key: string): any {
 export function setItem(key: string, value: any): void {
   try {
     const data = localStorage.getItem(STORAGE_KEY) || "{}";
-    const parsedData = JSON.parse(data);
+    const parsedData = safeParseStore(data);
     parsedData[key] = value;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(parsedData));
@@ -70,7 +70,7 @@ export function setItem(key: string, value: any): void {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(parsedData));
       } catch (retryError) {
         toast.error(QUOTA_PRUNE_TOAST);
-        throw retryError;
+        console.error("Storage quota retry failed:", retryError);
       }
     }
   } catch (error) {
@@ -96,11 +96,27 @@ export function removeItem(key: string): void {
     const data = localStorage.getItem(STORAGE_KEY);
     if (!data) return;
     
-    const parsedData = JSON.parse(data);
+    const parsedData = safeParseStore(data);
     delete parsedData[key];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(parsedData));
   } catch (error) {
     console.error("Error removing from storage:", error);
     toast.error("Failed to delete data");
   }
+}
+
+function safeParseStore(rawData: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(rawData);
+    if (parsed && typeof parsed === "object") {
+      return parsed as Record<string, unknown>;
+    }
+  } catch (error) {
+    console.error("Corrupt chat storage detected, resetting store:", error);
+  }
+
+  const emptyStore: Record<string, unknown> = {};
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(emptyStore));
+  return emptyStore;
 }
