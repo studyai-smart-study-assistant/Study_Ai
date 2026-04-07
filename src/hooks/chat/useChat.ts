@@ -8,6 +8,8 @@ import { Message as MessageType } from '@/lib/db';
 
 // Adding constant for guest message limit
 const GUEST_MESSAGE_LIMIT = 50;
+const AI_RESPONSE_TIMEOUT_MS = 50000;
+const FALLBACK_BOT_MESSAGE = "मुझे अभी जवाब देने में कठिनाई हो रही है। कृपया कुछ समय बाद पुनः प्रयास करें।";
 
 export const useChat = (chatId: string, onChatUpdated?: () => void) => {
   const [messages, setMessages] = useState<MessageType[]>([]);
@@ -87,7 +89,12 @@ export const useChat = (chatId: string, onChatUpdated?: () => void) => {
       const chatHistory = currentChat?.messages || [];
       
       // Get AI response (pass chatId to store response automatically)
-      await generateResponse(input.trim(), chatHistory, chatId);
+      await Promise.race([
+        generateResponse(input.trim(), chatHistory, chatId),
+        new Promise<string>((_, reject) => {
+          setTimeout(() => reject(new Error("AI response timed out in useChat.")), AI_RESPONSE_TIMEOUT_MS);
+        }),
+      ]);
       
       // Update local state with bot response (it's already stored in DB from generateResponse)
       // Refresh messages from storage to ensure we have the latest data
@@ -102,6 +109,8 @@ export const useChat = (chatId: string, onChatUpdated?: () => void) => {
       }
     } catch (error) {
       console.error('Error sending message:', error);
+      await chatDB.addMessage(chatId, FALLBACK_BOT_MESSAGE, 'bot');
+      await loadMessages();
       toast.error('Failed to send message');
     } finally {
       setIsLoading(false);

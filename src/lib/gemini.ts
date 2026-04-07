@@ -8,6 +8,9 @@ import { getRealtimeContext, isDateTimeQuery, getDateTimeAnswer } from '../utils
 // Developed by Ajit Kumar
 
 const CHAT_FUNCTION_NAME = "chat-completion";
+const CHAT_REQUEST_TIMEOUT_MS = 45000;
+const MAX_HISTORY_MESSAGES = 10;
+const FALLBACK_BOT_MESSAGE = "मुझे अभी जवाब देने में कठिनाई हो रही है। कृपया कुछ समय बाद पुनः प्रयास करें।";
 
 const getFunctionBaseUrls = () => {
   const configuredUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "");
@@ -35,6 +38,8 @@ const invokeChatCompletion = async (payload: {
   let lastError: Error | null = null;
 
   for (const baseUrl of getFunctionBaseUrls()) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch(`${baseUrl}/functions/v1/${CHAT_FUNCTION_NAME}`, {
         method: "POST",
@@ -44,6 +49,7 @@ const invokeChatCompletion = async (payload: {
           Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -70,9 +76,14 @@ const invokeChatCompletion = async (payload: {
       const parsed = responseText ? JSON.parse(responseText) : {};
       console.log(`✅ ${CHAT_FUNCTION_NAME} success via: ${baseUrl}`);
       return parsed;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        throw new Error("AI response timed out.");
+      }
       lastError = error instanceof Error ? error : new Error("Unknown edge function error");
       console.warn(`⚠️ ${CHAT_FUNCTION_NAME} failed via: ${baseUrl}`, lastError.message);
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -232,7 +243,7 @@ export async function generateResponseWithSearch(
         role: "system",
         content: `You are Study AI, created by Ajit Kumar. Smart, friendly AI teacher for Bihar Board and competitive exam students.\n\n${realtimeCtx.contextPrompt}${mindVaultContext}`
       },
-      ...history.slice(-30).map((msg) => ({
+      ...history.slice(-MAX_HISTORY_MESSAGES).map((msg) => ({
         role: msg.role,
         content: sanitizeForAI(msg.content),
       }))
@@ -252,17 +263,25 @@ export async function generateResponseWithSearch(
       toast.info('📐 Reasoning mode ON...', { duration: 2000 });
     }
 
-    const data = await invokeChatCompletion({
-      prompt: sanitizeForAI(prompt),
-      history: formattedHistory,
-      model,
-      forceWebSearch,
-      webSearchContext,
-      webSearchSources,
-      imageBase64,
-      userId,
-      reasoningMode,
-    });
+    let data: Awaited<ReturnType<typeof invokeChatCompletion>>;
+    try {
+      data = await invokeChatCompletion({
+        prompt: sanitizeForAI(prompt),
+        history: formattedHistory,
+        model,
+        forceWebSearch,
+        webSearchContext,
+        webSearchSources,
+        imageBase64,
+        userId,
+        reasoningMode,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "AI response timed out.") {
+        toast.error("सर्वर धीमा है, कृपया पुनः प्रयास करें।", { duration: 5000 });
+      }
+      throw error;
+    }
 
     if (data?.error) throw new Error(data.error);
 
@@ -302,10 +321,16 @@ export async function generateResponseWithSearch(
     }
 
     return { text: finalResponseText, sources, webSearchUsed, toolUsed, imageUrl, thinking };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ AI Request failed:", error);
-    toast.error(error.message || "AI service से जवाब पाने में विफलता।", { duration: 5000 });
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : "AI service से जवाब पाने में विफलता।";
+    if (errorMessage !== "AI response timed out.") {
+      toast.error(errorMessage, { duration: 5000 });
+    }
+    if (chatId) {
+      await chatDB.addMessage(chatId, FALLBACK_BOT_MESSAGE, "bot");
+    }
+    return { text: FALLBACK_BOT_MESSAGE, sources: [], webSearchUsed: false };
   }
 }
 
