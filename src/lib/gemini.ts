@@ -12,6 +12,14 @@ const CHAT_REQUEST_TIMEOUT_MS = 45000;
 const MAX_HISTORY_MESSAGES = 10;
 const FALLBACK_BOT_MESSAGE = "मुझे अभी जवाब देने में कठिनाई हो रही है। कृपया कुछ समय बाद पुनः प्रयास करें।";
 
+function cleanAIResponse(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/<think>/gi, "")
+    .trim();
+}
+
 const getFunctionBaseUrls = () => {
   const configuredUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "");
   const directUrl = import.meta.env.VITE_SUPABASE_PROJECT_ID
@@ -31,8 +39,14 @@ const invokeChatCompletion = async (payload: {
   userId?: string;
   reasoningMode?: boolean;
 }) => {
-  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const { data: { session } } = await supabase.auth.getSession();
+  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
+  let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null = null;
+  try {
+    const sessionResponse = await supabase.auth.getSession();
+    session = sessionResponse.data.session;
+  } catch (sessionError) {
+    console.warn("Unable to read session, continuing with publishable key auth:", sessionError);
+  }
   const authToken = session?.access_token ?? publishableKey;
 
   let lastError: Error | null = null;
@@ -53,6 +67,9 @@ const invokeChatCompletion = async (payload: {
       });
 
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          throw new Error("Unauthorized request");
+        }
         const errorText = await response.text();
         let errorMsg = `Edge function error (${response.status})`;
         try {
@@ -285,7 +302,7 @@ export async function generateResponseWithSearch(
 
     if (data?.error) throw new Error(data.error);
 
-    const responseText = data.response;
+    const responseText = cleanAIResponse(data.response ?? "");
     if (!responseText) throw new Error("AI ने कोई जवाब नहीं दिया।");
 
     const sources = data.sources || webSearchSources;
@@ -328,7 +345,11 @@ export async function generateResponseWithSearch(
       toast.error(errorMessage, { duration: 5000 });
     }
     if (chatId) {
-      await chatDB.addMessage(chatId, FALLBACK_BOT_MESSAGE, "bot");
+      const chat = await chatDB.getChat(chatId);
+      const lastMessage = chat?.messages?.[chat.messages.length - 1];
+      if (lastMessage?.content !== FALLBACK_BOT_MESSAGE) {
+        await chatDB.addMessage(chatId, FALLBACK_BOT_MESSAGE, "bot");
+      }
     }
     return { text: FALLBACK_BOT_MESSAGE, sources: [], webSearchUsed: false };
   }
