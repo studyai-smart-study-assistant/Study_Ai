@@ -57,6 +57,7 @@ export async function streamChatCompletion(
   let buf = '';
   let currentEvent = "message";
   let dataLines: string[] = [];
+  let doneReceived = false;
 
   const flushEvent = () => {
     if (!dataLines.length) return;
@@ -65,6 +66,7 @@ export async function streamChatCompletion(
 
     if (!payload) return;
     if (payload === '[DONE]') {
+      doneReceived = true;
       callbacks.onDone();
       return 'done';
     }
@@ -97,34 +99,50 @@ export async function streamChatCompletion(
     return null;
   };
 
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
 
-    let nl: number;
-    while ((nl = buf.indexOf('\n')) !== -1) {
-      let line = buf.slice(0, nl);
-      buf = buf.slice(nl + 1);
-      if (line.endsWith('\r')) line = line.slice(0, -1);
+      let nl: number;
+      while ((nl = buf.indexOf('\n')) !== -1) {
+        let line = buf.slice(0, nl);
+        buf = buf.slice(nl + 1);
+        if (line.endsWith('\r')) line = line.slice(0, -1);
 
-      // SSE event terminator
-      if (!line) {
-        if (flushEvent() === 'done') return;
-        continue;
-      }
+        // SSE event terminator
+        if (!line) {
+          if (flushEvent() === 'done') {
+            await reader.cancel();
+            return;
+          }
+          continue;
+        }
 
-      if (line.startsWith(':')) continue;
-      if (line.startsWith('event: ')) {
-        currentEvent = line.slice(7).trim();
-        continue;
+        if (line.startsWith(':')) continue;
+        if (line.startsWith('event: ')) {
+          currentEvent = line.slice(7).trim();
+          continue;
+        }
+        if (line.startsWith('data: ')) {
+          dataLines.push(line.slice(6));
+        }
       }
-      if (line.startsWith('data: ')) {
-        dataLines.push(line.slice(6));
-      }
+    }
+  } catch (error) {
+    if (!signal?.aborted) {
+      callbacks.onError(error instanceof Error ? error.message : 'Stream failed');
+    }
+    throw error;
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // no-op
     }
   }
 
   flushEvent();
-  callbacks.onDone();
+  if (!doneReceived) callbacks.onDone();
 }

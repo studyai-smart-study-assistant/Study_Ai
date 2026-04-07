@@ -26,6 +26,8 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
   const { currentUser, messageLimitReached, setMessageLimitReached } = useAuth();
   const { prefetched, prefetchContext, resetPrefetch } = useContextPrefetch();
   const abortControllerRef = useRef<AbortController | null>(null);
+  const activeRequestIdRef = useRef(0);
+  const timeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (chatId) {
@@ -59,9 +61,16 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
     }
   };
 
+  const clearTimeoutGuard = () => {
+    if (timeoutRef.current !== null) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
   const enhancedSendMessage = useCallback(async (input: string, imageUrl?: string, skipAIResponse: boolean = false, reasoningMode: boolean = false) => {
     const normalizedImageUrl = typeof imageUrl === 'string' && imageUrl.trim() ? imageUrl : undefined;
-    if ((!input.trim() && !normalizedImageUrl) || isLoading || isResponding) return;
+    if ((!input.trim() && !normalizedImageUrl) || isLoading) return;
 
     if (!currentUser && messages.filter(m => m.role === 'user').length >= GUEST_MESSAGE_LIMIT) {
       setMessageLimitReached(true);
@@ -70,12 +79,21 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
     }
 
     try {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      clearTimeoutGuard();
+      activeRequestIdRef.current += 1;
+      const requestId = activeRequestIdRef.current;
+
       setIsLoading(true);
       setIsResponding(true);
       setConnectionStatus('connected');
       setLastSources([]);
       setStreamingContent('');
-      setAgentStatus({ status: 'thinking', text: '🧠 सवाल समझ रहा हूँ...' });
+      setAgentStatus(null);
+      setMessages(prev => prev.filter(msg => !msg.id?.toString().startsWith('streaming-')));
 
       const isBase64Image = normalizedImageUrl?.startsWith('data:image/');
       const isBase64Pdf = normalizedImageUrl?.startsWith('data:application/pdf');
@@ -132,6 +150,16 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
           let streamedText = '';
           const abortController = new AbortController();
           abortControllerRef.current = abortController;
+          let hasReceivedStreamSignal = false;
+          const timeoutMessage = 'No response received in 25 seconds. Please try again.';
+          timeoutRef.current = window.setTimeout(() => {
+            if (!hasReceivedStreamSignal && activeRequestIdRef.current === requestId) {
+              abortController.abort();
+              setAgentStatus(null);
+              setConnectionStatus('disconnected');
+              toast.error(timeoutMessage);
+            }
+          }, 25000);
 
           // Add a temporary streaming message
           const tempBotMsg: MessageType = {
@@ -154,6 +182,8 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
             },
             {
               onToken: (text) => {
+                if (activeRequestIdRef.current !== requestId) return;
+                if (!hasReceivedStreamSignal) hasReceivedStreamSignal = true;
                 streamedText += text;
                 setStreamingContent(streamedText);
                 // Update the temp bot message in real-time
@@ -167,26 +197,36 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
                 });
               },
               onStatus: (status, text, extra) => {
+                if (activeRequestIdRef.current !== requestId) return;
+                if (!hasReceivedStreamSignal) hasReceivedStreamSignal = true;
                 setAgentStatus({ status, text, tool: extra?.tool, provider: extra?.provider });
                 if (status === 'done') setAgentStatus(null);
               },
               onToolsUsed: (tools) => {
+                if (activeRequestIdRef.current !== requestId) return;
+                if (!hasReceivedStreamSignal) hasReceivedStreamSignal = true;
                 const searchTools = tools.filter(t => t.name === 'web_search');
                 if (searchTools.length) {
                   setLastSources(searchTools.map(t => ({ title: t.query || 'Web Search', url: '' })));
                 }
               },
               onDone: () => {
+                if (activeRequestIdRef.current !== requestId) return;
+                if (!hasReceivedStreamSignal) hasReceivedStreamSignal = true;
                 setAgentStatus(null);
+                clearTimeoutGuard();
               },
               onError: (error) => {
+                if (activeRequestIdRef.current !== requestId) return;
                 console.error('Stream error:', error);
                 toast.error(error);
                 setAgentStatus(null);
+                clearTimeoutGuard();
               },
             },
             abortController.signal
           );
+          clearTimeoutGuard();
 
           // Save the final streamed response to DB
           if (streamedText) {
@@ -206,17 +246,21 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
         setMessageLimitReached(true);
         setShowLimitAlert(true);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error sending message:', error);
       setConnectionStatus('disconnected');
-      toast.error(error?.message || 'Failed to send message', { duration: 5000 });
+      if (error instanceof Error && error.name !== 'AbortError') {
+        toast.error(error.message || 'Failed to send message', { duration: 5000 });
+      }
+      setMessages(prev => prev.filter(msg => !msg.id?.toString().startsWith('streaming-')));
     } finally {
+      clearTimeoutGuard();
       setIsLoading(false);
       setIsResponding(false);
       setAgentStatus(null);
       abortControllerRef.current = null;
     }
-  }, [chatId, currentUser, messages, isLoading, isResponding, onChatUpdated, webSearchEnabled, prefetched, resetPrefetch]);
+  }, [chatId, currentUser, messages, isLoading, onChatUpdated, prefetched, resetPrefetch]);
 
   const sendMessage = enhancedSendMessage;
 
@@ -229,6 +273,14 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
     window.addEventListener('online', on);
     window.addEventListener('offline', off);
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
+  }, []);
+
+  useEffect(() => () => {
+    clearTimeoutGuard();
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
   }, []);
 
   return {
