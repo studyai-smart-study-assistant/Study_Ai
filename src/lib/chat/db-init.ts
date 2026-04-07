@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 export const CHATS_STORE = "chats";
 const STORAGE_KEY = "gemini-chat-data";
+const QUOTA_PRUNE_TOAST = "बहुत अधिक चैट डेटा संग्रहीत है। कुछ पुराने चैट हटाए जा रहे हैं।";
 
 export function initDB(): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -45,11 +46,49 @@ export function setItem(key: string, value: any): void {
     const data = localStorage.getItem(STORAGE_KEY) || "{}";
     const parsedData = JSON.parse(data);
     parsedData[key] = value;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(parsedData));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsedData));
+    } catch (error) {
+      if (!isQuotaExceededError(error)) {
+        throw error;
+      }
+
+      const chats = parsedData[CHATS_STORE];
+      if (!chats || typeof chats !== "object") {
+        throw error;
+      }
+
+      const oldestChatId = Object.entries(chats as Record<string, { timestamp?: number }>)
+        .sort(([, first], [, second]) => (first?.timestamp ?? 0) - (second?.timestamp ?? 0))[0]?.[0];
+
+      if (!oldestChatId) {
+        throw error;
+      }
+
+      delete chats[oldestChatId];
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsedData));
+      } catch (retryError) {
+        toast.error(QUOTA_PRUNE_TOAST);
+        throw retryError;
+      }
+    }
   } catch (error) {
     console.error("Error writing to storage:", error);
     toast.error("Failed to save data");
   }
+}
+
+function isQuotaExceededError(error: unknown): boolean {
+  if (!(error instanceof DOMException)) {
+    return false;
+  }
+  return (
+    error.name === "QuotaExceededError" ||
+    error.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+    error.code === 22 ||
+    error.code === 1014
+  );
 }
 
 export function removeItem(key: string): void {

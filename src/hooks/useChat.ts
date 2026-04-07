@@ -7,6 +7,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { getGroupDetails, listenForMessages } from '@/lib/supabase/chat-functions';
 
 const GUEST_MESSAGE_LIMIT = 2;
+const AI_RESPONSE_TIMEOUT_MS = 50000;
+const FALLBACK_BOT_MESSAGE = "मुझे अभी जवाब देने में कठिनाई हो रही है। कृपया कुछ समय बाद पुनः प्रयास करें।";
 
 export const useChatData = (chatId: string) => {
   const [messages, setMessages] = useState<MessageType[]>([]);
@@ -81,10 +83,19 @@ export const useChat = (chatId: string, onChatUpdated?: () => void) => {
       if (onChatUpdated) onChatUpdated();
       
       const chatHistory = chat?.messages || [];
-      await generateResponse(input.trim(), chatHistory, chatId);
+      await Promise.race([
+        generateResponse(input.trim(), chatHistory, chatId),
+        new Promise<string>((_, reject) => {
+          setTimeout(() => reject(new Error("AI response timed out in useChat.")), AI_RESPONSE_TIMEOUT_MS);
+        }),
+      ]);
       await loadMessages();
       if (onChatUpdated) onChatUpdated();
-    } catch { toast.error('Failed to send message'); }
+    } catch {
+      await chatDB.addMessage(chatId, FALLBACK_BOT_MESSAGE, 'bot');
+      await loadMessages();
+      toast.error('Failed to send message');
+    }
     finally { setIsLoading(false); setIsResponding(false); }
   };
 
