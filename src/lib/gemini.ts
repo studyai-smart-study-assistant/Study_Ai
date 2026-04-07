@@ -12,6 +12,14 @@ const CHAT_REQUEST_TIMEOUT_MS = 45000;
 const MAX_HISTORY_MESSAGES = 10;
 const FALLBACK_BOT_MESSAGE = "मुझे अभी जवाब देने में कठिनाई हो रही है। कृपया कुछ समय बाद पुनः प्रयास करें।";
 
+function cleanAIResponse(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/<think>/gi, "")
+    .trim();
+}
+
 const getFunctionBaseUrls = () => {
   const configuredUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "");
   const directUrl = import.meta.env.VITE_SUPABASE_PROJECT_ID
@@ -294,7 +302,7 @@ export async function generateResponseWithSearch(
 
     if (data?.error) throw new Error(data.error);
 
-    const responseText = data.response;
+    const responseText = cleanAIResponse(data.response ?? "");
     if (!responseText) throw new Error("AI ने कोई जवाब नहीं दिया।");
 
     const sources = data.sources || webSearchSources;
