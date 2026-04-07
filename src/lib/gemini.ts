@@ -31,8 +31,14 @@ const invokeChatCompletion = async (payload: {
   userId?: string;
   reasoningMode?: boolean;
 }) => {
-  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const { data: { session } } = await supabase.auth.getSession();
+  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
+  let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null = null;
+  try {
+    const sessionResponse = await supabase.auth.getSession();
+    session = sessionResponse.data.session;
+  } catch (sessionError) {
+    console.warn("Unable to read session, continuing with publishable key auth:", sessionError);
+  }
   const authToken = session?.access_token ?? publishableKey;
 
   let lastError: Error | null = null;
@@ -53,6 +59,9 @@ const invokeChatCompletion = async (payload: {
       });
 
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          throw new Error("Unauthorized request");
+        }
         const errorText = await response.text();
         let errorMsg = `Edge function error (${response.status})`;
         try {
@@ -328,7 +337,11 @@ export async function generateResponseWithSearch(
       toast.error(errorMessage, { duration: 5000 });
     }
     if (chatId) {
-      await chatDB.addMessage(chatId, FALLBACK_BOT_MESSAGE, "bot");
+      const chat = await chatDB.getChat(chatId);
+      const lastMessage = chat?.messages?.[chat.messages.length - 1];
+      if (lastMessage?.content !== FALLBACK_BOT_MESSAGE) {
+        await chatDB.addMessage(chatId, FALLBACK_BOT_MESSAGE, "bot");
+      }
     }
     return { text: FALLBACK_BOT_MESSAGE, sources: [], webSearchUsed: false };
   }

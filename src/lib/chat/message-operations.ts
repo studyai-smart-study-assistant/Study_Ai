@@ -1,7 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { SupaChatMessage, Message } from "./types";
+import { Chat, SupaChatMessage, Message } from "./types";
 import { getChat, MAX_MESSAGES_PER_CHAT, saveChat } from "./chat-operations";
 
 const supabaseAny = supabase as unknown as SupabaseClient<any>;
@@ -78,20 +78,31 @@ export async function sendImageMessage(groupId: string, senderId: string, file: 
 // Enhanced message operations for local storage
 export async function addMessage(chatId: string, content: string, role: "user" | "bot"): Promise<Message> {
   try {
+    let resolvedChatId = chatId;
+
     // Create new message object
+    // Get current chat
+    let chat = await getChat(chatId);
+    if (!chat) {
+      const timestamp = Date.now();
+      resolvedChatId = crypto.randomUUID();
+      const recoveredChat: Chat = {
+        id: resolvedChatId,
+        title: "New Chat",
+        timestamp,
+        messages: [],
+      };
+      await saveChat(recoveredChat);
+      chat = recoveredChat;
+    }
+
     const message: Message = {
       id: crypto.randomUUID(),
-      chatId,
+      chatId: resolvedChatId,
       content,
       role,
       timestamp: Date.now(),
     };
-  
-    // Get current chat
-    const chat = await getChat(chatId);
-    if (!chat) {
-      throw new Error(`Chat with ID ${chatId} not found`);
-    }
   
     // Add message to chat
     chat.messages = chat.messages || [];

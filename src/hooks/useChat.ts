@@ -40,20 +40,25 @@ export const useChat = (chatId: string, onChatUpdated?: () => void) => {
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isResponding, setIsResponding] = useState(false);
+  const [activeChatId, setActiveChatId] = useState(chatId);
   const [showLimitAlert, setShowLimitAlert] = useState(false);
   const { currentUser, messageLimitReached, setMessageLimitReached } = useAuth();
 
-  useEffect(() => { if (chatId) loadMessages(); }, [chatId]);
+  useEffect(() => {
+    setActiveChatId(chatId);
+  }, [chatId]);
+
+  useEffect(() => { if (activeChatId) loadMessages(); }, [activeChatId]);
 
   const loadMessages = async () => {
     try {
       setIsLoading(true);
-      const chat = await chatDB.getChat(chatId);
+      const chat = await chatDB.getChat(activeChatId);
       if (chat) {
         setMessages(chat.messages || []);
         if (chat.title === "New Chat" && chat.messages?.length > 0) {
           const firstUserMessage = chat.messages.find(m => m.role === 'user');
-          if (firstUserMessage) await chatDB.updateChatTitle(chatId, firstUserMessage.content.slice(0, 30));
+          if (firstUserMessage) await chatDB.updateChatTitle(activeChatId, firstUserMessage.content.slice(0, 30));
         }
         if (!currentUser && chat.messages?.filter(m => m.role === 'user').length >= GUEST_MESSAGE_LIMIT) {
           setMessageLimitReached(true);
@@ -72,19 +77,31 @@ export const useChat = (chatId: string, onChatUpdated?: () => void) => {
       return;
     }
 
+    let fallbackChatId = activeChatId;
     try {
       setIsLoading(true);
       setIsResponding(true);
-      const userMessage = await chatDB.addMessage(chatId, input.trim(), 'user');
+      let nextChatId = activeChatId;
+      let currentChat = await chatDB.getChat(nextChatId);
+      if (!currentChat) {
+        const newChat = await chatDB.createNewChat();
+        nextChatId = newChat.id;
+        fallbackChatId = newChat.id;
+        setActiveChatId(newChat.id);
+        currentChat = newChat;
+      }
+      fallbackChatId = nextChatId;
+
+      const userMessage = await chatDB.addMessage(nextChatId, input.trim(), 'user');
       setMessages(prev => [...prev, userMessage]);
       
-      const chat = await chatDB.getChat(chatId);
-      if (chat?.title === "New Chat") await chatDB.updateChatTitle(chatId, input.trim().slice(0, 30));
+      const chat = await chatDB.getChat(nextChatId);
+      if (chat?.title === "New Chat") await chatDB.updateChatTitle(nextChatId, input.trim().slice(0, 30));
       if (onChatUpdated) onChatUpdated();
       
       const chatHistory = chat?.messages || [];
       await Promise.race([
-        generateResponse(input.trim(), chatHistory, chatId),
+        generateResponse(input.trim(), chatHistory, nextChatId),
         new Promise<string>((_, reject) => {
           setTimeout(() => reject(new Error("AI response timed out in useChat.")), AI_RESPONSE_TIMEOUT_MS);
         }),
@@ -92,7 +109,11 @@ export const useChat = (chatId: string, onChatUpdated?: () => void) => {
       await loadMessages();
       if (onChatUpdated) onChatUpdated();
     } catch {
-      await chatDB.addMessage(chatId, FALLBACK_BOT_MESSAGE, 'bot');
+      const refreshedChat = await chatDB.getChat(fallbackChatId);
+      const lastMessage = refreshedChat?.messages?.[refreshedChat.messages.length - 1];
+      if (fallbackChatId && lastMessage?.content !== FALLBACK_BOT_MESSAGE) {
+        await chatDB.addMessage(fallbackChatId, FALLBACK_BOT_MESSAGE, 'bot');
+      }
       await loadMessages();
       toast.error('Failed to send message');
     }
