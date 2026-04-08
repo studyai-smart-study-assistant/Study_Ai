@@ -3,6 +3,7 @@ import { Message } from "./db";
 import { chatDB } from "./db";
 import { supabase } from "@/integrations/supabase/client";
 import { getRealtimeContext, isDateTimeQuery, getDateTimeAnswer } from '../utils/realtimeContext';
+import { Session } from "@supabase/supabase-js";
 
 // Study AI - Core Chat & AI Gateway Service
 // Developed by Ajit Kumar
@@ -11,6 +12,7 @@ const CHAT_FUNCTION_NAME = "chat-completion";
 const CHAT_REQUEST_TIMEOUT_MS = 45000;
 const MAX_HISTORY_MESSAGES = 10;
 const FALLBACK_BOT_MESSAGE = "मुझे अभी जवाब देने में कठिनाई हो रही है। कृपया कुछ समय बाद पुनः प्रयास करें।";
+const SESSION_EXPIRY_BUFFER_SECONDS = 30;
 
 function cleanAIResponse(text: string): string {
   if (!text) return "";
@@ -28,9 +30,55 @@ const getFunctionBaseUrls = () => {
   return Array.from(new Set([configuredUrl, directUrl])).filter(Boolean);
 };
 
+const isSessionValid = (session: Session | null): session is Session => {
+  if (!session?.access_token) return false;
+  if (!session.expires_at) return true;
+  const nowInSeconds = Math.floor(Date.now() / 1000);
+  return session.expires_at > nowInSeconds + SESSION_EXPIRY_BUFFER_SECONDS;
+};
+
+const clearStaleSession = async () => {
+  try {
+    await supabase.auth.signOut();
+    console.warn("🧹 Cleared stale Supabase session from local storage.");
+  } catch (signOutError) {
+    console.warn("Unable to clear stale session:", signOutError);
+  }
+};
+
+const resolveAuthToken = async (
+  preferGuestAuth: boolean
+): Promise<{ authToken: string; usedSessionToken: boolean }> => {
+  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
+  if (preferGuestAuth) {
+    return { authToken: publishableKey, usedSessionToken: false };
+  }
+
+  try {
+    const sessionResponse = await supabase.auth.getSession();
+    const currentSession = sessionResponse.data.session;
+
+    if (isSessionValid(currentSession)) {
+      return { authToken: currentSession.access_token, usedSessionToken: true };
+    }
+
+    if (currentSession) {
+      const refreshed = await supabase.auth.refreshSession();
+      if (isSessionValid(refreshed.data.session)) {
+        return { authToken: refreshed.data.session.access_token, usedSessionToken: true };
+      }
+      await clearStaleSession();
+    }
+  } catch (sessionError) {
+    console.warn("Unable to validate/refresh session, using publishable key auth:", sessionError);
+  }
+
+  return { authToken: publishableKey, usedSessionToken: false };
+};
+
 const invokeChatCompletion = async (payload: {
   prompt: string;
-  history: Array<{ role: string; content: string | any[] }>;
+  history: Array<{ role: string; content: string | unknown[] }>;
   model: string;
   forceWebSearch?: boolean;
   webSearchContext?: string | null;
@@ -38,44 +86,64 @@ const invokeChatCompletion = async (payload: {
   imageBase64?: string;
   userId?: string;
   reasoningMode?: boolean;
+  preferGuestAuth?: boolean;
 }) => {
   const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
-  let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null = null;
-  try {
-    const sessionResponse = await supabase.auth.getSession();
-    session = sessionResponse.data.session;
-  } catch (sessionError) {
-    console.warn("Unable to read session, continuing with publishable key auth:", sessionError);
-  }
-  const authToken = session?.access_token ?? publishableKey;
+  const { authToken, usedSessionToken } = await resolveAuthToken(Boolean(payload.preferGuestAuth));
+  const requestPayload = {
+    prompt: payload.prompt,
+    history: payload.history,
+    model: payload.model,
+    forceWebSearch: payload.forceWebSearch,
+    webSearchContext: payload.webSearchContext,
+    webSearchSources: payload.webSearchSources,
+    imageBase64: payload.imageBase64,
+    userId: payload.userId,
+    reasoningMode: payload.reasoningMode,
+  };
 
   let lastError: Error | null = null;
 
   for (const baseUrl of getFunctionBaseUrls()) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS);
     try {
-      const response = await fetch(`${baseUrl}/functions/v1/${CHAT_FUNCTION_NAME}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: publishableKey,
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
+      const requestWithToken = async (token: string) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS);
+        try {
+          return await fetch(`${baseUrl}/functions/v1/${CHAT_FUNCTION_NAME}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: publishableKey,
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(requestPayload),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timer);
+        }
+      };
+
+      let response = await requestWithToken(authToken);
+
+      if ((response.status === 401 || response.status === 403) && usedSessionToken) {
+        console.warn("Session token rejected by edge function, retrying with publishable key.");
+        await clearStaleSession();
+        response = await requestWithToken(publishableKey);
+      }
 
       if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          throw new Error("Unauthorized request");
-        }
         const errorText = await response.text();
         let errorMsg = `Edge function error (${response.status})`;
         try {
           const parsed = JSON.parse(errorText);
           errorMsg = parsed?.error || errorMsg;
         } catch { errorMsg = errorText || errorMsg; }
+        if (response.status === 401 || response.status === 403) {
+          await clearStaleSession();
+          errorMsg = `Unauthorized request (${response.status})`;
+        }
         throw new Error(errorMsg);
       }
 
@@ -99,8 +167,6 @@ const invokeChatCompletion = async (payload: {
       }
       lastError = error instanceof Error ? error : new Error("Unknown edge function error");
       console.warn(`⚠️ ${CHAT_FUNCTION_NAME} failed via: ${baseUrl}`, lastError.message);
-    } finally {
-      clearTimeout(timer);
     }
   }
 
@@ -197,9 +263,10 @@ export async function generateResponse(
   prompt: string,
   history: Message[] = [],
   chatId?: string,
-  model: string = 'google/gemini-3-flash-preview'
+  model: string = 'google/gemini-3-flash-preview',
+  options?: { preferGuestAuth?: boolean }
 ): Promise<string> {
-const result = await generateResponseWithSearch(prompt, history, chatId, model, false);
+  const result = await generateResponseWithSearch(prompt, history, chatId, model, false, undefined, false, options);
   return result.text;
 }
 
@@ -210,7 +277,8 @@ export async function generateResponseWithSearch(
   model: string = 'google/gemini-3-flash-preview',
   forceWebSearch: boolean = false,
   imageBase64?: string,
-  reasoningMode: boolean = false
+  reasoningMode: boolean = false,
+  options?: { preferGuestAuth?: boolean }
 ): Promise<GenerateResponseWithSearchResult> {
   try {
     console.log(`🚀 Study AI: model=${model}, forceWebSearch=${forceWebSearch}`);
@@ -292,6 +360,7 @@ export async function generateResponseWithSearch(
         imageBase64,
         userId,
         reasoningMode,
+        preferGuestAuth: options?.preferGuestAuth ?? false,
       });
     } catch (error) {
       if (error instanceof Error && error.message === "AI response timed out.") {
@@ -351,7 +420,7 @@ export async function generateResponseWithSearch(
         await chatDB.addMessage(chatId, FALLBACK_BOT_MESSAGE, "bot");
       }
     }
-    return { text: FALLBACK_BOT_MESSAGE, sources: [], webSearchUsed: false };
+    throw error instanceof Error ? error : new Error(errorMessage);
   }
 }
 
