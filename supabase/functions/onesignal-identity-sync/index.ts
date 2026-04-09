@@ -74,11 +74,11 @@ serve(async (req) => {
 
     await attachExternalId(current_user_id, oneSignalAppId, oneSignalRestKey);
 
-    const uniqueLegacyIds = [...new Set((legacy_external_ids || []).filter((id: unknown) => typeof id === 'string' && id && id !== current_user_id))] as string[];
+    const uniqueLegacyIds = [...new Set((legacy_external_ids || []).filter((id: string) => id && id !== current_user_id))];
     for (const legacyId of uniqueLegacyIds) {
       try {
         await removeLegacyExternalId(legacyId, oneSignalAppId, oneSignalRestKey);
-      } catch (err: unknown) {
+      } catch (err) {
         console.warn('Legacy delete skipped:', err);
       }
     }

@@ -103,8 +103,8 @@ serve(async (req) => {
     const { prompt, imageBase64, history = [] } = await req.json() as { prompt?: string; imageBase64?: string; history?: HistoryItem[] };
     if (!prompt) throw new Error('Prompt is required');
 
-    const systemMessage: ChatMessage = {
-      role: 'system' as const,
+    const systemMessage = {
+      role: 'system',
       content: `You are Study AI Live, a real-time multimodal assistant built by Ajit Kumar. Keep responses SHORT (1-3 sentences max) because replies are spoken aloud. Always use any provided image for visual grounding before answering. NEVER guess visual details when no image is provided. If camera image is missing, clearly say you cannot see the camera yet and ask user to hold camera steady and try again. Respond in the same language as the user (Hindi or English).`
     };
 

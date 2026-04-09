@@ -20,15 +20,6 @@ interface MessageBodyProps {
   hasQuizContent?: boolean;
 }
 
-export function cleanAIResponse(text: string): string {
-  if (!text) return '';
-
-  return text
-    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-    .replace(/<think>/gi, '')
-    .trim();
-}
-
 // Parse thinking block from content
 function parseThinking(content: string): { thinking: string | null; rest: string } {
   const match = content.match(/^\[THINKING:([^\]]+)\]/);
@@ -171,8 +162,7 @@ const MessageBody: React.FC<MessageBodyProps> = ({
   }
 
   // ── AI Message — parse image, thinking, quiz ──
-  const cleanedBotContent = cleanAIResponse(displayedContent);
-  const { imageUrl: botImageUrl, rest: afterImage } = parseImage(cleanedBotContent);
+  const { imageUrl: botImageUrl, rest: afterImage } = parseImage(displayedContent);
   const { thinking, rest: afterThinking } = parseThinking(afterImage);
   const { quizData, rest: botTextContent } = parseQuizData(afterThinking);
 
@@ -230,7 +220,7 @@ const MessageBody: React.FC<MessageBodyProps> = ({
         
         {/* Text bubble */}
         {(botTextContent || isEditing) && !quizData && (
-          <div className={cn("bg-muted text-foreground", "px-4 py-3 rounded-2xl select-text")}>
+          <div className={cn("bg-muted text-foreground", "px-4 py-3 rounded-2xl")}>
             {isEditing ? (
               <MessageEditor editedContent={editedContent} setEditedContent={setEditedContent} handleSaveEdit={handleSaveEdit} handleCancelEdit={handleCancelEdit} />
             ) : (

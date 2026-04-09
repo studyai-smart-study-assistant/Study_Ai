@@ -8,31 +8,24 @@ import { Message as MessageType } from '@/lib/db';
 
 // Adding constant for guest message limit
 const GUEST_MESSAGE_LIMIT = 50;
-const AI_RESPONSE_TIMEOUT_MS = 50000;
-const FALLBACK_BOT_MESSAGE = "मुझे अभी जवाब देने में कठिनाई हो रही है। कृपया कुछ समय बाद पुनः प्रयास करें।";
 
 export const useChat = (chatId: string, onChatUpdated?: () => void) => {
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isResponding, setIsResponding] = useState(false);
-  const [activeChatId, setActiveChatId] = useState(chatId);
   const [showLimitAlert, setShowLimitAlert] = useState(false);
   const { currentUser, messageLimitReached, setMessageLimitReached } = useAuth();
 
   useEffect(() => {
-    setActiveChatId(chatId);
-  }, [chatId]);
-
-  useEffect(() => {
-    if (activeChatId) {
+    if (chatId) {
       loadMessages();
     }
-  }, [activeChatId]);
+  }, [chatId]);
 
   const loadMessages = async () => {
     try {
       setIsLoading(true);
-      const chat = await chatDB.getChat(activeChatId);
+      const chat = await chatDB.getChat(chatId);
       if (chat) {
         setMessages(chat.messages || []);
         
@@ -42,7 +35,7 @@ export const useChat = (chatId: string, onChatUpdated?: () => void) => {
           const firstUserMessage = chat.messages.find(m => m.role === 'user');
           if (firstUserMessage) {
             const newTitle = firstUserMessage.content.slice(0, 30) + (firstUserMessage.content.length > 30 ? '...' : '');
-            await chatDB.updateChatTitle(activeChatId, newTitle);
+            await chatDB.updateChatTitle(chatId, newTitle);
           }
         }
         
@@ -70,47 +63,31 @@ export const useChat = (chatId: string, onChatUpdated?: () => void) => {
       return;
     }
 
-    let fallbackChatId = activeChatId;
     try {
       setIsLoading(true);
       setIsResponding(true);
-      let nextChatId = activeChatId;
-      let currentChat = await chatDB.getChat(nextChatId);
-      if (!currentChat) {
-        const newChat = await chatDB.createNewChat();
-        nextChatId = newChat.id;
-        fallbackChatId = newChat.id;
-        setActiveChatId(newChat.id);
-        currentChat = newChat;
-      }
-      fallbackChatId = nextChatId;
       
       // Add user message to local storage
-      const userMessage = await chatDB.addMessage(nextChatId, input.trim(), 'user');
+      const userMessage = await chatDB.addMessage(chatId, input.trim(), 'user');
       
       // Update local state
       setMessages((prev) => [...prev, userMessage]);
       
       // Update chat title if it's the first message
-      const chat = await chatDB.getChat(nextChatId);
+      const chat = await chatDB.getChat(chatId);
       if (chat && chat.title === "New Chat") {
         const newTitle = input.trim().slice(0, 30) + (input.trim().length > 30 ? '...' : '');
-        await chatDB.updateChatTitle(nextChatId, newTitle);
+        await chatDB.updateChatTitle(chatId, newTitle);
       }
       
       if (onChatUpdated) onChatUpdated();
 
       // Get current conversation history
-      currentChat = await chatDB.getChat(nextChatId);
+      const currentChat = await chatDB.getChat(chatId);
       const chatHistory = currentChat?.messages || [];
       
       // Get AI response (pass chatId to store response automatically)
-      await Promise.race([
-        generateResponse(input.trim(), chatHistory, nextChatId),
-        new Promise<string>((_, reject) => {
-          setTimeout(() => reject(new Error("AI response timed out in useChat.")), AI_RESPONSE_TIMEOUT_MS);
-        }),
-      ]);
+      await generateResponse(input.trim(), chatHistory, chatId);
       
       // Update local state with bot response (it's already stored in DB from generateResponse)
       // Refresh messages from storage to ensure we have the latest data
@@ -125,12 +102,6 @@ export const useChat = (chatId: string, onChatUpdated?: () => void) => {
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      const refreshedChat = await chatDB.getChat(fallbackChatId);
-      const lastMessage = refreshedChat?.messages?.[refreshedChat.messages.length - 1];
-      if (fallbackChatId && lastMessage?.content !== FALLBACK_BOT_MESSAGE) {
-        await chatDB.addMessage(fallbackChatId, FALLBACK_BOT_MESSAGE, 'bot');
-      }
-      await loadMessages();
       toast.error('Failed to send message');
     } finally {
       setIsLoading(false);

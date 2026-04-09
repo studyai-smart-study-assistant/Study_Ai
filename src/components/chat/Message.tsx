@@ -39,28 +39,6 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted, onEditI
     toast.info('Feedback recorded');
   };
 
-  const handleSpeak = () => {
-    if (!('speechSynthesis' in window)) {
-      toast.error('Speech synthesis is not supported on this device.');
-      return;
-    }
-    const utterance = new SpeechSynthesisUtterance(message.content);
-    window.speechSynthesis.speak(utterance);
-  };
-
-  const handleShareMessage = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({ text: message.content });
-      } catch {
-        // User cancelled share; no toast needed.
-      }
-      return;
-    }
-    await navigator.clipboard.writeText(message.content);
-    toast.success('Message copied for sharing');
-  };
-
   const handleDownloadPdf = async () => {
     try {
       toast.info('📄 PDF बन रहा है...');
@@ -82,18 +60,6 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted, onEditI
     } catch {
       toast.error('Share नहीं हो पाया');
     }
-  };
-
-  const handleViewSources = () => {
-    toast.info('Sources are shown in the response when available.');
-  };
-
-  const handleRegenerate = () => {
-    toast.info('Regenerate is available from the main input action.');
-  };
-
-  const handleReport = () => {
-    toast.info('Report submitted. Thank you for your feedback.');
   };
 
   const messageForMenu = {
@@ -163,15 +129,9 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted, onEditI
             handleCopy={handleCopy}
             handleDelete={handleDelete}
             handleLike={handleLike}
-            handleDislike={!isUserMessage ? handleDislike : undefined}
-            handleSpeak={!isUserMessage ? handleSpeak : undefined}
-            handleShare={!isUserMessage ? handleShareMessage : undefined}
             handleBookmark={handleBookmark}
             handleDownloadPdf={!isUserMessage ? handleDownloadPdf : undefined}
             handleSharePdf={!isUserMessage ? handleSharePdf : undefined}
-            handleViewSources={!isUserMessage ? handleViewSources : undefined}
-            handleRegenerate={!isUserMessage ? handleRegenerate : undefined}
-            handleReport={!isUserMessage ? handleReport : undefined}
           />
         </div>
       )}

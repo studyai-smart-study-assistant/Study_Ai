@@ -22,7 +22,6 @@ class ContextMemoryService {
 
   private constructor() {
     this.loadAllUserContexts();
-    this.clearOldContexts(30);
   }
 
   static getInstance(): ContextMemoryService {

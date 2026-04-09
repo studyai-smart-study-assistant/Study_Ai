@@ -8,17 +8,6 @@ import { getRealtimeContext, isDateTimeQuery, getDateTimeAnswer } from '../utils
 // Developed by Ajit Kumar
 
 const CHAT_FUNCTION_NAME = "chat-completion";
-const CHAT_REQUEST_TIMEOUT_MS = 45000;
-const MAX_HISTORY_MESSAGES = 10;
-const FALLBACK_BOT_MESSAGE = "मुझे अभी जवाब देने में कठिनाई हो रही है। कृपया कुछ समय बाद पुनः प्रयास करें।";
-
-function cleanAIResponse(text: string): string {
-  if (!text) return "";
-  return text
-    .replace(/<think>[\s\S]*?<\/think>/gi, "")
-    .replace(/<think>/gi, "")
-    .trim();
-}
 
 const getFunctionBaseUrls = () => {
   const configuredUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "");
@@ -39,21 +28,13 @@ const invokeChatCompletion = async (payload: {
   userId?: string;
   reasoningMode?: boolean;
 }) => {
-  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
-  let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null = null;
-  try {
-    const sessionResponse = await supabase.auth.getSession();
-    session = sessionResponse.data.session;
-  } catch (sessionError) {
-    console.warn("Unable to read session, continuing with publishable key auth:", sessionError);
-  }
+  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const { data: { session } } = await supabase.auth.getSession();
   const authToken = session?.access_token ?? publishableKey;
 
   let lastError: Error | null = null;
 
   for (const baseUrl of getFunctionBaseUrls()) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch(`${baseUrl}/functions/v1/${CHAT_FUNCTION_NAME}`, {
         method: "POST",
@@ -63,13 +44,9 @@ const invokeChatCompletion = async (payload: {
           Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify(payload),
-        signal: controller.signal,
       });
 
       if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          throw new Error("Unauthorized request");
-        }
         const errorText = await response.text();
         let errorMsg = `Edge function error (${response.status})`;
         try {
@@ -93,14 +70,9 @@ const invokeChatCompletion = async (payload: {
       const parsed = responseText ? JSON.parse(responseText) : {};
       console.log(`✅ ${CHAT_FUNCTION_NAME} success via: ${baseUrl}`);
       return parsed;
-    } catch (error: unknown) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        throw new Error("AI response timed out.");
-      }
+    } catch (error: any) {
       lastError = error instanceof Error ? error : new Error("Unknown edge function error");
       console.warn(`⚠️ ${CHAT_FUNCTION_NAME} failed via: ${baseUrl}`, lastError.message);
-    } finally {
-      clearTimeout(timer);
     }
   }
 
@@ -260,7 +232,7 @@ export async function generateResponseWithSearch(
         role: "system",
         content: `You are Study AI, created by Ajit Kumar. Smart, friendly AI teacher for Bihar Board and competitive exam students.\n\n${realtimeCtx.contextPrompt}${mindVaultContext}`
       },
-      ...history.slice(-MAX_HISTORY_MESSAGES).map((msg) => ({
+      ...history.slice(-30).map((msg) => ({
         role: msg.role,
         content: sanitizeForAI(msg.content),
       }))
@@ -280,29 +252,21 @@ export async function generateResponseWithSearch(
       toast.info('📐 Reasoning mode ON...', { duration: 2000 });
     }
 
-    let data: Awaited<ReturnType<typeof invokeChatCompletion>>;
-    try {
-      data = await invokeChatCompletion({
-        prompt: sanitizeForAI(prompt),
-        history: formattedHistory,
-        model,
-        forceWebSearch,
-        webSearchContext,
-        webSearchSources,
-        imageBase64,
-        userId,
-        reasoningMode,
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message === "AI response timed out.") {
-        toast.error("सर्वर धीमा है, कृपया पुनः प्रयास करें।", { duration: 5000 });
-      }
-      throw error;
-    }
+    const data = await invokeChatCompletion({
+      prompt: sanitizeForAI(prompt),
+      history: formattedHistory,
+      model,
+      forceWebSearch,
+      webSearchContext,
+      webSearchSources,
+      imageBase64,
+      userId,
+      reasoningMode,
+    });
 
     if (data?.error) throw new Error(data.error);
 
-    const responseText = cleanAIResponse(data.response ?? "");
+    const responseText = data.response;
     if (!responseText) throw new Error("AI ने कोई जवाब नहीं दिया।");
 
     const sources = data.sources || webSearchSources;
@@ -338,20 +302,10 @@ export async function generateResponseWithSearch(
     }
 
     return { text: finalResponseText, sources, webSearchUsed, toolUsed, imageUrl, thinking };
-  } catch (error: unknown) {
+  } catch (error: any) {
     console.error("❌ AI Request failed:", error);
-    const errorMessage = error instanceof Error ? error.message : "AI service से जवाब पाने में विफलता।";
-    if (errorMessage !== "AI response timed out.") {
-      toast.error(errorMessage, { duration: 5000 });
-    }
-    if (chatId) {
-      const chat = await chatDB.getChat(chatId);
-      const lastMessage = chat?.messages?.[chat.messages.length - 1];
-      if (lastMessage?.content !== FALLBACK_BOT_MESSAGE) {
-        await chatDB.addMessage(chatId, FALLBACK_BOT_MESSAGE, "bot");
-      }
-    }
-    return { text: FALLBACK_BOT_MESSAGE, sources: [], webSearchUsed: false };
+    toast.error(error.message || "AI service से जवाब पाने में विफलता।", { duration: 5000 });
+    throw error;
   }
 }
 
