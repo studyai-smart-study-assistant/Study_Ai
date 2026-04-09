@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { chatDB } from '@/lib/db';
 import { generateResponse } from '@/lib/gemini';
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ export const useChat = (chatId: string, onChatUpdated?: () => void) => {
   const [isResponding, setIsResponding] = useState(false);
   const [activeChatId, setActiveChatId] = useState(chatId);
   const [showLimitAlert, setShowLimitAlert] = useState(false);
+  const sendingRef = useRef(false);
   const { currentUser, messageLimitReached, setMessageLimitReached } = useAuth();
 
   useEffect(() => {
@@ -28,6 +29,19 @@ export const useChat = (chatId: string, onChatUpdated?: () => void) => {
       loadMessages();
     }
   }, [activeChatId]);
+
+  useEffect(() => {
+    setIsLoading(false);
+    setIsResponding(false);
+
+    const handlePageShow = () => {
+      setIsLoading(false);
+      setIsResponding(false);
+    };
+
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
 
   const loadMessages = async () => {
     try {
@@ -61,7 +75,7 @@ export const useChat = (chatId: string, onChatUpdated?: () => void) => {
   };
 
   const sendMessage = async (input: string) => {
-    if (!input.trim() || isLoading || isResponding) return;
+    if (!input.trim() || isLoading || isResponding || sendingRef.current) return;
     
     // Check if user has reached message limit
     if (!currentUser && messages.filter(m => m.role === 'user').length >= GUEST_MESSAGE_LIMIT) {
@@ -72,6 +86,7 @@ export const useChat = (chatId: string, onChatUpdated?: () => void) => {
 
     let fallbackChatId = activeChatId;
     try {
+      sendingRef.current = true;
       setIsLoading(true);
       setIsResponding(true);
       let nextChatId = activeChatId;
@@ -106,7 +121,9 @@ export const useChat = (chatId: string, onChatUpdated?: () => void) => {
       
       // Get AI response (pass chatId to store response automatically)
       await Promise.race([
-        generateResponse(input.trim(), chatHistory, nextChatId),
+        generateResponse(input.trim(), chatHistory, nextChatId, undefined, {
+          preferGuestAuth: !currentUser,
+        }),
         new Promise<string>((_, reject) => {
           setTimeout(() => reject(new Error("AI response timed out in useChat.")), AI_RESPONSE_TIMEOUT_MS);
         }),
@@ -133,6 +150,7 @@ export const useChat = (chatId: string, onChatUpdated?: () => void) => {
       await loadMessages();
       toast.error('Failed to send message');
     } finally {
+      sendingRef.current = false;
       setIsLoading(false);
       setIsResponding(false);
     }
