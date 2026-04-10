@@ -17,6 +17,7 @@ import { Suspense, lazy, useEffect } from 'react';
 import { useAppPermissions } from '@/hooks/useAppPermissions';
 import { usePagePrefetcher } from '@/hooks/usePagePrefetcher'; // Import the new hook
 import { supabase } from '@/integrations/supabase/client';
+import { getRecoveredSession } from '@/lib/supabase/sessionRecovery';
 import { initOneSignal, logoutOneSignal, syncOneSignalIdentity } from '@/services/oneSignalService';
 
 // Lazy load pages for better performance
@@ -66,7 +67,7 @@ function App() {
 
     const syncIdentity = async () => {
       await initOneSignal();
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getRecoveredSession();
       if (!mounted) return;
 
       if (session?.user?.id) {

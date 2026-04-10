@@ -3,8 +3,8 @@
  * Caches app shell and assets for instant loading
  */
 
-const CACHE_NAME = 'study-ai-v3';
-const RUNTIME_CACHE = 'study-ai-runtime-v3';
+const CACHE_NAME = 'study-ai-v4';
+const RUNTIME_CACHE = 'study-ai-runtime-v4';
 
 // App shell files to cache immediately
 const PRECACHE_ASSETS = [
@@ -127,4 +127,11 @@ self.addEventListener('fetch', (event) => {
       return cached || fetchPromise;
     })
   );
+});
+
+// Allow clients to force activation of a newly installed SW.
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });

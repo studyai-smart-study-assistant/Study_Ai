@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 import { AuthContext, User } from '@/contexts/AuthContext';
+import { getRecoveredSession } from '@/lib/supabase/sessionRecovery';
 
 // Helper to convert Supabase user to extended User
 const toExtendedUser = (user: any): User | null => {
@@ -20,31 +21,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [messageLimitReached, setMessageLimitReached] = useState(false);
+  const lastKnownSessionRef = useRef<Session | null>(null);
 
   useEffect(() => {
-    const refreshOrSignOut = async (): Promise<Session | null> => {
-      const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession();
-      if (refreshError || !refreshedData.session) {
-        await supabase.auth.signOut({ scope: 'local' });
-        return null;
+    const refreshSessionSafely = async (): Promise<Session | null> => {
+      const refreshedSession = await getRecoveredSession();
+      if (!refreshedSession) {
+        console.warn('Session refresh failed: no recovered session');
       }
-      return refreshedData.session;
+      return refreshedSession;
     };
 
     const reconcileSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      let activeSession = session;
+      const storedSession = await getRecoveredSession();
+      let activeSession = storedSession || lastKnownSessionRef.current;
 
-      if (session?.expires_at && session.expires_at * 1000 <= Date.now()) {
-        activeSession = await refreshOrSignOut();
-      } else if (session) {
+      if (!activeSession) {
+        setIsLoading(false);
+        return;
+      } else if (activeSession.expires_at && activeSession.expires_at * 1000 - Date.now() < 5 * 60 * 1000) {
+        // Refresh a bit before expiry to avoid "frontend disconnected" state.
+        activeSession = await refreshSessionSafely() || activeSession;
+      }
+
+      if (activeSession) {
         const { data: userData, error: userError } = await supabase.auth.getUser();
         if (userError || !userData.user) {
-          activeSession = await refreshOrSignOut();
+          const recoveredSession = await refreshSessionSafely();
+          activeSession = recoveredSession || activeSession;
         }
       }
 
       console.log('Session reconciled:', activeSession?.user?.id?.substring(0, 8) || 'none');
+      lastKnownSessionRef.current = activeSession;
       setSession(activeSession);
       setCurrentUser(toExtendedUser(activeSession?.user ?? null));
       setIsLoading(false);
@@ -53,8 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const reconcileSessionSafely = () => {
       reconcileSession().catch((error) => {
         console.error('Session reconcile failed:', error);
-        setSession(null);
-        setCurrentUser(null);
+        // Keep existing auth state on transient failures.
         setIsLoading(false);
       });
     };
@@ -70,6 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state changed:', event, session?.user?.id?.substring(0, 8));
+        lastKnownSessionRef.current = session;
         setSession(session);
         setCurrentUser(toExtendedUser(session?.user ?? null));
         setIsLoading(false);
@@ -82,6 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (event === 'SIGNED_OUT') {
+          lastKnownSessionRef.current = null;
           setSession(null);
           setCurrentUser(null);
           return;
