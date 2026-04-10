@@ -4,11 +4,34 @@ import type { Database } from './types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_REQUEST_TIMEOUT_MS = 20000;
+
+const fetchWithTimeout: typeof fetch = async (input, init) => {
+  const hasExternalSignal = Boolean(init?.signal);
+  if (hasExternalSignal) {
+    return fetch(input, init);
+  }
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), SUPABASE_REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+};
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  global: {
+    fetch: fetchWithTimeout,
+  },
   auth: {
     storage: localStorage,
     persistSession: true,
