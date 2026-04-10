@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { generateResponseWithSearch } from '@/lib/gemini';
 import { useNotesHistory } from '@/hooks/useNotesHistory';
 import { generateNotesPdf } from '@/utils/generateNotesPdf';
+import { supabase } from '@/integrations/supabase/client';
 
 interface EnhancedNotesGeneratorProps {
   onSendMessage: (msg: string) => void;
@@ -37,12 +38,19 @@ interface GeneratedNote {
   isFavorite: boolean;
 }
 
+interface DeepThinkingResponse {
+  success?: boolean;
+  response?: string;
+  sources?: Array<{ title: string; url: string }>;
+}
+
 const EnhancedNotesGenerator: React.FC<EnhancedNotesGeneratorProps> = ({ onSendMessage }) => {
   const navigate = useNavigate();
   const { notes: savedNotes, saveNote, deleteNote } = useNotesHistory();
   const [topic, setTopic] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState('hindi');
+  const [selectedFormat, setSelectedFormat] = useState<'exam' | 'detailed' | 'revision'>('exam');
   const [isGenerating, setIsGenerating] = useState(false);
 
   const classes = [
@@ -50,20 +58,48 @@ const EnhancedNotesGenerator: React.FC<EnhancedNotesGeneratorProps> = ({ onSendM
     'SSC CGL', 'UPSC', 'Bihar Board', 'Other'
   ];
 
-  const generateTopperPrompt = (topicName: string, className: string, language: string) => {
+  const generateTopperPrompt = (
+    topicName: string,
+    className: string,
+    language: string,
+    format: 'exam' | 'detailed' | 'revision'
+  ) => {
     const langInst = language === 'hindi' 
       ? 'Notes हिंदी में लिखें, technical terms English में रखें।'
       : language === 'english'
       ? 'Write notes in simple English.'
       : 'Mix Hindi and English naturally.';
 
-    return `You are creating TOPPER-STYLE study notes. Be CONCISE and EXAM-FOCUSED.
+    const formatInstructions = {
+      exam: `Keep output exam-oriented and high-yield.
+- Include PYQ-style focus areas
+- Keep explanations concise and scoring oriented`,
+      detailed: `Make notes deeper with concept clarity.
+- Add concept breakdown and cause-effect where needed
+- Add one comparison table if applicable`,
+      revision: `Make ultra-fast revision notes.
+- Use short bullets only
+- Add last-minute memory triggers and 1-page style flow`,
+    }[format];
+
+    return `You are creating TOPPER-STYLE study notes.
 
 Topic: "${topicName}"
 Level: ${className}
 Language: ${langInst}
+Mode: ${format.toUpperCase()}
 
-FORMAT (follow strictly):
+QUALITY RULES:
+- Never return generic notes
+- Optimize for Indian exam preparation
+- Keep facts accurate and updated
+- Use crisp bullets and short sections
+- Highlight common mistakes students make
+
+MODE INSTRUCTIONS:
+${formatInstructions}
+
+FORMAT (follow strictly and keep headings):
 ## 📌 ${topicName}
 
 ### 🎯 Key Points (5-7 bullet points max)
@@ -71,24 +107,49 @@ FORMAT (follow strictly):
 - Exam-relevant points
 - Easy to memorize
 
-### 📝 Quick Summary (3-4 paragraphs max)
-Explain the core concept briefly. No fluff.
+### 🧠 Core Concept (Short)
+Explain in simple terms with minimal fluff.
 
-### 💡 Remember This
-- Mnemonics or tricks to remember
-- Common exam questions pattern
+### 📊 Must-Know Table
+Create one short table (if suitable) with columns: Concept | Key Detail | Exam Hint.
 
-### ❓ Quick Practice (3 MCQs)
+### ⚠️ Common Mistakes
+- 3 most common student mistakes for this topic
+
+### ❓ Quick Practice (5 MCQs)
 Q1: [Question]
 a) b) c) d)
 Answer: [X]
 
-RULES:
-- Be CONCISE like a topper's handwritten notes
-- NO lengthy explanations
-- Focus on EXAM-IMPORTANT content only
-- Use bullet points, not paragraphs where possible
-- Include latest/updated information`;
+### 🔁 24-Hour Revision Plan
+- What to revise in 10 min
+- What to self-test in 10 min
+- What to re-read in 5 min`;
+  };
+
+  const runDeepThinkingResearch = async (topicName: string) => {
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const { data, error } = await supabase.functions.invoke<DeepThinkingResponse>('deep-thinking', {
+        body: {
+          topic: `${topicName} latest syllabus changes, exam patterns, and important updates`,
+          user_id: authData.user?.id,
+          notify_on_complete: false
+        }
+      });
+
+      if (error || !data?.success || !data?.response) return null;
+
+      const sourceLines = (data.sources || [])
+        .slice(0, 5)
+        .map((s, idx) => `${idx + 1}. ${s.title}${s.url ? ` (${s.url})` : ''}`)
+        .join('\n');
+
+      return `Deep Research Findings:\n${data.response}\n\nVerified Sources:\n${sourceLines}`;
+    } catch (error) {
+      console.warn('Deep thinking research failed, falling back to web-only notes:', error);
+      return null;
+    }
   };
 
   const generateNotes = async () => {
@@ -100,7 +161,11 @@ RULES:
     setIsGenerating(true);
     
     try {
-      const prompt = generateTopperPrompt(topic, selectedClass || 'General', selectedLanguage);
+      const basePrompt = generateTopperPrompt(topic, selectedClass || 'General', selectedLanguage, selectedFormat);
+      const deepResearch = await runDeepThinkingResearch(topic);
+      const prompt = deepResearch
+        ? `${basePrompt}\n\nUse this deep-research context as primary reference:\n${deepResearch}`
+        : basePrompt;
       
       onSendMessage(prompt);
       
@@ -141,7 +206,7 @@ RULES:
       
       setTopic('');
       
-      toast.success('📝 Topper-style Notes तैयार!');
+      toast.success(deepResearch ? '📝 Deep + Web updated notes तैयार!' : '📝 Topper-style Notes तैयार!');
       
       navigate('/notes-ad', { state: { note: newNote } });
     } catch (error) {
@@ -235,6 +300,17 @@ RULES:
               </SelectContent>
             </Select>
 
+            <Select value={selectedFormat} onValueChange={(v) => setSelectedFormat(v as 'exam' | 'detailed' | 'revision')}>
+              <SelectTrigger className="w-[130px] h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="exam">Exam</SelectItem>
+                <SelectItem value="detailed">Detailed</SelectItem>
+                <SelectItem value="revision">Revision</SelectItem>
+              </SelectContent>
+            </Select>
+
             <div className="flex-1" />
 
             <Button 
@@ -259,7 +335,7 @@ RULES:
           {/* Web Search Badge */}
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Globe className="h-3 w-3" />
-            <span>Web search enabled for latest information</span>
+            <span>Web search + quality format mode enabled</span>
           </div>
         </CardContent>
       </Card>

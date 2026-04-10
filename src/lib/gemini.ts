@@ -2,6 +2,7 @@ import { toast } from "sonner";
 import { Message } from "./db";
 import { chatDB } from "./db";
 import { supabase } from "@/integrations/supabase/client";
+import { getRecoveredSession } from "@/lib/supabase/sessionRecovery";
 import { getRealtimeContext, isDateTimeQuery, getDateTimeAnswer } from '../utils/realtimeContext';
 
 // Study AI - Core Chat & AI Gateway Service
@@ -40,45 +41,37 @@ const invokeChatCompletion = async (payload: {
   reasoningMode?: boolean;
 }) => {
   const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
-  const resolveAuthTokens = async (): Promise<string[]> => {
-    let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null = null;
-    try {
-      const sessionResponse = await supabase.auth.getSession();
-      session = sessionResponse.data.session;
+  const resolveAccessToken = async (): Promise<string> => {
+    const session = await getRecoveredSession();
+    let token = session?.access_token || publishableKey;
 
-      const expiresAtMs = session?.expires_at ? session.expires_at * 1000 : 0;
-      const shouldRefresh = expiresAtMs > 0 && expiresAtMs - Date.now() < 60_000;
-      if (shouldRefresh) {
-        const { data: refreshedData } = await supabase.auth.refreshSession();
-        session = refreshedData.session;
-      }
-    } catch (sessionError) {
-      console.warn("Unable to read session, continuing with publishable key auth:", sessionError);
+    const expiresAtMs = session?.expires_at ? session.expires_at * 1000 : 0;
+    const shouldRefresh = expiresAtMs > 0 && expiresAtMs - Date.now() < 60_000;
+    if (shouldRefresh) {
+      const { data: refreshedData } = await supabase.auth.refreshSession();
+      token = refreshedData.session?.access_token || publishableKey;
     }
 
-    return Array.from(
-      new Set([session?.access_token, publishableKey].filter((token): token is string => Boolean(token)))
-    );
+    if (!token) throw new Error("Missing API Key/Token");
+    return token;
   };
-  const authTokens = await resolveAuthTokens();
+
+  const authToken = await resolveAccessToken();
 
   let lastError: Error | null = null;
 
-  for (const authToken of authTokens) {
-    for (const baseUrl of getFunctionBaseUrls()) {
+  for (const baseUrl of getFunctionBaseUrls()) {
+      const requestUrl = `${baseUrl}/functions/v1/${CHAT_FUNCTION_NAME}?t=${Date.now()}`;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS);
       try {
-        const response = await fetch(`${baseUrl}/functions/v1/${CHAT_FUNCTION_NAME}`, {
+        const response = await fetch(requestUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             apikey: publishableKey,
             Authorization: `Bearer ${authToken}`,
-            "Cache-Control": "no-store, max-age=0",
-            Pragma: "no-cache",
           },
-          cache: "no-store",
           body: JSON.stringify(payload),
           signal: controller.signal,
         });
@@ -86,19 +79,16 @@ const invokeChatCompletion = async (payload: {
         if (!response.ok) {
           if ((response.status === 401 || response.status === 403) && authToken !== publishableKey) {
             const { data: refreshedData } = await supabase.auth.refreshSession();
-            const refreshedToken = refreshedData.session?.access_token;
+            const refreshedToken = refreshedData.session?.access_token || publishableKey;
 
             if (refreshedToken && refreshedToken !== authToken) {
-              const refreshedResponse = await fetch(`${baseUrl}/functions/v1/${CHAT_FUNCTION_NAME}`, {
+              const refreshedResponse = await fetch(requestUrl, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
                   apikey: publishableKey,
                   Authorization: `Bearer ${refreshedToken}`,
-                  "Cache-Control": "no-store, max-age=0",
-                  Pragma: "no-cache",
                 },
-                cache: "no-store",
                 body: JSON.stringify(payload),
                 signal: controller.signal,
               });
@@ -153,7 +143,6 @@ const invokeChatCompletion = async (payload: {
       } finally {
         clearTimeout(timer);
       }
-    }
   }
 
   throw new Error(lastError?.message || "Edge function unreachable");

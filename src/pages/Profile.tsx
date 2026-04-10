@@ -38,11 +38,38 @@ const Profile = () => {
 
   useEffect(() => {
     if (!isLoading && !currentUser) { navigate('/login'); return; }
+
+    const refreshProfileData = async () => {
+      if (!currentUser) return;
+      await syncUserPoints(currentUser.uid);
+      loadStudentData();
+    };
+
     if (currentUser && !userSynced) {
-      syncUserPoints(currentUser.uid).then(() => { setUserSynced(true); loadStudentData(); }).catch(() => loadStudentData());
+      refreshProfileData().finally(() => setUserSynced(true));
       setUserCategory(localStorage.getItem('userCategory') || '');
       setEducationLevel(localStorage.getItem('educationLevel') || '');
-    } else if (currentUser && userSynced) { loadStudentData(); }
+    } else if (currentUser && userSynced) {
+      loadStudentData();
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && currentUser) {
+        refreshProfileData();
+      }
+    };
+
+    const handleFocus = () => {
+      if (currentUser) refreshProfileData();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [currentUser, isLoading, navigate, userSynced]);
 
   const loadStudentData = () => {

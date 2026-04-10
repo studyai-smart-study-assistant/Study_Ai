@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { PointRecord } from './types';
 import { toast } from 'sonner';
+import { getRecoveredSession } from '@/lib/supabase/sessionRecovery';
 
 export async function addPointsToUser(
   userId: string,
@@ -134,9 +135,24 @@ export async function syncUserPoints(userId: string): Promise<void> {
     await migrateLocalStoragePoints(userId);
     
     // Then fetch current balance from server
-    const { data, error } = await supabase.functions.invoke('points-balance', {
-      body: { userId }
-    });
+    const session = await getRecoveredSession();
+    const apikey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const invokeBalance = async (token?: string) =>
+      supabase.functions.invoke('points-balance', {
+        body: { userId },
+        headers: {
+          ...(apikey ? { apikey } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        }
+      });
+
+    let { data, error } = await invokeBalance(session?.access_token);
+    if (error) {
+      const refreshed = await getRecoveredSession();
+      const retried = await invokeBalance(refreshed?.access_token);
+      data = retried.data;
+      error = retried.error;
+    }
     
     if (error) {
       console.error('Error fetching points balance:', error);
