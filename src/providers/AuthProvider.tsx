@@ -22,10 +22,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [messageLimitReached, setMessageLimitReached] = useState(false);
 
   useEffect(() => {
-    const refreshOrSignOut = async (): Promise<Session | null> => {
+    const refreshSessionSafely = async (): Promise<Session | null> => {
       const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession();
       if (refreshError || !refreshedData.session) {
-        await supabase.auth.signOut({ scope: 'local' });
+        console.warn('Session refresh failed:', refreshError?.message || 'no refreshed session');
         return null;
       }
       return refreshedData.session;
@@ -35,12 +35,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data: { session } } = await supabase.auth.getSession();
       let activeSession = session;
 
-      if (session?.expires_at && session.expires_at * 1000 <= Date.now()) {
-        activeSession = await refreshOrSignOut();
-      } else if (session) {
+      if (!activeSession) {
+        // Recover silently when storage/session hydration lags behind.
+        activeSession = await refreshSessionSafely();
+      } else if (activeSession.expires_at && activeSession.expires_at * 1000 - Date.now() < 5 * 60 * 1000) {
+        // Refresh a bit before expiry to avoid "frontend disconnected" state.
+        activeSession = await refreshSessionSafely() || activeSession;
+      }
+
+      if (activeSession) {
         const { data: userData, error: userError } = await supabase.auth.getUser();
         if (userError || !userData.user) {
-          activeSession = await refreshOrSignOut();
+          const recoveredSession = await refreshSessionSafely();
+          activeSession = recoveredSession || null;
         }
       }
 
@@ -100,11 +107,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     reconcileSessionSafely();
     window.addEventListener('focus', reconcileSessionSafely);
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    const periodicHealthCheck = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        reconcileSessionSafely();
+      }
+    }, 120000);
 
     return () => {
       subscription.unsubscribe();
       window.removeEventListener('focus', reconcileSessionSafely);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.clearInterval(periodicHealthCheck);
     };
   }, []);
 

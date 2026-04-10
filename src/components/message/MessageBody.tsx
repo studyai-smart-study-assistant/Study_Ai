@@ -18,6 +18,7 @@ interface MessageBodyProps {
   onEditImage?: (imageUrl: string, originalPrompt: string) => void;
   onQuizComplete?: (result: { score: number; total: number; topic: string; skipped: boolean }) => void;
   hasQuizContent?: boolean;
+  contentElementId?: string;
 }
 
 export function cleanAIResponse(text: string): string {
@@ -125,6 +126,7 @@ const MessageBody: React.FC<MessageBodyProps> = ({
   displayedContent,
   onEditImage,
   onQuizComplete,
+  contentElementId,
 }) => {
   const [imageModalOpen, setImageModalOpen] = useState(false);
 
@@ -230,7 +232,7 @@ const MessageBody: React.FC<MessageBodyProps> = ({
         
         {/* Text bubble */}
         {(botTextContent || isEditing) && !quizData && (
-          <div className={cn("bg-muted text-foreground", "px-4 py-3 rounded-2xl select-text")}>
+          <div id={contentElementId} className={cn("bg-muted text-foreground", "px-4 py-3 rounded-2xl select-text")}>
             {isEditing ? (
               <MessageEditor editedContent={editedContent} setEditedContent={setEditedContent} handleSaveEdit={handleSaveEdit} handleCancelEdit={handleCancelEdit} />
             ) : (
