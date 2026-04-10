@@ -73,6 +73,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(session);
         setCurrentUser(toExtendedUser(session?.user ?? null));
         setIsLoading(false);
+
+        if (event === 'TOKEN_REFRESHED' && session?.user) {
+          setTimeout(() => {
+            syncUserPoints(session.user.id);
+          }, 0);
+          return;
+        }
+
+        if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setCurrentUser(null);
+          return;
+        }
         
         if (session?.user) {
           // Use setTimeout to avoid deadlock in auth callback
