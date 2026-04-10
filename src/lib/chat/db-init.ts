@@ -4,6 +4,27 @@ import { toast } from "sonner";
 export const CHATS_STORE = "chats";
 const STORAGE_KEY = "gemini-chat-data";
 const QUOTA_PRUNE_TOAST = "बहुत अधिक चैट डेटा संग्रहीत है। कुछ पुराने चैट हटाए जा रहे हैं।";
+const MAX_RECOVERY_REMOVALS = 8;
+const PROTECTED_STORAGE_PREFIXES = ["sb-"];
+const PROTECTED_STORAGE_KEYS = new Set([STORAGE_KEY, "theme"]);
+const PRIORITY_PURGE_KEYS = [
+  "studyai_saved_content",
+  "youtube_search_cache",
+  "youtube_history",
+  "remote_config",
+  "chat_history",
+  "chat_sessions",
+];
+const PURGE_PATTERNS = [
+  /^context_memory_/,
+  /^teacher_chats_/,
+  /^study_plans_/,
+  /^active_study_plan_/,
+  /^progress_/,
+  /^weekly_quiz_/,
+  /^personalization_/,
+  /^studyai_/,
+];
 
 export function initDB(): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -69,6 +90,18 @@ export function setItem(key: string, value: any): void {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(parsedData));
       } catch (retryError) {
+        if (isQuotaExceededError(retryError)) {
+          recoverStorageQuota();
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(parsedData));
+            toast.warning("स्टोरेज भर गया था, कुछ पुराना लोकल डेटा साफ किया गया है।");
+            return;
+          } catch (finalError) {
+            toast.error(QUOTA_PRUNE_TOAST);
+            console.error("Storage quota final retry failed:", finalError);
+            return;
+          }
+        }
         toast.error(QUOTA_PRUNE_TOAST);
         console.error("Storage quota retry failed:", retryError);
       }
@@ -77,6 +110,48 @@ export function setItem(key: string, value: any): void {
     console.error("Error writing to storage:", error);
     toast.error("Failed to save data");
   }
+}
+
+function recoverStorageQuota(): void {
+  const removableKeys: string[] = [];
+  const seen = new Set<string>();
+
+  const maybeAdd = (key: string | null) => {
+    if (!key || seen.has(key) || isProtectedStorageKey(key)) {
+      return;
+    }
+    seen.add(key);
+    removableKeys.push(key);
+  };
+
+  for (const key of PRIORITY_PURGE_KEYS) {
+    maybeAdd(key);
+  }
+
+  for (const key of Object.keys(localStorage)) {
+    if (PURGE_PATTERNS.some((pattern) => pattern.test(key))) {
+      maybeAdd(key);
+    }
+  }
+
+  const sizedCandidates = removableKeys
+    .map((key) => ({
+      key,
+      size: localStorage.getItem(key)?.length ?? 0,
+    }))
+    .sort((first, second) => second.size - first.size)
+    .slice(0, MAX_RECOVERY_REMOVALS);
+
+  for (const candidate of sizedCandidates) {
+    localStorage.removeItem(candidate.key);
+  }
+}
+
+function isProtectedStorageKey(key: string): boolean {
+  if (PROTECTED_STORAGE_KEYS.has(key)) {
+    return true;
+  }
+  return PROTECTED_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
 
 function isQuotaExceededError(error: unknown): boolean {

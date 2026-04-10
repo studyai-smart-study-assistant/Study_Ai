@@ -22,6 +22,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [messageLimitReached, setMessageLimitReached] = useState(false);
 
   useEffect(() => {
+    const reconcileSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      let activeSession = session;
+      let requiresRefresh = false;
+
+      if (session?.expires_at && session.expires_at * 1000 <= Date.now()) {
+        requiresRefresh = true;
+      }
+
+      if (activeSession && !requiresRefresh) {
+        const { data: userData, error: userError } = await supabase.auth.getUser(activeSession.access_token);
+        if (userError || !userData.user) {
+          requiresRefresh = true;
+        }
+      }
+
+      if (requiresRefresh) {
+        const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError || !refreshedData.session) {
+          await supabase.auth.signOut({ scope: 'local' });
+          activeSession = null;
+        } else {
+          activeSession = refreshedData.session;
+        }
+      }
+
+      console.log('Session reconciled:', activeSession?.user?.id?.substring(0, 8) || 'none');
+      setSession(activeSession);
+      setCurrentUser(toExtendedUser(activeSession?.user ?? null));
+      setIsLoading(false);
+
+      if (activeSession?.user) {
+        syncUserPoints(activeSession.user.id);
+      }
+    };
+
+    const reconcileSessionSafely = () => {
+      reconcileSession().catch((error) => {
+        console.error('Session reconcile failed:', error);
+        setSession(null);
+        setCurrentUser(null);
+        setIsLoading(false);
+      });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        reconcileSessionSafely();
+      }
+    };
+
     // CRITICAL: Set up onAuthStateChange BEFORE getSession
     // This ensures we catch all auth events including session restoration
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -41,14 +92,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     // Then restore session from storage
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Session restored:', session?.user?.id?.substring(0, 8) || 'none');
-      setSession(session);
-      setCurrentUser(toExtendedUser(session?.user ?? null));
-      setIsLoading(false);
-    });
+    reconcileSessionSafely();
+    window.addEventListener('focus', reconcileSessionSafely);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('focus', reconcileSessionSafely);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const syncUserPoints = async (userId: string) => {
