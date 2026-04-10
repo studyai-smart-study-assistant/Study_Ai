@@ -5,22 +5,10 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const SUPABASE_REQUEST_TIMEOUT_MS = 20000;
-const EDGE_FUNCTION_PATH_SEGMENT = '/functions/v1/';
 
 const fetchWithTimeout: typeof fetch = async (input, init) => {
-  const requestUrl = typeof input === 'string' ? input : input instanceof Request ? input.url : '';
-  const isEdgeFunctionRequest = requestUrl.includes(EDGE_FUNCTION_PATH_SEGMENT);
-  const mergedHeaders = new Headers(init?.headers);
-
-  if (isEdgeFunctionRequest) {
-    mergedHeaders.set('Cache-Control', 'no-store, max-age=0');
-    mergedHeaders.set('Pragma', 'no-cache');
-  }
-
   const requestInit: RequestInit = {
     ...init,
-    headers: mergedHeaders,
-    cache: isEdgeFunctionRequest ? 'no-store' : init?.cache,
   };
 
   const hasExternalSignal = Boolean(init?.signal);
