@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 import { AuthContext, User } from '@/contexts/AuthContext';
+import { getRecoveredSession } from '@/lib/supabase/sessionRecovery';
 
 // Helper to convert Supabase user to extended User
 const toExtendedUser = (user: any): User | null => {
@@ -22,25 +23,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [messageLimitReached, setMessageLimitReached] = useState(false);
 
   useEffect(() => {
-    const refreshOrSignOut = async (): Promise<Session | null> => {
-      const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession();
-      if (refreshError || !refreshedData.session) {
-        await supabase.auth.signOut({ scope: 'local' });
-        return null;
+    const refreshSessionSafely = async (): Promise<Session | null> => {
+      const refreshedSession = await getRecoveredSession();
+      if (!refreshedSession) {
+        console.warn('Session refresh failed: no recovered session');
       }
-      return refreshedData.session;
+      return refreshedSession;
     };
 
     const reconcileSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      let activeSession = session;
+      let activeSession = await getRecoveredSession();
 
-      if (session?.expires_at && session.expires_at * 1000 <= Date.now()) {
-        activeSession = await refreshOrSignOut();
-      } else if (session) {
+      if (!activeSession) {
+        // Recover silently when storage/session hydration lags behind.
+        activeSession = await refreshSessionSafely();
+      } else if (activeSession.expires_at && activeSession.expires_at * 1000 - Date.now() < 5 * 60 * 1000) {
+        // Refresh a bit before expiry to avoid "frontend disconnected" state.
+        activeSession = await refreshSessionSafely() || activeSession;
+      }
+
+      if (activeSession) {
         const { data: userData, error: userError } = await supabase.auth.getUser();
         if (userError || !userData.user) {
-          activeSession = await refreshOrSignOut();
+          const recoveredSession = await refreshSessionSafely();
+          activeSession = recoveredSession || null;
         }
       }
 
@@ -100,11 +106,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     reconcileSessionSafely();
     window.addEventListener('focus', reconcileSessionSafely);
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    const periodicHealthCheck = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        reconcileSessionSafely();
+      }
+    }, 120000);
 
     return () => {
       subscription.unsubscribe();
       window.removeEventListener('focus', reconcileSessionSafely);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.clearInterval(periodicHealthCheck);
     };
   }, []);
 
