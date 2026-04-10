@@ -26,12 +26,31 @@ function clearCorruptedSupabaseAuthStorage() {
  * - never throws to caller
  */
 export async function getRecoveredSession(): Promise<Session | null> {
-  try {
+  const readSession = async (): Promise<Session | null> => {
     const { data } = await supabase.auth.getSession();
-    if (data.session) return data.session;
+    return data.session ?? null;
+  };
+
+  try {
+    const session = await readSession();
+    if (session) return session;
   } catch (error) {
-    console.warn("getSession failed, attempting auth storage recovery:", error);
-    clearCorruptedSupabaseAuthStorage();
+    const message = error instanceof Error ? error.message : String(error);
+    const isLikelyParseError =
+      /unexpected token|json|parse|malformed/i.test(message);
+
+    if (isLikelyParseError) {
+      console.warn("getSession parse failure, attempting auth storage recovery:", error);
+      clearCorruptedSupabaseAuthStorage();
+      try {
+        const recoveredSession = await readSession();
+        if (recoveredSession) return recoveredSession;
+      } catch (retryError) {
+        console.warn("getSession retry failed after storage recovery:", retryError);
+      }
+    } else {
+      console.warn("getSession failed without parse/corruption signature:", error);
+    }
   }
 
   try {
@@ -42,4 +61,3 @@ export async function getRecoveredSession(): Promise<Session | null> {
     return null;
   }
 }
-

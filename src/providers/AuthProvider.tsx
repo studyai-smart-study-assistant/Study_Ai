@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 import { AuthContext, User } from '@/contexts/AuthContext';
@@ -21,6 +21,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [messageLimitReached, setMessageLimitReached] = useState(false);
+  const lastKnownSessionRef = useRef<Session | null>(null);
 
   useEffect(() => {
     const refreshSessionSafely = async (): Promise<Session | null> => {
@@ -32,11 +33,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const reconcileSession = async () => {
-      let activeSession = await getRecoveredSession();
+      const storedSession = await getRecoveredSession();
+      let activeSession = storedSession || lastKnownSessionRef.current;
 
       if (!activeSession) {
-        // Recover silently when storage/session hydration lags behind.
-        activeSession = await refreshSessionSafely();
+        setIsLoading(false);
+        return;
       } else if (activeSession.expires_at && activeSession.expires_at * 1000 - Date.now() < 5 * 60 * 1000) {
         // Refresh a bit before expiry to avoid "frontend disconnected" state.
         activeSession = await refreshSessionSafely() || activeSession;
@@ -46,11 +48,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: userData, error: userError } = await supabase.auth.getUser();
         if (userError || !userData.user) {
           const recoveredSession = await refreshSessionSafely();
-          activeSession = recoveredSession || null;
+          activeSession = recoveredSession || activeSession;
         }
       }
 
       console.log('Session reconciled:', activeSession?.user?.id?.substring(0, 8) || 'none');
+      lastKnownSessionRef.current = activeSession;
       setSession(activeSession);
       setCurrentUser(toExtendedUser(activeSession?.user ?? null));
       setIsLoading(false);
@@ -59,8 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const reconcileSessionSafely = () => {
       reconcileSession().catch((error) => {
         console.error('Session reconcile failed:', error);
-        setSession(null);
-        setCurrentUser(null);
+        // Keep existing auth state on transient failures.
         setIsLoading(false);
       });
     };
@@ -76,6 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state changed:', event, session?.user?.id?.substring(0, 8));
+        lastKnownSessionRef.current = session;
         setSession(session);
         setCurrentUser(toExtendedUser(session?.user ?? null));
         setIsLoading(false);
@@ -88,6 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (event === 'SIGNED_OUT') {
+          lastKnownSessionRef.current = null;
           setSession(null);
           setCurrentUser(null);
           return;
@@ -106,17 +110,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     reconcileSessionSafely();
     window.addEventListener('focus', reconcileSessionSafely);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    const periodicHealthCheck = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        reconcileSessionSafely();
-      }
-    }, 120000);
 
     return () => {
       subscription.unsubscribe();
       window.removeEventListener('focus', reconcileSessionSafely);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.clearInterval(periodicHealthCheck);
     };
   }, []);
 
