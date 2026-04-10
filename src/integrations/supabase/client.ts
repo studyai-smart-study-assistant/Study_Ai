@@ -4,57 +4,14 @@ import type { Database } from './types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-const SUPABASE_REQUEST_TIMEOUT_MS = 20000;
-const EDGE_FUNCTION_PATH_SEGMENT = '/functions/v1/';
-
-const fetchWithTimeout: typeof fetch = async (input, init) => {
-  const requestUrl = typeof input === 'string' ? input : input instanceof Request ? input.url : '';
-  const isEdgeFunctionRequest = requestUrl.includes(EDGE_FUNCTION_PATH_SEGMENT);
-  const mergedHeaders = new Headers(init?.headers);
-
-  const requestInit: RequestInit = {
-    ...init,
-    headers: mergedHeaders,
-    cache: isEdgeFunctionRequest ? 'no-store' : init?.cache,
-  };
-
-  if (isEdgeFunctionRequest) {
-    console.log('[supabase fetchWithTimeout] edge request', {
-      url: requestUrl,
-      headers: Array.from(mergedHeaders.entries()),
-      cache: requestInit.cache,
-    });
-  }
-
-  const hasExternalSignal = Boolean(init?.signal);
-  if (hasExternalSignal) {
-    return fetch(input, requestInit);
-  }
-
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), SUPABASE_REQUEST_TIMEOUT_MS);
-
-  try {
-    return await fetch(input, {
-      ...requestInit,
-      signal: controller.signal,
-    });
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-};
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  global: {
-    fetch: fetchWithTimeout,
-  },
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
   }
 });

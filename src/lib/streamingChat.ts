@@ -25,31 +25,19 @@ export async function streamChatCompletion(
   const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
   const resolveAccessToken = async (): Promise<string> => {
     const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      return publishableKey;
-    }
-
-    const expiresAtMs = session.expires_at ? session.expires_at * 1000 : 0;
-    const shouldRefresh = expiresAtMs > 0 && expiresAtMs - Date.now() < 60_000;
-    if (shouldRefresh) {
-      const { data: refreshedData } = await supabase.auth.refreshSession();
-      return refreshedData.session?.access_token ?? publishableKey;
-    }
-
-    return session.access_token ?? publishableKey;
+    return session?.access_token || publishableKey;
   };
 
   const baseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "");
+  const getFunctionUrl = () => `${baseUrl}/functions/v1/chat-completion?t=${Date.now()}`;
   let authToken = await resolveAccessToken();
-  let resp = await fetch(`${baseUrl}/functions/v1/chat-completion`, {
+  let resp = await fetch(getFunctionUrl(), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       apikey: publishableKey,
       Authorization: `Bearer ${authToken}`,
     },
-    cache: "no-store",
     body: JSON.stringify(payload),
     signal,
   });
@@ -57,14 +45,13 @@ export async function streamChatCompletion(
   if (resp.status === 401 || resp.status === 403) {
     const { data: refreshedData } = await supabase.auth.refreshSession();
     authToken = refreshedData.session?.access_token ?? publishableKey;
-    resp = await fetch(`${baseUrl}/functions/v1/chat-completion`, {
+    resp = await fetch(getFunctionUrl(), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         apikey: publishableKey,
         Authorization: `Bearer ${authToken}`,
       },
-      cache: "no-store",
       body: JSON.stringify(payload),
       signal,
     });

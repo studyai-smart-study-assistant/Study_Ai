@@ -45,13 +45,6 @@ const invokeChatCompletion = async (payload: {
     try {
       const sessionResponse = await supabase.auth.getSession();
       session = sessionResponse.data.session;
-
-      const expiresAtMs = session?.expires_at ? session.expires_at * 1000 : 0;
-      const shouldRefresh = expiresAtMs > 0 && expiresAtMs - Date.now() < 60_000;
-      if (shouldRefresh) {
-        const { data: refreshedData } = await supabase.auth.refreshSession();
-        session = refreshedData.session;
-      }
     } catch (sessionError) {
       console.warn("Unable to read session, continuing with publishable key auth:", sessionError);
     }
@@ -66,17 +59,17 @@ const invokeChatCompletion = async (payload: {
 
   for (const authToken of authTokens) {
     for (const baseUrl of getFunctionBaseUrls()) {
+      const functionUrl = `${baseUrl}/functions/v1/${CHAT_FUNCTION_NAME}?t=${Date.now()}`;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS);
       try {
-        const response = await fetch(`${baseUrl}/functions/v1/${CHAT_FUNCTION_NAME}`, {
+        const response = await fetch(functionUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             apikey: publishableKey,
             Authorization: `Bearer ${authToken}`,
           },
-          cache: "no-store",
           body: JSON.stringify(payload),
           signal: controller.signal,
         });
@@ -87,14 +80,13 @@ const invokeChatCompletion = async (payload: {
             const refreshedToken = refreshedData.session?.access_token;
 
             if (refreshedToken && refreshedToken !== authToken) {
-              const refreshedResponse = await fetch(`${baseUrl}/functions/v1/${CHAT_FUNCTION_NAME}`, {
+              const refreshedResponse = await fetch(`${baseUrl}/functions/v1/${CHAT_FUNCTION_NAME}?t=${Date.now()}`, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
                   apikey: publishableKey,
                   Authorization: `Bearer ${refreshedToken}`,
                 },
-                cache: "no-store",
                 body: JSON.stringify(payload),
                 signal: controller.signal,
               });
