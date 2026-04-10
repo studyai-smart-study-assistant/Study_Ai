@@ -27,7 +27,7 @@ export async function streamChatCompletion(
     const { data: { session } } = await supabase.auth.getSession();
     let token = session?.access_token || publishableKey;
 
-    const expiresAtMs = session.expires_at ? session.expires_at * 1000 : 0;
+    const expiresAtMs = session?.expires_at ? session.expires_at * 1000 : 0;
     const shouldRefresh = expiresAtMs > 0 && expiresAtMs - Date.now() < 60_000;
     if (shouldRefresh) {
       const { data: refreshedData } = await supabase.auth.refreshSession();
