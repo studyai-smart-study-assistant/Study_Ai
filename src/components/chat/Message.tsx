@@ -1,14 +1,14 @@
 
 import React from 'react';
 import { Message as MessageType } from "@/lib/db";
-import MessageBody from '../message/MessageBody';
+import MessageBody, { cleanAIResponse } from '../message/MessageBody';
 import MessageActions from '../message/MessageActions';
 import LongPressMenu from '../message/LongPressMenu';
 import { useMessageState } from '@/hooks/useMessageState';
-import { useMessageBookmark } from '@/hooks/useMessageBookmark';
 import { cn } from "@/lib/utils";
 import { toast } from 'sonner';
 import { downloadChatPdf, shareChatPdf } from '@/utils/generateChatPdf';
+import { useTTS } from '@/contexts/TTSContext';
 
 interface MessageProps {
   message: MessageType;
@@ -20,32 +20,22 @@ interface MessageProps {
 const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted, onEditImage }) => {
   const { 
     isEditing, editedContent, setEditedContent, isTyping, displayedContent,
-    isCopied, isLiked, isBookmarked, setIsBookmarked, 
-    handleCopy, handleDelete, handleEdit, handleSaveEdit, handleCancelEdit, handleLike
+    isCopied, isLiked, isBookmarked,
+    handleCopy, handleDelete, handleSaveEdit, handleCancelEdit, handleLike
   } = useMessageState(message, onEdited, onDeleted);
-  
-  const { handleBookmark } = useMessageBookmark(
-    message.chatId, 
-    message.id, 
-    !!message.bookmarked, 
-    onEdited,
-    setIsBookmarked
-  );
 
   const isUserMessage = message.role === "user";
   const hasQuizContent = message.content.includes('[QUIZ_DATA:');
-
-  const handleDislike = () => {
-    toast.info('Feedback recorded');
-  };
+  const { togglePlayPause } = useTTS();
+  const contentElementId = `message-content-${message.id}`;
 
   const handleSpeak = () => {
-    if (!('speechSynthesis' in window)) {
-      toast.error('Speech synthesis is not supported on this device.');
+    const speechText = cleanAIResponse(displayedContent || message.content).trim();
+    if (!speechText) {
+      toast.error('No text available for audio.');
       return;
     }
-    const utterance = new SpeechSynthesisUtterance(message.content);
-    window.speechSynthesis.speak(utterance);
+    togglePlayPause(speechText);
   };
 
   const handleShareMessage = async () => {
@@ -84,16 +74,19 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted, onEditI
     }
   };
 
-  const handleViewSources = () => {
-    toast.info('Sources are shown in the response when available.');
-  };
+  const handleSelectText = () => {
+    const target = document.getElementById(contentElementId);
+    if (!target) {
+      toast.error('Message text not found');
+      return;
+    }
 
-  const handleRegenerate = () => {
-    toast.info('Regenerate is available from the main input action.');
-  };
-
-  const handleReport = () => {
-    toast.info('Report submitted. Thank you for your feedback.');
+    const range = document.createRange();
+    range.selectNodeContents(target);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    toast.success('Text selected');
   };
 
   const messageForMenu = {
@@ -102,21 +95,23 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted, onEditI
     isUser: isUserMessage,
   };
 
-  const handleCopyForMenu = (content: string) => {
+  const handleCopyForMenu = (_content: string) => {
     handleCopy();
   };
 
-  const handleDeleteForMenu = (id: string) => {
+  const handleDeleteForMenu = (_id: string) => {
     handleDelete();
   };
 
-  const handleFeedbackForMenu = (id: string, rating: 'like' | 'dislike') => {
+  const handleFeedbackForMenu = (_id: string, rating: 'like' | 'dislike') => {
     if (rating === 'like') {
       handleLike();
     } else {
-      handleDislike();
+      toast.info('Feedback recorded');
     }
   };
+
+  const showAssistantActions = !isUserMessage && !isTyping && !isEditing && cleanAIResponse(displayedContent).trim().length > 0;
 
   return (
     <div 
@@ -146,10 +141,11 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted, onEditI
           displayedContent={displayedContent}
           onEditImage={!isUserMessage ? onEditImage : undefined}
           hasQuizContent={hasQuizContent}
+          contentElementId={contentElementId}
         />
       </LongPressMenu>
       
-      {!isEditing && (
+      {showAssistantActions && (
         <div className={cn(
           "max-w-[760px] mx-auto px-3 sm:px-4 md:px-8 mt-2",
           isUserMessage ? "text-right" : "text-left"
@@ -157,21 +153,10 @@ const Message: React.FC<MessageProps> = ({ message, onEdited, onDeleted, onEditI
           <MessageActions 
             isUserMessage={isUserMessage}
             isCopied={isCopied}
-            isLiked={isLiked}
-            isBookmarked={isBookmarked}
-            handleEdit={handleEdit}
             handleCopy={handleCopy}
-            handleDelete={handleDelete}
-            handleLike={handleLike}
-            handleDislike={!isUserMessage ? handleDislike : undefined}
             handleSpeak={!isUserMessage ? handleSpeak : undefined}
             handleShare={!isUserMessage ? handleShareMessage : undefined}
-            handleBookmark={handleBookmark}
-            handleDownloadPdf={!isUserMessage ? handleDownloadPdf : undefined}
-            handleSharePdf={!isUserMessage ? handleSharePdf : undefined}
-            handleViewSources={!isUserMessage ? handleViewSources : undefined}
-            handleRegenerate={!isUserMessage ? handleRegenerate : undefined}
-            handleReport={!isUserMessage ? handleReport : undefined}
+            handleSelectText={!isUserMessage ? handleSelectText : undefined}
           />
         </div>
       )}
