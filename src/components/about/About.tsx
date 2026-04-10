@@ -21,7 +21,10 @@ import {
   Star,
   Languages,
   HelpCircle,
-  Phone
+  Phone,
+  Trophy,
+  Flame,
+  ShieldCheck
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
@@ -35,6 +38,12 @@ const About = () => {
   };
 
   const isHindi = language === 'hi';
+  const tractionMetrics = [
+    { label: isHindi ? 'Visitors (30 दिन)' : 'Visitors (30 days)', value: '374' },
+    { label: isHindi ? 'Visits (30 दिन)' : 'Visits (30 days)', value: '530' },
+    { label: isHindi ? 'Views (30 दिन)' : 'Views (30 days)', value: '1.53k' },
+    { label: isHindi ? 'Avg. Session' : 'Avg. Session', value: '4m 45s' },
+  ];
 
   return (
     <ScrollArea className="h-full">
@@ -155,6 +164,66 @@ const About = () => {
                     : 'Features that connect with real teachers for additional guidance'
                   }
                 />
+              </div>
+
+              <div className="bg-gradient-to-r from-emerald-50 to-cyan-50 dark:from-emerald-900/30 dark:to-cyan-900/30 p-6 rounded-lg border border-emerald-100 dark:border-emerald-800">
+                <h3 className="text-xl font-semibold mb-3 text-emerald-700 dark:text-emerald-300">
+                  {isHindi ? 'छात्र हमें क्यों चुनते हैं?' : 'Why students choose us'}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                  <div className="p-4 rounded-lg bg-background/70 border border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Trophy className="h-4 w-4 text-emerald-500" />
+                      <h4 className="font-semibold">{isHindi ? 'Ask → Plan → Score' : 'Ask → Plan → Score'}</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isHindi
+                        ? 'सिर्फ जवाब नहीं — चैट, प्लानर, क्विज़ और ट्रैकिंग एक ही workflow में।'
+                        : 'Not just answers — chat, planner, quiz, and progress tracking in one workflow.'}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-lg bg-background/70 border border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Flame className="h-4 w-4 text-orange-500" />
+                      <h4 className="font-semibold">{isHindi ? 'Consistency Engine' : 'Consistency Engine'}</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isHindi
+                        ? 'Points, leaderboard और study streak motivation daily वापसी बढ़ाते हैं।'
+                        : 'Points, leaderboard, and streak design improve daily return behavior.'}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-lg bg-background/70 border border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ShieldCheck className="h-4 w-4 text-cyan-500" />
+                      <h4 className="font-semibold">{isHindi ? 'Tool Transparency' : 'Tool Transparency'}</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isHindi
+                        ? 'AI के जवाब के साथ tools usage दिखता है, जिससे trust और clarity दोनों बढ़ते हैं।'
+                        : 'Tool usage is visible with AI responses, increasing trust and clarity.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-r from-slate-50 to-zinc-50 dark:from-slate-900/30 dark:to-zinc-900/30 p-6 rounded-lg border border-slate-100 dark:border-slate-800">
+                <h3 className="text-xl font-semibold mb-3 text-slate-700 dark:text-slate-300">
+                  {isHindi ? '30-दिन का लाइव ट्रैक्शन स्नैपशॉट' : '30-day live traction snapshot'}
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {isHindi
+                    ? 'यह संख्या हाल के लाइव प्रोडक्ट एनालिटिक्स से है और हमारे adoption momentum को दिखाती है।'
+                    : 'These numbers reflect recent live product analytics and show adoption momentum.'}
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {tractionMetrics.map((metric) => (
+                    <div key={metric.label} className="rounded-md border border-border bg-card p-3">
+                      <p className="text-xl font-bold">{metric.value}</p>
+                      <p className="text-xs text-muted-foreground">{metric.label}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
               
               <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 p-6 rounded-lg border border-indigo-100 dark:border-indigo-800">

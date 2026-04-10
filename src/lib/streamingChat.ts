@@ -1,5 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { getRecoveredSession } from "@/lib/supabase/sessionRecovery";
 
 export interface StreamCallbacks {
   onToken: (text: string) => void;
@@ -24,34 +25,30 @@ export async function streamChatCompletion(
 ): Promise<void> {
   const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   const resolveAccessToken = async (): Promise<string> => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const session = await getRecoveredSession();
+    let token = session?.access_token || publishableKey;
 
-    if (!session) {
-      return publishableKey;
-    }
-
-    const expiresAtMs = session.expires_at ? session.expires_at * 1000 : 0;
+    const expiresAtMs = session?.expires_at ? session.expires_at * 1000 : 0;
     const shouldRefresh = expiresAtMs > 0 && expiresAtMs - Date.now() < 60_000;
     if (shouldRefresh) {
       const { data: refreshedData } = await supabase.auth.refreshSession();
-      return refreshedData.session?.access_token ?? publishableKey;
+      token = refreshedData.session?.access_token || publishableKey;
     }
 
-    return session.access_token ?? publishableKey;
+    if (!token) throw new Error("Missing API Key/Token");
+    return token;
   };
 
   const baseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "");
+  const requestUrl = `${baseUrl}/functions/v1/chat-completion?t=${Date.now()}`;
   let authToken = await resolveAccessToken();
-  let resp = await fetch(`${baseUrl}/functions/v1/chat-completion`, {
+  let resp = await fetch(requestUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       apikey: publishableKey,
       Authorization: `Bearer ${authToken}`,
-      "Cache-Control": "no-store, max-age=0",
-      Pragma: "no-cache",
     },
-    cache: "no-store",
     body: JSON.stringify(payload),
     signal,
   });
@@ -59,16 +56,14 @@ export async function streamChatCompletion(
   if (resp.status === 401 || resp.status === 403) {
     const { data: refreshedData } = await supabase.auth.refreshSession();
     authToken = refreshedData.session?.access_token ?? publishableKey;
-    resp = await fetch(`${baseUrl}/functions/v1/chat-completion`, {
+    if (!authToken) throw new Error("Missing API Key/Token");
+    resp = await fetch(requestUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         apikey: publishableKey,
         Authorization: `Bearer ${authToken}`,
-        "Cache-Control": "no-store, max-age=0",
-        Pragma: "no-cache",
       },
-      cache: "no-store",
       body: JSON.stringify(payload),
       signal,
     });
