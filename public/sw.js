@@ -3,8 +3,8 @@
  * Caches app shell and assets for instant loading
  */
 
-const CACHE_NAME = 'study-ai-v2';
-const RUNTIME_CACHE = 'study-ai-runtime-v2';
+const CACHE_NAME = 'study-ai-v3';
+const RUNTIME_CACHE = 'study-ai-runtime-v3';
 
 // App shell files to cache immediately
 const PRECACHE_ASSETS = [
@@ -50,23 +50,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Skip API calls (network-first for data)
+  // Never cache backend/auth/function calls.
+  // Returning cached API responses can keep stale auth/function state around
+  // until users clear browser data.
   if (url.pathname.startsWith('/api') || 
       url.hostname.includes('supabase') ||
       url.pathname.includes('/functions/')) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(RUNTIME_CACHE).then((cache) => {
-              cache.put(request, clone);
-            });
-          }
-          return response;
-        })
-        .catch(() => caches.match(request))
-    );
+    event.respondWith(fetch(request));
     return;
   }
 

@@ -47,60 +47,65 @@ const invokeChatCompletion = async (payload: {
   } catch (sessionError) {
     console.warn("Unable to read session, continuing with publishable key auth:", sessionError);
   }
-  const authToken = session?.access_token ?? publishableKey;
+  const authTokens = Array.from(
+    new Set([session?.access_token, publishableKey].filter((token): token is string => Boolean(token)))
+  );
 
   let lastError: Error | null = null;
 
-  for (const baseUrl of getFunctionBaseUrls()) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS);
-    try {
-      const response = await fetch(`${baseUrl}/functions/v1/${CHAT_FUNCTION_NAME}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: publishableKey,
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
+  for (const authToken of authTokens) {
+    for (const baseUrl of getFunctionBaseUrls()) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS);
+      try {
+        const response = await fetch(`${baseUrl}/functions/v1/${CHAT_FUNCTION_NAME}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: publishableKey,
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
 
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          throw new Error("Unauthorized request");
+        if (!response.ok) {
+          if ((response.status === 401 || response.status === 403) && authToken !== publishableKey) {
+            console.warn(`⚠️ ${CHAT_FUNCTION_NAME} auth failed, retrying with publishable key`);
+            throw new Error("Session token unauthorized");
+          }
+          const errorText = await response.text();
+          let errorMsg = `Edge function error (${response.status})`;
+          try {
+            const parsed = JSON.parse(errorText);
+            errorMsg = parsed?.error || errorMsg;
+          } catch { errorMsg = errorText || errorMsg; }
+          throw new Error(errorMsg);
         }
-        const errorText = await response.text();
-        let errorMsg = `Edge function error (${response.status})`;
-        try {
-          const parsed = JSON.parse(errorText);
-          errorMsg = parsed?.error || errorMsg;
-        } catch { errorMsg = errorText || errorMsg; }
-        throw new Error(errorMsg);
-      }
 
-      const contentType = response.headers.get('content-type') || '';
+        const contentType = response.headers.get('content-type') || '';
 
-      // Handle SSE streaming response
-      if (contentType.includes('text/event-stream') && response.body) {
-        console.log(`✅ ${CHAT_FUNCTION_NAME} streaming via: ${baseUrl}`);
-        const fullText = await parseSSEStream(response.body);
-        return { response: fullText, sources: [], webSearchUsed: false };
-      }
+        // Handle SSE streaming response
+        if (contentType.includes('text/event-stream') && response.body) {
+          console.log(`✅ ${CHAT_FUNCTION_NAME} streaming via: ${baseUrl}`);
+          const fullText = await parseSSEStream(response.body);
+          return { response: fullText, sources: [], webSearchUsed: false };
+        }
 
-      // Handle JSON response (fallback)
-      const responseText = await response.text();
-      const parsed = responseText ? JSON.parse(responseText) : {};
-      console.log(`✅ ${CHAT_FUNCTION_NAME} success via: ${baseUrl}`);
-      return parsed;
-    } catch (error: unknown) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        throw new Error("AI response timed out.");
+        // Handle JSON response (fallback)
+        const responseText = await response.text();
+        const parsed = responseText ? JSON.parse(responseText) : {};
+        console.log(`✅ ${CHAT_FUNCTION_NAME} success via: ${baseUrl}`);
+        return parsed;
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          throw new Error("AI response timed out.");
+        }
+        lastError = error instanceof Error ? error : new Error("Unknown edge function error");
+        console.warn(`⚠️ ${CHAT_FUNCTION_NAME} failed via: ${baseUrl}`, lastError.message);
+      } finally {
+        clearTimeout(timer);
       }
-      lastError = error instanceof Error ? error : new Error("Unknown edge function error");
-      console.warn(`⚠️ ${CHAT_FUNCTION_NAME} failed via: ${baseUrl}`, lastError.message);
-    } finally {
-      clearTimeout(timer);
     }
   }
 
