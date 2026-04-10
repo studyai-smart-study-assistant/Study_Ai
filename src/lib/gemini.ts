@@ -40,16 +40,27 @@ const invokeChatCompletion = async (payload: {
   reasoningMode?: boolean;
 }) => {
   const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
-  let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null = null;
-  try {
-    const sessionResponse = await supabase.auth.getSession();
-    session = sessionResponse.data.session;
-  } catch (sessionError) {
-    console.warn("Unable to read session, continuing with publishable key auth:", sessionError);
-  }
-  const authTokens = Array.from(
-    new Set([session?.access_token, publishableKey].filter((token): token is string => Boolean(token)))
-  );
+  const resolveAuthTokens = async (): Promise<string[]> => {
+    let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null = null;
+    try {
+      const sessionResponse = await supabase.auth.getSession();
+      session = sessionResponse.data.session;
+
+      const expiresAtMs = session?.expires_at ? session.expires_at * 1000 : 0;
+      const shouldRefresh = expiresAtMs > 0 && expiresAtMs - Date.now() < 60_000;
+      if (shouldRefresh) {
+        const { data: refreshedData } = await supabase.auth.refreshSession();
+        session = refreshedData.session;
+      }
+    } catch (sessionError) {
+      console.warn("Unable to read session, continuing with publishable key auth:", sessionError);
+    }
+
+    return Array.from(
+      new Set([session?.access_token, publishableKey].filter((token): token is string => Boolean(token)))
+    );
+  };
+  const authTokens = await resolveAuthTokens();
 
   let lastError: Error | null = null;
 
@@ -64,13 +75,49 @@ const invokeChatCompletion = async (payload: {
             "Content-Type": "application/json",
             apikey: publishableKey,
             Authorization: `Bearer ${authToken}`,
+            "Cache-Control": "no-store, max-age=0",
+            Pragma: "no-cache",
           },
+          cache: "no-store",
           body: JSON.stringify(payload),
           signal: controller.signal,
         });
 
         if (!response.ok) {
           if ((response.status === 401 || response.status === 403) && authToken !== publishableKey) {
+            const { data: refreshedData } = await supabase.auth.refreshSession();
+            const refreshedToken = refreshedData.session?.access_token;
+
+            if (refreshedToken && refreshedToken !== authToken) {
+              const refreshedResponse = await fetch(`${baseUrl}/functions/v1/${CHAT_FUNCTION_NAME}`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  apikey: publishableKey,
+                  Authorization: `Bearer ${refreshedToken}`,
+                  "Cache-Control": "no-store, max-age=0",
+                  Pragma: "no-cache",
+                },
+                cache: "no-store",
+                body: JSON.stringify(payload),
+                signal: controller.signal,
+              });
+
+              if (refreshedResponse.ok) {
+                const refreshedContentType = refreshedResponse.headers.get('content-type') || '';
+                if (refreshedContentType.includes('text/event-stream') && refreshedResponse.body) {
+                  console.log(`✅ ${CHAT_FUNCTION_NAME} streaming via refreshed token: ${baseUrl}`);
+                  const fullText = await parseSSEStream(refreshedResponse.body);
+                  return { response: fullText, sources: [], webSearchUsed: false };
+                }
+
+                const refreshedText = await refreshedResponse.text();
+                const refreshedParsed = refreshedText ? JSON.parse(refreshedText) : {};
+                console.log(`✅ ${CHAT_FUNCTION_NAME} success via refreshed token: ${baseUrl}`);
+                return refreshedParsed;
+              }
+            }
+
             console.warn(`⚠️ ${CHAT_FUNCTION_NAME} auth failed, retrying with publishable key`);
             throw new Error("Session token unauthorized");
           }
