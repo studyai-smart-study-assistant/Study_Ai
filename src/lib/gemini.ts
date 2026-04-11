@@ -22,10 +22,7 @@ function cleanAIResponse(text: string): string {
 
 const getFunctionBaseUrls = () => {
   const configuredUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "");
-  const directUrl = import.meta.env.VITE_SUPABASE_PROJECT_ID
-    ? `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`
-    : "";
-  return Array.from(new Set([configuredUrl, directUrl])).filter(Boolean);
+  return configuredUrl ? [configuredUrl] : [];
 };
 
 const invokeChatCompletion = async (payload: {

@@ -27,6 +27,19 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
   const { prefetched, prefetchContext, resetPrefetch } = useContextPrefetch();
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  const resyncUserProfile = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) return;
+
+      await supabase.functions.invoke('points-balance', {
+        body: { userId: session.user.id },
+      });
+    } catch (syncError) {
+      console.warn('Profile resync failed:', syncError);
+    }
+  }, []);
+
   useEffect(() => {
     if (chatId) {
       loadMessages();
@@ -209,14 +222,24 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
     } catch (error: any) {
       console.error('Error sending message:', error);
       setConnectionStatus('disconnected');
-      toast.error(error?.message || 'Failed to send message', { duration: 5000 });
+
+      const errorMessage = (error?.message || '').toLowerCase();
+      const isNetworkError = errorMessage.includes('failed to fetch') || errorMessage.includes('network');
+
+      if (isNetworkError) {
+        setConnectionStatus('reconnecting');
+        toast.warning('Connection unstable - Retrying');
+        await resyncUserProfile();
+      } else {
+        toast.error(error?.message || 'Failed to send message', { duration: 5000 });
+      }
     } finally {
       setIsLoading(false);
       setIsResponding(false);
       setAgentStatus(null);
       abortControllerRef.current = null;
     }
-  }, [chatId, currentUser, messages, isLoading, isResponding, onChatUpdated, webSearchEnabled, prefetched, resetPrefetch]);
+  }, [chatId, currentUser, messages, isLoading, isResponding, onChatUpdated, webSearchEnabled, prefetched, resetPrefetch, resyncUserProfile]);
 
   const sendMessage = enhancedSendMessage;
 
