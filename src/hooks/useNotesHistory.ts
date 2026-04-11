@@ -18,28 +18,28 @@ const NOTES_STORAGE_KEY = 'generated-notes-history';
 export const useNotesHistory = () => {
   const [notes, setNotes] = useState<SavedNote[]>([]);
 
-  const loadHistory = () => {
+  const loadHistory = async () => {
     try {
-      const savedNotes = getItem(NOTES_STORAGE_KEY) || [];
+      const savedNotes = (await getItem<SavedNote[]>(NOTES_STORAGE_KEY)) || [];
       setNotes(savedNotes.sort((a: SavedNote, b: SavedNote) => b.timestamp - a.timestamp));
     } catch (error) {
       console.error('Error loading notes history:', error);
     }
   };
 
-  const saveNote = (note: Omit<SavedNote, 'id' | 'timestamp'>) => {
+  const saveNote = async (note: Omit<SavedNote, 'id' | 'timestamp'>) => {
     try {
       const newNote: SavedNote = {
         ...note,
         id: crypto.randomUUID(),
         timestamp: Date.now(),
       };
-      
-      const savedNotes = getItem(NOTES_STORAGE_KEY) || [];
+
+      const savedNotes = (await getItem<SavedNote[]>(NOTES_STORAGE_KEY)) || [];
       const updatedNotes = [newNote, ...savedNotes];
-      setItem(NOTES_STORAGE_KEY, updatedNotes);
+      await setItem(NOTES_STORAGE_KEY, updatedNotes);
       setNotes(updatedNotes);
-      
+
       return newNote.id;
     } catch (error) {
       console.error('Error saving note:', error);
@@ -47,11 +47,11 @@ export const useNotesHistory = () => {
     }
   };
 
-  const deleteNote = (noteId: string) => {
+  const deleteNote = async (noteId: string) => {
     try {
-      const savedNotes = getItem(NOTES_STORAGE_KEY) || [];
+      const savedNotes = (await getItem<SavedNote[]>(NOTES_STORAGE_KEY)) || [];
       const updatedNotes = savedNotes.filter((note: SavedNote) => note.id !== noteId);
-      setItem(NOTES_STORAGE_KEY, updatedNotes);
+      await setItem(NOTES_STORAGE_KEY, updatedNotes);
       setNotes(updatedNotes);
     } catch (error) {
       console.error('Error deleting note:', error);
@@ -59,8 +59,8 @@ export const useNotesHistory = () => {
     }
   };
 
-  const getNote = (noteId: string): SavedNote | null => {
-    const savedNotes = getItem(NOTES_STORAGE_KEY) || [];
+  const getNote = async (noteId: string): Promise<SavedNote | null> => {
+    const savedNotes = (await getItem<SavedNote[]>(NOTES_STORAGE_KEY)) || [];
     return savedNotes.find((note: SavedNote) => note.id === noteId) || null;
   };
 

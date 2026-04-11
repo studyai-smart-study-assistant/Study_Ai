@@ -8,7 +8,7 @@ export const MAX_MESSAGES_PER_CHAT = 50;
 
 export async function getAllChats(): Promise<Chat[]> {
   try {
-    const chatData = getItem(CHATS_STORE) || {};
+    const chatData = (await getItem<Record<string, Chat>>(CHATS_STORE)) || {};
     const chats = Object.values(chatData) as Chat[];
     return chats.sort((a, b) => b.timestamp - a.timestamp); // Sort by timestamp descending
   } catch (error) {
@@ -19,7 +19,7 @@ export async function getAllChats(): Promise<Chat[]> {
 
 export async function getChat(id: string): Promise<Chat | null> {
   try {
-    const chatData = getItem(CHATS_STORE) || {};
+    const chatData = (await getItem<Record<string, Chat>>(CHATS_STORE)) || {};
     return chatData[id] || null;
   } catch (error) {
     console.error("Error getting chat:", error);
@@ -29,13 +29,13 @@ export async function getChat(id: string): Promise<Chat | null> {
 
 export async function saveChat(chat: Chat): Promise<void> {
   try {
-    const chatData = getItem(CHATS_STORE) || {};
+    const chatData = (await getItem<Record<string, Chat>>(CHATS_STORE)) || {};
     const trimmedMessages = (chat.messages || []).slice(-MAX_MESSAGES_PER_CHAT);
     chatData[chat.id] = {
       ...chat,
       messages: trimmedMessages,
     };
-    setItem(CHATS_STORE, chatData);
+    await setItem(CHATS_STORE, chatData);
   } catch (error) {
     console.error("Error saving chat:", error);
     throw new Error("Failed to save chat");
@@ -44,9 +44,9 @@ export async function saveChat(chat: Chat): Promise<void> {
 
 export async function deleteChat(id: string): Promise<void> {
   try {
-    const chatData = getItem(CHATS_STORE) || {};
+    const chatData = (await getItem<Record<string, Chat>>(CHATS_STORE)) || {};
     delete chatData[id];
-    setItem(CHATS_STORE, chatData);
+    await setItem(CHATS_STORE, chatData);
   } catch (error) {
     console.error("Error deleting chat:", error);
     throw new Error("Failed to delete chat");

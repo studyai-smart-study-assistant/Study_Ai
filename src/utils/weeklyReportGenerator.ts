@@ -78,11 +78,11 @@ function filterActivitiesByRange(activities: DetailedActivityData[], start: Date
   });
 }
 
-export function generateReport(
+export async function generateReport(
   userId: string,
   type: 'weekly' | 'monthly' = 'weekly'
 ): WeeklyReportData {
-  const allActivities = ComprehensiveActivityTracker.getUserActivities(userId);
+  const allActivities = await ComprehensiveActivityTracker.getUserActivities(userId);
   const range = type === 'weekly' ? getWeekRange() : getMonthRange();
   const activities = filterActivitiesByRange(allActivities, range.start, range.end);
 

@@ -38,7 +38,7 @@ const WeeklyReport: React.FC<WeeklyReportProps> = ({ userId, userName }) => {
   const loadReport = async () => {
     setLoading(true);
     try {
-      const data = generateReport(userId, reportType);
+      const data = await generateReport(userId, reportType);
       setReport(data);
       // Save overview to backend for AI agent
       await saveReportToSupabase(userId, data);
