@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { generateComprehensiveAITeacherPrompt, generateAdaptiveUpdatePrompt, AITeacherPromptConfig } from "./ai-teacher-prompt-generator";
 import { validateTopicsAgainstSyllabus } from "@/data/syllabus/syllabusDatabase";
 import { ExamPlanData, StudyPlan } from "@/components/study/examplanner/types";
+import { safeInvokeWithAuthRetry } from "./auth/sessionRecovery";
 
 /**
  * Study AI - Smart Study Assistant
@@ -42,15 +43,16 @@ export async function generateEnhancedStudyPlan(
       }, options.userProgressData);
 
       // ✅ बैकएंड को निर्देश: google/gemini-3.1-pro-preview का उपयोग करें
-      const { data, error } = await supabase.functions.invoke('gemini-chat', {
-        body: {
+      const { data, error } = await safeInvokeWithAuthRetry(
+        (body) => supabase.functions.invoke('gemini-chat', { body }),
+        {
           prompt: aiTeacherPrompt,
           history: [],
           chatId: undefined,
           apiKeyType: 'default',
-          model: 'google/gemini-3.1-pro-preview' 
+          model: 'google/gemini-3.1-pro-preview'
         }
-      });
+      );
 
       if (error) throw new Error(`Supabase error: ${error.message}`);
       if (!data?.success) throw new Error(data?.error || "AI service failed");
@@ -241,15 +243,16 @@ export async function generateAdaptiveStudyPlanUpdate(
 ): Promise<StudyPlan> {
   const adaptivePrompt = generateAdaptiveUpdatePrompt(originalPlan, completedTasks, pendingTasks, userFeedback, difficulties);
   
-  const { data, error } = await supabase.functions.invoke('gemini-chat', {
-    body: { 
-      prompt: adaptivePrompt, 
-      history: [], 
-      chatId: undefined, 
+  const { data, error } = await safeInvokeWithAuthRetry(
+    (body) => supabase.functions.invoke('gemini-chat', { body }),
+    {
+      prompt: adaptivePrompt,
+      history: [],
+      chatId: undefined,
       apiKeyType: 'default',
       model: 'google/gemini-3.1-pro-preview' // ✅ यहाँ भी लेटेस्ट मॉडल
     }
-  });
+  );
 
   if (error || !data?.success) throw new Error('Adaptive plan update failed');
   return await parseAndValidateAITeacherResponse(data.response, examData);

@@ -1,7 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { cleanupStorage, clearNonEssentialStorage, isQuotaExceededError } from '@/lib/storage/cleanupStorage';
 
-let isHandlingAuthFailure = false;
 let isFetchInterceptorInstalled = false;
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -59,17 +58,38 @@ export function installFetchInterceptor(): void {
   };
 
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-    const response = await nativeFetch(input, init);
+    let response = await nativeFetch(input, init);
     const isAuthFailure = response.status === 401 || response.status === 403;
 
-    if (isAuthFailure && isSupabaseRequest(input) && !isHandlingAuthFailure) {
-      isHandlingAuthFailure = true;
-      try {
-        await refreshSessionOrLogout({ redirectToLogin: false, logoutOnFailure: false });
-      } finally {
-        isHandlingAuthFailure = false;
+    if (isAuthFailure && isSupabaseRequest(input)) {
+      const refreshed = await refreshSessionOrLogout({ redirectToLogin: false, logoutOnFailure: false });
+
+      // Retry the original request once after a successful refresh.
+      if (refreshed) {
+        response = await nativeFetch(input, init);
       }
     }
     return response;
   };
+}
+
+type FunctionInvoker<TPayload, TResult> = (payload?: TPayload) => Promise<{ data: TResult | null; error: { status?: number; message?: string } | null }>;
+
+const isSessionFailure = (error: { status?: number; message?: string } | null | undefined): boolean =>
+  Boolean(error && (error.status === 401 || error.status === 403));
+
+export async function safeInvokeWithAuthRetry<TPayload = unknown, TResult = unknown>(
+  invoke: FunctionInvoker<TPayload, TResult>,
+  payload?: TPayload
+): Promise<{ data: TResult | null; error: { status?: number; message?: string } | null }> {
+  let result = await invoke(payload);
+
+  if (isSessionFailure(result.error)) {
+    const refreshed = await refreshSessionOrLogout({ redirectToLogin: false, logoutOnFailure: false });
+    if (refreshed) {
+      result = await invoke(payload);
+    }
+  }
+
+  return result;
 }
