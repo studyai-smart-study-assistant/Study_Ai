@@ -5,6 +5,7 @@ const LARGE_KEY_THRESHOLD = 500 * 1024;
 
 const ESSENTIAL_PREFIXES = ['sb-'];
 const ESSENTIAL_KEYS = new Set(['theme']);
+let isQuotaGuardInstalled = false;
 
 export function isQuotaExceededError(error: unknown): boolean {
   if (!(error instanceof DOMException)) return false;
@@ -40,6 +41,20 @@ export function clearNonEssentialStorage(): void {
   }
 }
 
+function getLargestNonEssentialKeys(): Array<{ key: string; size: number }> {
+  const removableKeys: Array<{ key: string; size: number }> = [];
+
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i);
+    if (!key || isEssentialKey(key)) continue;
+    const value = localStorage.getItem(key) ?? '';
+    const size = (key.length + value.length) * 2;
+    removableKeys.push({ key, size });
+  }
+
+  return removableKeys.sort((a, b) => b.size - a.size);
+}
+
 export function cleanupStorage(): void {
   const usage = estimateLocalStorageUsage();
   if (usage < APPROX_LOCALSTORAGE_LIMIT_BYTES * CLEANUP_THRESHOLD) return;
@@ -61,4 +76,46 @@ export function cleanupStorage(): void {
   removableKeys
     .sort((a, b) => b.size - a.size)
     .forEach(({ key }) => localStorage.removeItem(key));
+}
+
+export function installStorageQuotaGuard(): void {
+  if (isQuotaGuardInstalled) return;
+  isQuotaGuardInstalled = true;
+
+  const nativeSetItem = localStorage.setItem.bind(localStorage);
+
+  localStorage.setItem = (key: string, value: string): void => {
+    try {
+      nativeSetItem(key, value);
+      return;
+    } catch (error) {
+      if (!isQuotaExceededError(error)) throw error;
+    }
+
+    cleanupStorage();
+
+    try {
+      nativeSetItem(key, value);
+      return;
+    } catch (error) {
+      if (!isQuotaExceededError(error)) throw error;
+    }
+
+    const removableKeys = getLargestNonEssentialKeys();
+    for (const entry of removableKeys) {
+      localStorage.removeItem(entry.key);
+      try {
+        nativeSetItem(key, value);
+        return;
+      } catch (error) {
+        if (!isQuotaExceededError(error)) throw error;
+      }
+    }
+
+    if (isEssentialKey(key)) {
+      throw new DOMException('Unable to persist essential storage key after cleanup', 'QuotaExceededError');
+    }
+
+    console.warn(`Dropped non-essential localStorage write for "${key}" due to quota pressure.`);
+  };
 }
