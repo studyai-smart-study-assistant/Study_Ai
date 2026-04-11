@@ -16,8 +16,10 @@ const pagesToPrefetch = [
   () => import('@/pages/PointsWalletPage')
 ];
 
-export function usePagePrefetcher() {
+export function usePagePrefetcher(enabled: boolean) {
   useEffect(() => {
+    if (!enabled) return;
+
     // Start prefetching after a short delay to ensure the initial page is fully interactive.
     const prefetchTimer = setTimeout(() => {
       console.log('🚀 Starting background page prefetching...');
@@ -45,5 +47,5 @@ export function usePagePrefetcher() {
     }, 5000); // Wait 5 seconds after the app mounts.
 
     return () => clearTimeout(prefetchTimer);
-  }, []);
+  }, [enabled]);
 }

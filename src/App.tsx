@@ -18,6 +18,7 @@ import { useAppPermissions } from '@/hooks/useAppPermissions';
 import { usePagePrefetcher } from '@/hooks/usePagePrefetcher'; // Import the new hook
 import { supabase } from '@/integrations/supabase/client';
 import { initOneSignal, logoutOneSignal, syncOneSignalIdentity } from '@/services/oneSignalService';
+import { useAuth } from '@/hooks/useAuth';
 
 // Lazy load pages for better performance
 const Index = lazy(() => import('@/pages/Index'));
@@ -58,8 +59,9 @@ const PageWrapper = ({ children, variant = 'default' }: { children: React.ReactN
 );
 
 function App() {
+  const { currentUser } = useAuth();
   useAppPermissions();
-  usePagePrefetcher(); // Activate the page prefetcher
+  usePagePrefetcher(Boolean(currentUser));
 
   useEffect(() => {
     let mounted = true;
