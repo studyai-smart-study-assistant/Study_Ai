@@ -1,4 +1,3 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
@@ -7,18 +6,21 @@ import { registerServiceWorker } from './lib/register-sw';
 import { AuthProvider } from './providers/AuthProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './providers/ThemeProvider';
+import { cleanupStorage } from './lib/storage/cleanupStorage';
+import { installFetchInterceptor } from './lib/auth/sessionRecovery';
 
-// Register service worker for PWA
+cleanupStorage();
+installFetchInterceptor();
+
 registerServiceWorker();
 
-// Create a react-query client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: false,
       refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000,      // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
     },
   },
 });

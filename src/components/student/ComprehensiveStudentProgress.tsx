@@ -32,19 +32,19 @@ const ComprehensiveStudentProgress: React.FC<ComprehensiveStudentProgressProps> 
   
   useEffect(() => {
     if (currentUser) {
-      loadComprehensiveData();
+      void loadComprehensiveData();
     }
   }, [currentUser]);
 
-  const loadComprehensiveData = () => {
+  const loadComprehensiveData = async () => {
     if (!currentUser) return;
     
     setLoading(true);
     try {
       console.log('Loading comprehensive student progress data...');
       
-      const comprehensiveProgress = ComprehensiveActivityTracker.getComprehensiveProgress(currentUser.uid);
-      const allActivities = ComprehensiveActivityTracker.getUserActivities(currentUser.uid);
+      const comprehensiveProgress = await ComprehensiveActivityTracker.getComprehensiveProgress(currentUser.uid);
+      const allActivities = await ComprehensiveActivityTracker.getUserActivities(currentUser.uid);
       
       console.log('Comprehensive progress loaded:', {
         subjects: comprehensiveProgress.length,

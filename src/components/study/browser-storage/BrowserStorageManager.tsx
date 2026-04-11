@@ -1,34 +1,27 @@
-
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import StorageStats from './StorageStats';
 import ContentList from './ContentList';
-
-interface SavedContent {
-  id: string;
-  title: string;
-  type: 'notes' | 'quiz' | 'plan';
-  content: string;
-  savedAt: string;
-  subject: string;
-  size: string;
-}
+import {
+  clearSavedContent,
+  getSavedContent,
+  setSavedContent,
+  type SavedContent,
+} from '@/lib/storage/userDataStorage';
 
 const BrowserStorageManager: React.FC = () => {
-  const [savedContent, setSavedContent] = useState<SavedContent[]>([]);
+  const [savedContent, setSavedContentState] = useState<SavedContent[]>([]);
   const [storageUsed, setStorageUsed] = useState(0);
 
   useEffect(() => {
-    loadSavedContent();
+    void loadSavedContent();
     calculateStorageUsage();
   }, []);
 
-  const loadSavedContent = () => {
+  const loadSavedContent = async () => {
     try {
-      const saved = localStorage.getItem('studyai_saved_content');
-      if (saved) {
-        setSavedContent(JSON.parse(saved));
-      }
+      const saved = await getSavedContent();
+      setSavedContentState(saved);
     } catch (error) {
       console.error('Error loading saved content:', error);
     }
@@ -37,7 +30,7 @@ const BrowserStorageManager: React.FC = () => {
   const calculateStorageUsage = () => {
     try {
       let total = 0;
-      for (let key in localStorage) {
+      for (const key in localStorage) {
         if (key.startsWith('studyai_')) {
           total += localStorage[key].length;
         }
@@ -48,15 +41,15 @@ const BrowserStorageManager: React.FC = () => {
     }
   };
 
-  const removeContent = (id: string) => {
+  const removeContent = async (id: string) => {
     const updated = savedContent.filter(item => item.id !== id);
-    setSavedContent(updated);
-    
+    setSavedContentState(updated);
+
     try {
-      localStorage.setItem('studyai_saved_content', JSON.stringify(updated));
+      await setSavedContent(updated);
       toast.success('🗑️ Content delete हो गया');
       calculateStorageUsage();
-    } catch (error) {
+    } catch {
       toast.error('❌ Delete करने में समस्या');
     }
   };
@@ -70,19 +63,19 @@ const BrowserStorageManager: React.FC = () => {
   const exportAllContent = async () => {
     const allContent = savedContent.map(item => ({
       ...item,
-      content: item.content
+      content: item.content,
     }));
-    
+
     const { safeDownload } = await import('@/utils/webviewDownload');
     const blob = new Blob([JSON.stringify(allContent, null, 2)], { type: 'application/json' });
     await safeDownload({ blob, filename: `study-ai-backup-${new Date().toISOString().split('T')[0]}.json`, mimeType: 'application/json' });
     toast.success('📦 सारा content export हो गया!');
   };
 
-  const clearAllContent = () => {
+  const clearAllContent = async () => {
     if (window.confirm('क्या आप सच में सारा saved content delete करना चाहते हैं?')) {
-      setSavedContent([]);
-      localStorage.removeItem('studyai_saved_content');
+      setSavedContentState([]);
+      await clearSavedContent();
       calculateStorageUsage();
       toast.success('🧹 सारा content clear हो गया');
     }
@@ -96,7 +89,7 @@ const BrowserStorageManager: React.FC = () => {
         onExportAll={exportAllContent}
         onClearAll={clearAllContent}
       />
-      
+
       <ContentList
         content={savedContent}
         onView={viewContent}
