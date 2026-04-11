@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cleanupStorage, clearNonEssentialStorage, isQuotaExceededError } from '@/lib/storage/cleanupStorage';
 
 let isFetchInterceptorInstalled = false;
+let refreshInFlight: Promise<boolean> | null = null;
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 type RefreshSessionOptions = {
@@ -39,6 +40,28 @@ export async function refreshSessionOrLogout(options?: RefreshSessionOptions): P
   }
 }
 
+async function refreshSessionOnce(options?: RefreshSessionOptions): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = refreshSessionOrLogout(options).finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+async function getLatestAuthHeaders(init?: RequestInit): Promise<RequestInit> {
+  const headers = new Headers(init?.headers ?? {});
+  const { data } = await supabase.auth.getSession();
+  const accessToken = data.session?.access_token;
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+  return {
+    ...init,
+    headers,
+  };
+}
+
 export function installFetchInterceptor(): void {
   if (isFetchInterceptorInstalled) return;
   isFetchInterceptorInstalled = true;
@@ -62,11 +85,12 @@ export function installFetchInterceptor(): void {
     const isAuthFailure = response.status === 401 || response.status === 403;
 
     if (isAuthFailure && isSupabaseRequest(input)) {
-      const refreshed = await refreshSessionOrLogout({ redirectToLogin: false, logoutOnFailure: false });
+      const refreshed = await refreshSessionOnce({ redirectToLogin: false, logoutOnFailure: false });
 
       // Retry the original request once after a successful refresh.
       if (refreshed) {
-        response = await nativeFetch(input, init);
+        const retryInit = await getLatestAuthHeaders(init);
+        response = await nativeFetch(input, retryInit);
       }
     }
     return response;
@@ -85,7 +109,7 @@ export async function safeInvokeWithAuthRetry<TPayload = unknown, TResult = unkn
   let result = await invoke(payload);
 
   if (isSessionFailure(result.error)) {
-    const refreshed = await refreshSessionOrLogout({ redirectToLogin: false, logoutOnFailure: false });
+    const refreshed = await refreshSessionOnce({ redirectToLogin: false, logoutOnFailure: false });
     if (refreshed) {
       result = await invoke(payload);
     }
