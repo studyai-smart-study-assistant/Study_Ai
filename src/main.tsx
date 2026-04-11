@@ -11,6 +11,27 @@ import { installFetchInterceptor } from './lib/auth/sessionRecovery';
 
 const GUEST_PURGE_FLAG = 'studyai_guest_storage_purged_once';
 
+
+const AUTH_STORAGE_HEADROOM_BYTES = 4 * 1024 * 1024;
+
+function estimateLocalStorageBytes(): number {
+  let total = 0;
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    const value = localStorage.getItem(key) ?? '';
+    total += (key.length + value.length) * 2;
+  }
+  return total;
+}
+
+function ensureAuthStorageHeadroom(): void {
+  const usage = estimateLocalStorageBytes();
+  if (usage <= AUTH_STORAGE_HEADROOM_BYTES) return;
+
+  localStorage.removeItem('gemini-chat-data');
+}
+
 function hasSupabaseSessionToken(): boolean {
   return Object.keys(sessionStorage).some((key) => key.startsWith('sb-'));
 }
@@ -26,6 +47,7 @@ function purgeGuestStorageOnce(): void {
 }
 
 purgeGuestStorageOnce();
+ensureAuthStorageHeadroom();
 cleanupStorage();
 installFetchInterceptor();
 
