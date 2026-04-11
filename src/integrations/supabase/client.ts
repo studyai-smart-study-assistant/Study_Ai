@@ -7,6 +7,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const SUPABASE_REQUEST_TIMEOUT_MS = 20000;
 let supabaseClientRef: SupabaseClient<Database> | null = null;
+let hasForcedRedirect = false;
 
 const isEdgeFunctionRequest = (input: RequestInfo | URL): boolean => {
   const url = typeof input === 'string'
@@ -28,35 +29,48 @@ const fetchWithTimeout: typeof fetch = async (input, init) => {
     await supabaseClientRef.auth.getSession();
   }
 
+  const handleUnauthorized = async () => {
+    if (!supabaseClientRef) return;
+    const { data, error } = await supabaseClientRef.auth.refreshSession();
+    if (error || !data.session) {
+      await supabaseClientRef.auth.signOut({ scope: 'local' });
+      localStorage.clear();
+      sessionStorage.clear();
+
+      if (!hasForcedRedirect && window.location.pathname !== '/login') {
+        hasForcedRedirect = true;
+        window.location.assign('/login');
+      }
+    }
+  };
+
+  const executeFetch = async (signal?: AbortSignal) => {
+    let response = await fetch(input, {
+      ...requestInit,
+      signal,
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      await handleUnauthorized();
+      response = await fetch(input, {
+        ...requestInit,
+        signal,
+      });
+    }
+
+    return response;
+  };
+
   const hasExternalSignal = Boolean(init?.signal);
   if (hasExternalSignal) {
-    return fetch(input, requestInit);
+    return executeFetch(init?.signal);
   }
 
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), SUPABASE_REQUEST_TIMEOUT_MS);
 
   try {
-    let response = await fetch(input, {
-      ...requestInit,
-      signal: controller.signal,
-    });
-
-    if (
-      isEdgeCall
-      && supabaseClientRef
-      && (response.status === 401 || response.status === 403)
-    ) {
-      const { data } = await supabaseClientRef.auth.refreshSession();
-      if (data.session) {
-        response = await fetch(input, {
-          ...requestInit,
-          signal: controller.signal,
-        });
-      }
-    }
-
-    return response;
+    return await executeFetch(controller.signal);
   } finally {
     window.clearTimeout(timeoutId);
   }

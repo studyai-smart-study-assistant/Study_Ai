@@ -22,32 +22,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [messageLimitReached, setMessageLimitReached] = useState(false);
 
   useEffect(() => {
-    const isRecoverableAuthError = (error: unknown): boolean => {
-      const authError = error as { status?: number; message?: string } | null;
-      if (!authError) return true;
-
-      // Network and temporary server issues should not force local sign-out.
-      if (typeof authError.status !== 'number') return true;
-      return authError.status >= 500;
+    const forceSignOut = async () => {
+      try {
+        await supabase.auth.signOut();
+      } catch (error) {
+        console.warn('Global signOut failed, forcing local signOut', error);
+        await supabase.auth.signOut({ scope: 'local' });
+      } finally {
+        localStorage.clear();
+        sessionStorage.clear();
+      }
     };
 
     const refreshOrRecover = async (
-      fallbackSession: Session | null,
-      options?: { requireFreshSession?: boolean }
+      _fallbackSession: Session | null,
+      _options?: { requireFreshSession?: boolean }
     ): Promise<Session | null> => {
-      const requireFreshSession = options?.requireFreshSession ?? false;
       const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession();
       if (refreshError || !refreshedData.session) {
-        if (requireFreshSession) {
-          await supabase.auth.signOut({ scope: 'local' });
-          return null;
-        }
-
-        if (isRecoverableAuthError(refreshError)) {
-          return fallbackSession;
-        }
-
-        await supabase.auth.signOut({ scope: 'local' });
+        console.warn('Refresh failed, forcing sign out to avoid ghost session:', refreshError);
+        await forceSignOut();
         return null;
       }
       return refreshedData.session;
@@ -62,13 +56,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isMissingOrExpiringSoon =
         !session?.expires_at || (session.expires_at * 1000 - nowMs) <= refreshWindowMs;
 
-      if (session && isMissingOrExpiringSoon) {
+      if (session && (isMissingOrExpiringSoon || isExpired)) {
         activeSession = await refreshOrRecover(session, { requireFreshSession: isExpired });
       } else if (session) {
         const { data: userData, error: userError } = await supabase.auth.getUser();
         if (userError || !userData.user) {
           activeSession = await refreshOrRecover(session);
+        } else {
+          activeSession = session;
         }
+      } else {
+        await forceSignOut();
+        activeSession = null;
       }
 
       console.log('Session reconciled:', activeSession?.user?.id?.substring(0, 8) || 'none');
@@ -102,9 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
 
         if (event === 'TOKEN_REFRESHED' && session?.user) {
-          setTimeout(() => {
-            syncUserPoints(session.user.id);
-          }, 0);
+          void syncUserPoints(session.user.id);
           return;
         }
 
@@ -115,10 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         
         if (session?.user) {
-          // Use setTimeout to avoid deadlock in auth callback
-          setTimeout(() => {
-            syncUserPoints(session.user.id);
-          }, 0);
+          void syncUserPoints(session.user.id);
         }
       }
     );
@@ -133,7 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (document.visibilityState === 'visible' && navigator.onLine) {
         reconcileSessionSafely();
       }
-    }, 2 * 60 * 1000);
+    }, 60 * 1000);
 
     return () => {
       subscription.unsubscribe();
