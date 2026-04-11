@@ -22,10 +22,7 @@ function cleanAIResponse(text: string): string {
 
 const getFunctionBaseUrls = () => {
   const configuredUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "");
-  const directUrl = import.meta.env.VITE_SUPABASE_PROJECT_ID
-    ? `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`
-    : "";
-  return Array.from(new Set([configuredUrl, directUrl])).filter(Boolean);
+  return configuredUrl ? [configuredUrl] : [];
 };
 
 const invokeChatCompletion = async (payload: {
@@ -40,7 +37,14 @@ const invokeChatCompletion = async (payload: {
   reasoningMode?: boolean;
 }) => {
   const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
-  const resolveAccessToken = async (): Promise<string> => {
+  const resolveAccessToken = async (forceRefresh = false): Promise<string> => {
+    if (forceRefresh) {
+      const { data: refreshedData } = await supabase.auth.refreshSession();
+      const refreshedToken = refreshedData.session?.access_token || publishableKey;
+      if (!refreshedToken) throw new Error("Missing API Key/Token");
+      return refreshedToken;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     let token = session?.access_token || publishableKey;
 
@@ -55,7 +59,7 @@ const invokeChatCompletion = async (payload: {
     return token;
   };
 
-  const authToken = await resolveAccessToken();
+  let authToken = await resolveAccessToken();
 
   let lastError: Error | null = null;
 
@@ -77,10 +81,9 @@ const invokeChatCompletion = async (payload: {
 
         if (!response.ok) {
           if ((response.status === 401 || response.status === 403) && authToken !== publishableKey) {
-            const { data: refreshedData } = await supabase.auth.refreshSession();
-            const refreshedToken = refreshedData.session?.access_token || publishableKey;
-
-            if (refreshedToken && refreshedToken !== authToken) {
+            const refreshedToken = await resolveAccessToken(true);
+            authToken = refreshedToken;
+            if (refreshedToken) {
               const refreshedResponse = await fetch(requestUrl, {
                 method: "POST",
                 headers: {

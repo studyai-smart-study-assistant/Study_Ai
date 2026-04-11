@@ -23,7 +23,14 @@ export async function streamChatCompletion(
   signal?: AbortSignal
 ): Promise<void> {
   const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const resolveAccessToken = async (): Promise<string> => {
+  const resolveAccessToken = async (forceRefresh = false): Promise<string> => {
+    if (forceRefresh) {
+      const { data: refreshedData } = await supabase.auth.refreshSession();
+      const refreshedToken = refreshedData.session?.access_token || publishableKey;
+      if (!refreshedToken) throw new Error("Missing API Key/Token");
+      return refreshedToken;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     let token = session?.access_token || publishableKey;
 
@@ -53,8 +60,7 @@ export async function streamChatCompletion(
   });
 
   if (resp.status === 401 || resp.status === 403) {
-    const { data: refreshedData } = await supabase.auth.refreshSession();
-    authToken = refreshedData.session?.access_token ?? publishableKey;
+    authToken = await resolveAccessToken(true);
     if (!authToken) throw new Error("Missing API Key/Token");
     resp = await fetch(requestUrl, {
       method: "POST",
