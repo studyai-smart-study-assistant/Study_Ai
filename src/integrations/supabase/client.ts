@@ -5,6 +5,20 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const SUPABASE_REQUEST_TIMEOUT_MS = 20000;
+const TRANSIENT_FETCH_ERROR_PATTERNS = [
+  'fetch',
+  'network',
+  'failed to fetch',
+  'load failed',
+  'network request failed',
+];
+
+const isTransientFetchError = (error: unknown): boolean => {
+  if (!error) return false;
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  return TRANSIENT_FETCH_ERROR_PATTERNS.some((pattern) => normalized.includes(pattern));
+};
 
 const fetchWithTimeout: typeof fetch = async (input, init) => {
   const requestInit: RequestInit = {
@@ -29,17 +43,45 @@ const fetchWithTimeout: typeof fetch = async (input, init) => {
   }
 };
 
+const createSupabaseSingleton = () =>
+  createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    global: {
+      fetch: fetchWithTimeout,
+    },
+    auth: {
+      storage: localStorage,
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    }
+  });
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
+export let supabase = createSupabaseSingleton();
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  global: {
-    fetch: fetchWithTimeout,
-  },
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
+export const reinitializeSupabaseClient = (): typeof supabase => {
+  supabase = createSupabaseSingleton();
+  return supabase;
+};
+
+export const ensureSupabaseClientHealthy = async (): Promise<typeof supabase> => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return supabase;
+
+    const { error } = await supabase.auth.getUser();
+    if (!error) return supabase;
+
+    if (isTransientFetchError(error)) {
+      return reinitializeSupabaseClient();
+    }
+
+    return supabase;
+  } catch (error) {
+    if (isTransientFetchError(error)) {
+      return reinitializeSupabaseClient();
+    }
+    return supabase;
   }
-});
+};

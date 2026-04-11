@@ -37,32 +37,29 @@ export async function streamChatCompletion(
     if (!token) throw new Error("Missing API Key/Token");
     return token;
   };
+  const getAuthHeaders = async () => {
+    const token = await resolveAccessToken();
+    return {
+      "Content-Type": "application/json",
+      apikey: publishableKey,
+      Authorization: `Bearer ${token}`,
+    };
+  };
 
   const baseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "");
   const requestUrl = `${baseUrl}/functions/v1/chat-completion?t=${Date.now()}`;
-  let authToken = await resolveAccessToken();
   let resp = await fetch(requestUrl, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: publishableKey,
-      Authorization: `Bearer ${authToken}`,
-    },
+    headers: await getAuthHeaders(),
     body: JSON.stringify(payload),
     signal,
   });
 
   if (resp.status === 401 || resp.status === 403) {
-    const { data: refreshedData } = await supabase.auth.refreshSession();
-    authToken = refreshedData.session?.access_token ?? publishableKey;
-    if (!authToken) throw new Error("Missing API Key/Token");
+    await supabase.auth.refreshSession();
     resp = await fetch(requestUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: publishableKey,
-        Authorization: `Bearer ${authToken}`,
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify(payload),
       signal,
     });

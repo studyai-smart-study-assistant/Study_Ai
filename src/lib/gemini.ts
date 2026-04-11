@@ -55,11 +55,10 @@ const invokeChatCompletion = async (payload: {
     return token;
   };
 
-  const authToken = await resolveAccessToken();
-
   let lastError: Error | null = null;
 
   for (const baseUrl of getFunctionBaseUrls()) {
+      const authToken = await resolveAccessToken();
       const requestUrl = `${baseUrl}/functions/v1/${CHAT_FUNCTION_NAME}?t=${Date.now()}`;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS);
@@ -77,8 +76,8 @@ const invokeChatCompletion = async (payload: {
 
         if (!response.ok) {
           if ((response.status === 401 || response.status === 403) && authToken !== publishableKey) {
-            const { data: refreshedData } = await supabase.auth.refreshSession();
-            const refreshedToken = refreshedData.session?.access_token || publishableKey;
+            await supabase.auth.refreshSession();
+            const refreshedToken = await resolveAccessToken();
 
             if (refreshedToken && refreshedToken !== authToken) {
               const refreshedResponse = await fetch(requestUrl, {
