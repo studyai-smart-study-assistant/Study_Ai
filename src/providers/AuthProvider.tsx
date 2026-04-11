@@ -1,17 +1,16 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 import { AuthContext, User } from '@/contexts/AuthContext';
+import { cleanupStorage, clearNonEssentialStorage, isQuotaExceededError } from '@/lib/storage/cleanupStorage';
 
-// Helper to convert Supabase user to extended User
 const toExtendedUser = (user: any): User | null => {
   if (!user) return null;
   return {
     ...user,
     uid: user.id,
     displayName: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || null,
-    photoURL: user.user_metadata?.avatar_url || user.user_metadata?.picture || null
+    photoURL: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
   };
 };
 
@@ -22,11 +21,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [messageLimitReached, setMessageLimitReached] = useState(false);
 
   useEffect(() => {
+    const forceCleanSignOut = async () => {
+      cleanupStorage();
+      clearNonEssentialStorage();
+      await supabase.auth.signOut({ scope: 'local' });
+      setSession(null);
+      setCurrentUser(null);
+      alert('Storage full, clearing cache...');
+    };
+
     const isRecoverableAuthError = (error: unknown): boolean => {
       const authError = error as { status?: number; message?: string } | null;
       if (!authError) return true;
-
-      // Network and temporary server issues should not force local sign-out.
       if (typeof authError.status !== 'number') return true;
       return authError.status >= 500;
     };
@@ -36,33 +42,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       options?: { requireFreshSession?: boolean }
     ): Promise<Session | null> => {
       const requireFreshSession = options?.requireFreshSession ?? false;
-      const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession();
-      if (refreshError || !refreshedData.session) {
-        if (requireFreshSession) {
+      try {
+        const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError || !refreshedData.session) {
+          if (requireFreshSession) {
+            await supabase.auth.signOut({ scope: 'local' });
+            return null;
+          }
+
+          if (isRecoverableAuthError(refreshError)) {
+            return fallbackSession;
+          }
+
           await supabase.auth.signOut({ scope: 'local' });
           return null;
         }
-
-        if (isRecoverableAuthError(refreshError)) {
-          return fallbackSession;
+        return refreshedData.session;
+      } catch (error) {
+        if (isQuotaExceededError(error)) {
+          await forceCleanSignOut();
+          return null;
         }
-
-        await supabase.auth.signOut({ scope: 'local' });
-        return null;
+        throw error;
       }
-      return refreshedData.session;
     };
 
-    const reconcileSession = async () => {
+    const reconcileSession = async (options?: { serverFirst?: boolean }) => {
       const { data: { session } } = await supabase.auth.getSession();
       let activeSession = session;
       const nowMs = Date.now();
       const refreshWindowMs = 5 * 60 * 1000;
       const isExpired = Boolean(session?.expires_at && session.expires_at * 1000 <= nowMs);
-      const isMissingOrExpiringSoon =
-        !session?.expires_at || (session.expires_at * 1000 - nowMs) <= refreshWindowMs;
+      const isMissingOrExpiringSoon = !session?.expires_at || (session.expires_at * 1000 - nowMs) <= refreshWindowMs;
 
-      if (session && isMissingOrExpiringSoon) {
+      if (session && (options?.serverFirst || !session.user)) {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData.user) {
+          activeSession = await refreshOrRecover(session, { requireFreshSession: true });
+        }
+      } else if (session && isMissingOrExpiringSoon) {
         activeSession = await refreshOrRecover(session, { requireFreshSession: isExpired });
       } else if (session) {
         const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -71,14 +89,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      console.log('Session reconciled:', activeSession?.user?.id?.substring(0, 8) || 'none');
       setSession(activeSession);
       setCurrentUser(toExtendedUser(activeSession?.user ?? null));
       setIsLoading(false);
     };
 
-    const reconcileSessionSafely = () => {
-      reconcileSession().catch((error) => {
+    const reconcileSessionSafely = (options?: { serverFirst?: boolean }) => {
+      reconcileSession(options).catch((error) => {
         console.error('Session reconcile failed:', error);
         setSession(null);
         setCurrentUser(null);
@@ -88,57 +105,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        reconcileSessionSafely();
+        reconcileSessionSafely({ serverFirst: true });
       }
     };
 
-    // CRITICAL: Set up onAuthStateChange BEFORE getSession
-    // This ensures we catch all auth events including session restoration
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id?.substring(0, 8));
-        setSession(session);
-        setCurrentUser(toExtendedUser(session?.user ?? null));
-        setIsLoading(false);
+    const handleFocus = () => reconcileSessionSafely({ serverFirst: true });
+    const handleOnline = () => reconcileSessionSafely({ serverFirst: true });
 
-        if (event === 'TOKEN_REFRESHED' && session?.user) {
-          setTimeout(() => {
-            syncUserPoints(session.user.id);
-          }, 0);
-          return;
-        }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session);
+      setCurrentUser(toExtendedUser(session?.user ?? null));
+      setIsLoading(false);
 
-        if (event === 'SIGNED_OUT') {
-          setSession(null);
-          setCurrentUser(null);
-          return;
-        }
-        
-        if (session?.user) {
-          // Use setTimeout to avoid deadlock in auth callback
-          setTimeout(() => {
-            syncUserPoints(session.user.id);
-          }, 0);
-        }
+      if (event === 'TOKEN_REFRESHED' && session?.user) {
+        setTimeout(() => {
+          void syncUserPoints(session.user.id);
+        }, 0);
+        return;
       }
-    );
 
-    // Then restore session from storage
-    reconcileSessionSafely();
-    window.addEventListener('focus', reconcileSessionSafely);
-    window.addEventListener('online', reconcileSessionSafely);
+      if (event === 'SIGNED_OUT') {
+        setSession(null);
+        setCurrentUser(null);
+        return;
+      }
+
+      if (session?.user) {
+        setTimeout(() => {
+          void syncUserPoints(session.user.id);
+        }, 0);
+      }
+    });
+
+    reconcileSessionSafely({ serverFirst: true });
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('online', handleOnline);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     const sessionHealthInterval = window.setInterval(() => {
       if (document.visibilityState === 'visible' && navigator.onLine) {
-        reconcileSessionSafely();
+        reconcileSessionSafely({ serverFirst: true });
       }
     }, 2 * 60 * 1000);
 
     return () => {
       subscription.unsubscribe();
-      window.removeEventListener('focus', reconcileSessionSafely);
-      window.removeEventListener('online', reconcileSessionSafely);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.clearInterval(sessionHealthInterval);
     };
@@ -147,9 +160,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const syncUserPoints = async (userId: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('points-balance', {
-        body: { userId }
+        body: { userId },
       });
-      
+
       if (!error && data) {
         localStorage.setItem(`${userId}_points`, data.balance?.toString() || '0');
         localStorage.setItem(`${userId}_level`, data.level?.toString() || '1');
@@ -169,7 +182,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: metadata }
+      options: { data: metadata },
     });
     if (error) throw error;
     return data;
@@ -197,12 +210,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout,
     isLoading,
     messageLimitReached,
-    setMessageLimitReached
+    setMessageLimitReached,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

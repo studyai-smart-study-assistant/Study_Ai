@@ -1,3 +1,4 @@
+import { addActivity, getActivities } from '@/lib/storage/userDataStorage';
 export interface DetailedActivityData {
   userId: string;
   subject: string;
@@ -104,7 +105,7 @@ export class ComprehensiveActivityTracker {
       engagementScore: this.calculateEngagementScore(content, timeSpent)
     };
     
-    this.saveActivity(activity);
+    void this.saveActivity(activity);
     console.log('Notes creation tracked:', activity);
   }
 
@@ -121,7 +122,7 @@ export class ComprehensiveActivityTracker {
       engagementScore: this.calculateEngagementScore(messageContent, timeSpent)
     };
     
-    this.saveActivity(activity);
+    void this.saveActivity(activity);
     console.log('Interactive teaching tracked:', activity);
   }
 
@@ -141,7 +142,7 @@ export class ComprehensiveActivityTracker {
       engagementScore: accuracy > 80 ? 9 : accuracy > 60 ? 7 : 5
     };
     
-    this.saveActivity(activity);
+    void this.saveActivity(activity);
     console.log('Quiz activity tracked:', activity);
   }
 
@@ -159,7 +160,7 @@ export class ComprehensiveActivityTracker {
       engagementScore: this.calculateEngagementScore(chapterName, timeSpent)
     };
     
-    this.saveActivity(activity);
+    void this.saveActivity(activity);
     console.log('Chapter reading tracked:', activity);
   }
 
@@ -175,31 +176,20 @@ export class ComprehensiveActivityTracker {
       engagementScore: sessionData.duration > 1800 ? 8 : sessionData.duration > 900 ? 6 : 4
     };
     
-    this.saveActivity(activity);
+    void this.saveActivity(activity);
     console.log('Study session tracked:', activity);
   }
 
-  static saveActivity(activity: DetailedActivityData): void {
-    const key = `${activity.userId}_comprehensive_activities`;
-    const existingActivities = JSON.parse(localStorage.getItem(key) || '[]');
-    
-    existingActivities.push(activity);
-    
-    // Keep only last 2000 activities to prevent storage overflow
-    if (existingActivities.length > 2000) {
-      existingActivities.splice(0, existingActivities.length - 2000);
-    }
-    
-    localStorage.setItem(key, JSON.stringify(existingActivities));
+  static async saveActivity(activity: DetailedActivityData): Promise<void> {
+    await addActivity(activity);
   }
 
-  static getUserActivities(userId: string): DetailedActivityData[] {
-    const key = `${userId}_comprehensive_activities`;
-    return JSON.parse(localStorage.getItem(key) || '[]');
+  static async getUserActivities(userId: string): Promise<DetailedActivityData[]> {
+    return getActivities(userId);
   }
 
-  static getComprehensiveProgress(userId: string): ComprehensiveSubjectProgress[] {
-    const activities = this.getUserActivities(userId);
+  static async getComprehensiveProgress(userId: string): Promise<ComprehensiveSubjectProgress[]> {
+    const activities = await this.getUserActivities(userId);
     const subjectGroups = this.groupActivitiesBySubject(activities);
     
     return Object.entries(subjectGroups).map(([subject, subjectActivities], index) => {
