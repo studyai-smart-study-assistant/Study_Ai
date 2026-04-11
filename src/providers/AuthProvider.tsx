@@ -34,34 +34,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const authError = error as { status?: number; message?: string } | null;
       if (!authError) return true;
       if (typeof authError.status !== 'number') return true;
-      return authError.status >= 500;
+      return authError.status === 0 || authError.status === 408 || authError.status === 429 || authError.status >= 500;
+    };
+
+    const shouldForceSignOut = (error: unknown): boolean => {
+      const authError = error as { status?: number } | null;
+      if (!authError || typeof authError.status !== 'number') return false;
+      return authError.status === 400 || authError.status === 401 || authError.status === 403;
     };
 
     const refreshOrRecover = async (
       fallbackSession: Session | null,
-      options?: { requireFreshSession?: boolean }
+      options?: { forceSignOutOnAuthError?: boolean }
     ): Promise<Session | null> => {
-      const requireFreshSession = options?.requireFreshSession ?? false;
+      const forceSignOutOnAuthError = options?.forceSignOutOnAuthError ?? false;
       try {
         const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession();
         if (refreshError || !refreshedData.session) {
-          if (requireFreshSession) {
+          if (forceSignOutOnAuthError && shouldForceSignOut(refreshError)) {
             await supabase.auth.signOut({ scope: 'local' });
             return null;
           }
 
-          if (isRecoverableAuthError(refreshError)) {
-            return fallbackSession;
-          }
-
-          await supabase.auth.signOut({ scope: 'local' });
-          return null;
+          return fallbackSession;
         }
         return refreshedData.session;
       } catch (error) {
         if (isQuotaExceededError(error)) {
           await forceCleanSignOut();
           return null;
+        }
+        if (forceSignOutOnAuthError && shouldForceSignOut(error)) {
+          await supabase.auth.signOut({ scope: 'local' });
+          return null;
+        }
+        if (isRecoverableAuthError(error)) {
+          return fallbackSession;
         }
         throw error;
       }
@@ -78,10 +86,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session && (options?.serverFirst || !session.user)) {
         const { data: userData, error: userError } = await supabase.auth.getUser();
         if (userError || !userData.user) {
-          activeSession = await refreshOrRecover(session, { requireFreshSession: true });
+          activeSession = await refreshOrRecover(session, { forceSignOutOnAuthError: true });
         }
       } else if (session && isMissingOrExpiringSoon) {
-        activeSession = await refreshOrRecover(session, { requireFreshSession: isExpired });
+        activeSession = await refreshOrRecover(session, { forceSignOutOnAuthError: isExpired });
       } else if (session) {
         const { data: userData, error: userError } = await supabase.auth.getUser();
         if (userError || !userData.user) {
