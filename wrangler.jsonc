@@ -1,8 +1,5 @@
 {
   "name": "study-ai",
   "compatibility_date": "2026-04-11",
-  "pages_build_output_dir": "./dist",
-  "assets": {
-    "directory": "./dist"
-  }
+  "pages_build_output_dir": "dist"
 }
