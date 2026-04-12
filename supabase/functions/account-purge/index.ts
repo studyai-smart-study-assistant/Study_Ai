@@ -49,21 +49,29 @@ Deno.serve(async (req) => {
       .eq('user_id', uid);
     if (profileError) errors.push(`profiles: ${profileError.message}`);
 
-    // 4. Delete chat messages (where user is sender)
+
+    // 4. Delete user private data (cloud chat history and private app payloads)
+    const { error: privateDataError } = await supabase
+      .from('user_private_data')
+      .delete()
+      .eq('user_id', uid);
+    if (privateDataError) errors.push(`user_private_data: ${privateDataError.message}`);
+
+    // 5. Delete chat messages (where user is sender)
     const { error: chatMsgError } = await supabase
       .from('chat_messages')
       .delete()
       .eq('sender_id', uid);
     if (chatMsgError) errors.push(`chat_messages: ${chatMsgError.message}`);
 
-    // 5. Delete campus messages
+    // 6. Delete campus messages
     const { error: campusMsgError } = await supabase
       .from('campus_messages')
       .delete()
       .eq('sender_uid', uid);
     if (campusMsgError) errors.push(`campus_messages: ${campusMsgError.message}`);
 
-    // 6. Delete campus chats where user is participant
+    // 7. Delete campus chats where user is participant
     const { error: campusChat1Error } = await supabase
       .from('campus_chats')
       .delete()
@@ -76,14 +84,14 @@ Deno.serve(async (req) => {
       .eq('participant2_uid', uid);
     if (campusChat2Error) errors.push(`campus_chats_p2: ${campusChat2Error.message}`);
 
-    // 7. Delete campus_users
+    // 8. Delete campus_users
     const { error: campusUserError } = await supabase
       .from('campus_users')
       .delete()
       .eq('firebase_uid', uid);
     if (campusUserError) errors.push(`campus_users: ${campusUserError.message}`);
 
-    // 8. Delete avatar files in bucket 'avatars' under folder uid/
+    // 9. Delete avatar files in bucket 'avatars' under folder uid/
     const { data: avatarList, error: listError } = await supabase.storage
       .from('avatars')
       .list(uid, { limit: 100 });
@@ -94,7 +102,7 @@ Deno.serve(async (req) => {
       if (removeError) errors.push(`storage_avatars: ${removeError.message}`);
     }
 
-    // 9. Delete chat_media files
+    // 10. Delete chat_media files
     const { data: chatMediaList } = await supabase.storage
       .from('chat_media')
       .list(uid, { limit: 100 });
@@ -104,7 +112,7 @@ Deno.serve(async (req) => {
       await supabase.storage.from('chat_media').remove(paths);
     }
 
-    // 10. Delete user from auth.users (permanent deletion)
+    // 11. Delete user from auth.users (permanent deletion)
     const { error: authDeleteError } = await supabase.auth.admin.deleteUser(uid);
     if (authDeleteError) errors.push(`auth.users: ${authDeleteError.message}`);
 
