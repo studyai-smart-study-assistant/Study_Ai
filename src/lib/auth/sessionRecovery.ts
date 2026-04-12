@@ -4,6 +4,7 @@ import { cleanupStorage, clearNonEssentialStorage, isQuotaExceededError } from '
 let isFetchInterceptorInstalled = false;
 let isInvokeInterceptorInstalled = false;
 let refreshInFlight: Promise<boolean> | null = null;
+let isForcingRelogin = false;
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 type RefreshSessionOptions = {
@@ -48,6 +49,22 @@ async function refreshSessionOnce(options?: RefreshSessionOptions): Promise<bool
     });
   }
   return refreshInFlight;
+}
+
+async function forceReloginIfUnrecoverable(): Promise<void> {
+  if (isForcingRelogin) return;
+  if (!navigator.onLine) return;
+  isForcingRelogin = true;
+  try {
+    await supabase.auth.signOut({ scope: 'local' });
+  } catch (error) {
+    console.warn('Force relogin signOut failed:', error);
+  } finally {
+    if (window.location.pathname !== '/login') {
+      window.location.assign('/login');
+    }
+    isForcingRelogin = false;
+  }
 }
 
 async function getLatestAuthHeaders(init?: RequestInit): Promise<RequestInit> {
@@ -103,6 +120,11 @@ export function installFetchInterceptor(): void {
       if (refreshed) {
         const retryInit = await getLatestAuthHeaders(init);
         response = await nativeFetch(input, retryInit);
+        if (response.status === 401 || response.status === 403) {
+          await forceReloginIfUnrecoverable();
+        }
+      } else {
+        await forceReloginIfUnrecoverable();
       }
     }
     return response;
@@ -135,6 +157,8 @@ export function installSupabaseInvokeInterceptor(): void {
       const refreshed = await refreshSessionOnce({ redirectToLogin: false, logoutOnFailure: false });
       if (refreshed) {
         result = await nativeInvoke(...args);
+      } else {
+        await forceReloginIfUnrecoverable();
       }
     }
     return result;
@@ -153,6 +177,8 @@ export async function safeInvokeWithAuthRetry<TPayload = unknown, TResult = unkn
     const refreshed = await refreshSessionOnce({ redirectToLogin: false, logoutOnFailure: false });
     if (refreshed) {
       result = await invoke(payload);
+    } else {
+      await forceReloginIfUnrecoverable();
     }
   }
 
