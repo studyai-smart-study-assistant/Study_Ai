@@ -6,6 +6,13 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { googleDriveService } from '@/services/googleDriveService';
 import { BackupData, BackupFile } from '../types';
 import { chatDB } from '@/lib/db';
+import { supabase } from '@/integrations/supabase/client';
+import { safeInvokeWithAuthRetry } from '@/lib/auth/sessionRecovery';
+
+const getTimerUiSettings = (userId: string) => ({
+  soundEnabled: localStorage.getItem(`${userId}_timer_sound`) || 'true',
+  breakTime: localStorage.getItem(`${userId}_break_time`) || '5',
+});
 
 export const useBackupOperations = () => {
   const [backups, setBackups] = useState<BackupFile[]>([]);
@@ -35,32 +42,64 @@ export const useBackupOperations = () => {
     setIsCreatingBackup(true);
     try {
       const chatHistory = await chatDB.getAllChats();
+      const [{ data: profileData }, { data: pointsData }, { data: transactionsData }, { data: memoryData }] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('user_category, education_level')
+          .eq('user_id', currentUser.uid)
+          .maybeSingle(),
+        safeInvokeWithAuthRetry(
+          (body) => supabase.functions.invoke('points-balance', { body }),
+          { userId: currentUser.uid }
+        ),
+        supabase
+          .from('points_transactions')
+          .select('id, reason, amount, transaction_type, created_at, metadata')
+          .eq('user_id', currentUser.uid)
+          .order('created_at', { ascending: false })
+          .limit(100),
+        supabase
+          .from('user_memories')
+          .select('memory_key, memory_value, updated_at')
+          .eq('user_id', currentUser.uid)
+          .in('memory_key', ['daily_goals', 'weekly_progress', 'saved_messages'])
+      ]);
+
+      const memoryByKey = new Map((memoryData ?? []).map((item) => [item.memory_key, item.memory_value]));
+      const safeJsonArray = (value: string | undefined) => {
+        if (!value) return [];
+        try {
+          const parsed = JSON.parse(value) as unknown;
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      };
 
       const backupData: BackupData = {
         studyData: {
-          studySessions: localStorage.getItem(`${currentUser.uid}_study_sessions`) || '0',
-          totalStudyTime: localStorage.getItem(`${currentUser.uid}_total_study_time`) || '0',
-          points: localStorage.getItem(`${currentUser.uid}_points`) || '0',
-          level: localStorage.getItem(`${currentUser.uid}_level`) || '1',
-          timerSettings: {
-            soundEnabled: localStorage.getItem(`${currentUser.uid}_timer_sound`) || 'true',
-            breakTime: localStorage.getItem(`${currentUser.uid}_break_time`) || '5',
-          }
+          studySessions: '0',
+          totalStudyTime: '0',
+          points: (pointsData?.balance ?? 0).toString(),
+          level: (pointsData?.level ?? 1).toString(),
+          timerSettings: getTimerUiSettings(currentUser.uid),
         },
         userProfile: {
           uid: currentUser.uid,
           email: currentUser.email,
           displayName: currentUser.displayName,
-          category: localStorage.getItem('userCategory') || '',
-          educationLevel: localStorage.getItem('educationLevel') || '',
+          category: profileData?.user_category || '',
+          educationLevel: profileData?.education_level || '',
         },
         chatHistory,
         timerStats: {
-          dailyGoals: localStorage.getItem(`${currentUser.uid}_daily_goals`) || '{}',
-          weeklyProgress: localStorage.getItem(`${currentUser.uid}_weekly_progress`) || '{}',
+          dailyGoals: memoryByKey.get('daily_goals') || '{}',
+          weeklyProgress: memoryByKey.get('weekly_progress') || '{}',
         },
-        achievements: JSON.parse(localStorage.getItem(`${currentUser.uid}_achievements`) || '[]'),
-        savedMessages: JSON.parse(localStorage.getItem('saved_messages') || '[]'),
+        achievements: (transactionsData ?? []).filter((entry) =>
+          ['achievement', 'goal_completed', 'streak', 'quiz'].includes(entry.transaction_type)
+        ),
+        savedMessages: safeJsonArray(memoryByKey.get('saved_messages')),
         timestamp: new Date().toISOString(),
         version: '1.0',
       };
@@ -88,20 +127,19 @@ export const useBackupOperations = () => {
       const backupData = await googleDriveService.restoreBackup(fileId) as BackupData;
       
       if (backupData) {
-        if (backupData.studyData) {
-          localStorage.setItem(`${currentUser.uid}_study_sessions`, backupData.studyData.studySessions);
-          localStorage.setItem(`${currentUser.uid}_total_study_time`, backupData.studyData.totalStudyTime);
-          localStorage.setItem(`${currentUser.uid}_points`, backupData.studyData.points || '0');
-          localStorage.setItem(`${currentUser.uid}_level`, backupData.studyData.level || '1');
-          if (backupData.studyData.timerSettings) {
-            localStorage.setItem(`${currentUser.uid}_timer_sound`, backupData.studyData.timerSettings.soundEnabled);
-            localStorage.setItem(`${currentUser.uid}_break_time`, backupData.studyData.timerSettings.breakTime);
-          }
+        if (backupData.studyData?.timerSettings) {
+          localStorage.setItem(`${currentUser.uid}_timer_sound`, backupData.studyData.timerSettings.soundEnabled);
+          localStorage.setItem(`${currentUser.uid}_break_time`, backupData.studyData.timerSettings.breakTime);
         }
         
         if (backupData.userProfile) {
-          localStorage.setItem('userCategory', backupData.userProfile.category || '');
-          localStorage.setItem('educationLevel', backupData.userProfile.educationLevel || '');
+          await supabase
+            .from('profiles')
+            .update({
+              user_category: backupData.userProfile.category || null,
+              education_level: backupData.userProfile.educationLevel || null,
+            })
+            .eq('user_id', currentUser.uid);
         }
         
         if (Array.isArray(backupData.chatHistory)) {
@@ -121,16 +159,24 @@ export const useBackupOperations = () => {
         }
         
         if (backupData.timerStats) {
-          localStorage.setItem(`${currentUser.uid}_daily_goals`, backupData.timerStats.dailyGoals);
-          localStorage.setItem(`${currentUser.uid}_weekly_progress`, backupData.timerStats.weeklyProgress);
-        }
-        
-        if (backupData.achievements) {
-          localStorage.setItem(`${currentUser.uid}_achievements`, JSON.stringify(backupData.achievements));
+          const memoryRows = [
+            { user_id: currentUser.uid, memory_key: 'daily_goals', memory_value: backupData.timerStats.dailyGoals || '{}', category: 'preferences', source: 'backup_restore' },
+            { user_id: currentUser.uid, memory_key: 'weekly_progress', memory_value: backupData.timerStats.weeklyProgress || '{}', category: 'preferences', source: 'backup_restore' },
+          ];
+          await supabase.from('user_memories').upsert(memoryRows, { onConflict: 'user_id,memory_key' });
         }
 
-        if (backupData.savedMessages) {
-          localStorage.setItem('saved_messages', JSON.stringify(backupData.savedMessages));
+        if (Array.isArray(backupData.savedMessages)) {
+          await supabase.from('user_memories').upsert(
+            {
+              user_id: currentUser.uid,
+              memory_key: 'saved_messages',
+              memory_value: JSON.stringify(backupData.savedMessages),
+              category: 'preferences',
+              source: 'backup_restore',
+            },
+            { onConflict: 'user_id,memory_key' }
+          );
         }
 
         toast.success(`✅ ${t('dataRestoredFrom')} ${fileName}!`);
