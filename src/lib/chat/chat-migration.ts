@@ -122,35 +122,72 @@ export async function migrateLegacyChatsToCloud(userId: string): Promise<boolean
   const chats = dedupeChats([...legacyAppDataChats, ...legacyStoreChats]);
   if (!chats.length) return false;
 
+  const candidateConversationIds = chats.map((chat) => chat.id);
+  const { data: existingUserConversations, error: existingConversationsError } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('user_id', userId)
+    .in('id', candidateConversationIds);
+
+  if (existingConversationsError) {
+    throw new Error(
+      `Failed to check existing conversations for migration (user ${userId}): ${existingConversationsError.message}`
+    );
+  }
+
+  const existingConversationIds = new Set((existingUserConversations ?? []).map((conversation) => conversation.id));
+
   const conversationRows = chats.map((chat) => ({
     id: chat.id,
+    user_id: userId,
     created_at: toIsoString(chat.timestamp || Date.now()),
   }));
-
-  const messageRows = await Promise.all(
-    chats.flatMap((chat) =>
-      (chat.messages || []).map(async (message) => {
-        const messageId = await computeMessageId(chat.id, message);
-        return {
-          id: messageId,
-          chat_id: chat.id,
-          sender_id: message.role,
-          message_type: message.role,
-          text_content: message.content,
-          created_at: toIsoString(message.timestamp || chat.timestamp || Date.now()),
-          edited_at: message.editedAt ? toIsoString(message.editedAt) : null,
-        };
-      })
-    )
-  );
 
   const { error: conversationError } = await supabase
     .from('conversations')
     .upsert(conversationRows, { onConflict: 'id' });
 
   if (conversationError) {
-    throw conversationError;
+    throw new Error(
+      `Conversation migration write failed (possible RLS block) for user ${userId}: ${conversationError.message}`
+    );
   }
+
+  const { data: migratedConversations, error: migratedConversationIdsError } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('user_id', userId)
+    .in('id', candidateConversationIds);
+
+  if (migratedConversationIdsError) {
+    throw new Error(
+      `Failed to verify migrated conversations for user ${userId}: ${migratedConversationIdsError.message}`
+    );
+  }
+
+  const migratedConversationIds = new Set([
+    ...existingConversationIds,
+    ...(migratedConversations ?? []).map((conversation) => conversation.id),
+  ]);
+
+  const messageRows = await Promise.all(
+    chats
+      .filter((chat) => migratedConversationIds.has(chat.id))
+      .flatMap((chat) =>
+        (chat.messages || []).map(async (message) => {
+          const messageId = await computeMessageId(chat.id, message);
+          return {
+            id: messageId,
+            chat_id: chat.id,
+            sender_id: message.role,
+            message_type: message.role,
+            text_content: message.content,
+            created_at: toIsoString(message.timestamp || chat.timestamp || Date.now()),
+            edited_at: message.editedAt ? toIsoString(message.editedAt) : null,
+          };
+        })
+      )
+  );
 
   for (let index = 0; index < messageRows.length; index += MESSAGE_BATCH_SIZE) {
     const batch = messageRows.slice(index, index + MESSAGE_BATCH_SIZE);
@@ -161,7 +198,9 @@ export async function migrateLegacyChatsToCloud(userId: string): Promise<boolean
       .upsert(batch, { onConflict: 'id' });
 
     if (messageError) {
-      throw messageError;
+      throw new Error(
+        `Message migration write failed (possible RLS block) for user ${userId} in batch starting at ${index}: ${messageError.message}`
+      );
     }
   }
 
