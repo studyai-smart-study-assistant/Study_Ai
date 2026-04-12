@@ -62,9 +62,9 @@ const StudentActivitiesTabs: React.FC<StudentActivitiesTabsProps> = ({
   }, [currentUser]);
 
   const handlePurchase = (itemId: string, cost: number) => {
+    void itemId;
     const newPoints = studentPoints - cost;
     setStudentPoints(newPoints);
-    localStorage.setItem(`${currentUser.uid}_points`, newPoints.toString());
   };
 
   return (

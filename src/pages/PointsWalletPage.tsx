@@ -55,23 +55,12 @@ const PointsWalletPage = () => {
             void fetchPointsFromServer();
           }, 1000);
         }
-        // Fallback to localStorage
-        const savedPoints = localStorage.getItem(`${currentUser?.uid}_points`);
-        if (savedPoints) {
-          setCurrentPoints(parseInt(savedPoints));
-        }
         return;
       }
 
       if (data) {
         setCurrentPoints(data.balance);
         setCurrentCredits(data.credits || 0);
-        // Update localStorage for offline access
-        if (currentUser) {
-          localStorage.setItem(`${currentUser.uid}_points`, data.balance.toString());
-          localStorage.setItem(`${currentUser.uid}_level`, data.level.toString());
-          localStorage.setItem(`${currentUser.uid}_credits`, (data.credits || 0).toString());
-        }
       }
     } catch (error) {
       console.error('Error fetching points:', error);

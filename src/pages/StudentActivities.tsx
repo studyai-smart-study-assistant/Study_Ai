@@ -4,7 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import StudentActivitiesContainer from './student-activities/StudentActivitiesContainer';
 import StudentActivitiesLoading from './student-activities/StudentActivitiesLoading';
-import { syncUserPoints } from '@/utils/points/core';
+import { supabase } from '@/integrations/supabase/client';
+import { safeInvokeWithAuthRetry } from '@/lib/auth/sessionRecovery';
 
 const StudentActivities = () => {
   const { currentUser, isLoading } = useAuth();
@@ -13,48 +14,40 @@ const StudentActivities = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const isMobile = useMediaQuery("(max-width: 768px)");
 
-  // Load user points and level from localStorage
-  useEffect(() => {
-    if (currentUser) {
-      const savedPoints = localStorage.getItem(`${currentUser.uid}_points`);
-      const savedLevel = localStorage.getItem(`${currentUser.uid}_level`);
-      
-      if (savedPoints) {
-        setStudentPoints(parseInt(savedPoints));
-      }
-      if (savedLevel) {
-        setStudentLevel(parseInt(savedLevel));
-      }
-
-      // Sync user points from server
-      syncUserPoints(currentUser.uid);
-    }
-  }, [currentUser]);
-
-  // Update points and level when localStorage changes
   useEffect(() => {
     if (!currentUser) return;
 
-    const handleStorageChange = () => {
-      const savedPoints = localStorage.getItem(`${currentUser.uid}_points`);
-      const savedLevel = localStorage.getItem(`${currentUser.uid}_level`);
-      
-      if (savedPoints) {
-        setStudentPoints(parseInt(savedPoints));
-      }
-      if (savedLevel) {
-        setStudentLevel(parseInt(savedLevel));
-      }
+    const loadPoints = async () => {
+      const { data } = await safeInvokeWithAuthRetry(
+        (body) => supabase.functions.invoke('points-balance', { body }),
+        { userId: currentUser.uid }
+      );
+      setStudentPoints(data?.balance || 0);
+      setStudentLevel(data?.level || 1);
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Check for changes every second
-    const interval = setInterval(handleStorageChange, 1000);
+    void loadPoints();
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const channel = supabase
+      .channel(`user-points-${currentUser.uid}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'user_points',
+        filter: `user_id=eq.${currentUser.uid}`,
+      }, (payload) => {
+        const latest = payload.new as { balance?: number; level?: number };
+        setStudentPoints(latest.balance || 0);
+        setStudentLevel(latest.level || 1);
+      })
+      .subscribe();
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
+      supabase.removeChannel(channel);
     };
   }, [currentUser]);
 
