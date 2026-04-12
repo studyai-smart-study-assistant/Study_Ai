@@ -15,6 +15,7 @@ import {
   YAxis,
   Tooltip
 } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
 
 interface StudentLearningProgressProps {
   currentUser: { uid: string } | null;
@@ -211,21 +212,54 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
   useEffect(() => {
     if (!currentUser) return;
     setLoading(true);
-    try {
-      const pointsHistory = parseStoredArray<PointsHistoryItem>(localStorage.getItem(`${currentUser.uid}_points_history`));
-      const chatHistory = parseStoredArray<ChatHistoryItem>(localStorage.getItem(`teacher_chats_${currentUser.uid}`));
-      const studySessions = parseStoredArray<StudySessionItem>(localStorage.getItem(`${currentUser.uid}_study_sessions`));
-      const quizResults = parseStoredArray<QuizResultItem>(localStorage.getItem(`${currentUser.uid}_quiz_results`));
-      
-      setSubjectProgress(calculateSubjectProgress(pointsHistory, chatHistory, quizResults));
-      setWeeklyActivity(calculateWeeklyActivity(pointsHistory, studySessions));
-      setTotalStudyTime(Math.floor(studySessions.reduce((t, s) => t + (s.duration || 0), 0) / 60));
-      setAchievements(pointsHistory.filter(i => ['achievement','quiz','streak','goal_completed'].includes(i.type || '')).length);
-    } catch (error) {
-      console.error('Error loading progress:', error);
-    } finally {
-      setLoading(false);
-    }
+    const loadProgress = async () => {
+      try {
+        const pointsHistory = parseStoredArray<PointsHistoryItem>(localStorage.getItem(`${currentUser.uid}_points_history`));
+        const studySessions = parseStoredArray<StudySessionItem>(localStorage.getItem(`${currentUser.uid}_study_sessions`));
+        const quizResults = parseStoredArray<QuizResultItem>(localStorage.getItem(`${currentUser.uid}_quiz_results`));
+
+        const { data: conversations, error: conversationsError } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('user_id', currentUser.uid);
+
+        if (conversationsError) throw conversationsError;
+
+        const conversationIds = (conversations ?? []).map((conversation) => conversation.id);
+        let chatHistory: ChatHistoryItem[] = [];
+
+        if (conversationIds.length > 0) {
+          const { data: messagesData, error: messagesError } = await supabase
+            .from('chat_messages')
+            .select('chat_id, message_type, text_content')
+            .in('chat_id', conversationIds)
+            .order('created_at', { ascending: true });
+
+          if (messagesError) throw messagesError;
+
+          const grouped = new Map<string, ChatMessageItem[]>();
+          (messagesData ?? []).forEach((message) => {
+            const list = grouped.get(message.chat_id) ?? [];
+            const sender = message.message_type === 'bot' ? 'bot' : 'user';
+            list.push({ sender, content: message.text_content || '' });
+            grouped.set(message.chat_id, list);
+          });
+
+          chatHistory = Array.from(grouped.values()).map((messages) => ({ messages }));
+        }
+
+        setSubjectProgress(calculateSubjectProgress(pointsHistory, chatHistory, quizResults));
+        setWeeklyActivity(calculateWeeklyActivity(pointsHistory, studySessions));
+        setTotalStudyTime(Math.floor(studySessions.reduce((t, s) => t + (s.duration || 0), 0) / 60));
+        setAchievements(pointsHistory.filter(i => ['achievement','quiz','streak','goal_completed'].includes(i.type || '')).length);
+      } catch (error) {
+        console.error('Error loading progress:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadProgress();
   }, [currentUser]);
 
   const calculateOverallProgress = () => {

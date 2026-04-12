@@ -27,6 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [messageLimitReached, setMessageLimitReached] = useState(false);
   const migrationInProgressRef = useRef<Set<string>>(new Set());
+  const pointsCacheRef = useRef<Map<string, { points: number; level: number }>>(new Map());
 
   useEffect(() => {
     const forceCleanSignOut = async () => {
@@ -176,8 +177,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
 
       if (!error && data) {
-        localStorage.setItem(`${userId}_points`, data.balance?.toString() || '0');
-        localStorage.setItem(`${userId}_level`, data.level?.toString() || '1');
+        pointsCacheRef.current.set(userId, {
+          points: data.balance ?? 0,
+          level: data.level ?? 1,
+        });
       }
     } catch (error) {
       console.error('Error syncing points:', error);
