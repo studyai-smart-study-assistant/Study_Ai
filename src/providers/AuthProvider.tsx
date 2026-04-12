@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Session } from '@supabase/supabase-js';
+import { Session, User as SupabaseAuthUser } from '@supabase/supabase-js';
 import { AuthContext, User } from '@/contexts/AuthContext';
 import {
   cleanupStorage,
@@ -11,6 +11,7 @@ import {
 import { safeInvokeWithAuthRetry } from '@/lib/auth/sessionRecovery';
 import { migrateLegacyChatsToCloud } from '@/lib/chat/chat-migration';
 import { toast } from 'sonner';
+import { updateUserPointsCache } from '@/utils/points/cache';
 
 const getMigrationRetryKey = (userId: string) => `studyai_chat_migration_retry_${userId}`;
 
@@ -52,7 +53,7 @@ const isMigrationRetryPending = (userId: string) => {
   }
 };
 
-const toExtendedUser = (user: any): User | null => {
+const toExtendedUser = (user: SupabaseAuthUser | null): User | null => {
   if (!user) return null;
   return {
     ...user,
@@ -68,7 +69,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [messageLimitReached, setMessageLimitReached] = useState(false);
   const migrationInProgressRef = useRef<Set<string>>(new Set());
-  const pointsCacheRef = useRef<Map<string, { points: number; level: number }>>(new Map());
 
   const migrateLegacyChats = useCallback(async (
     userId: string,
@@ -266,9 +266,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
 
       if (!error && data) {
-        pointsCacheRef.current.set(userId, {
+        updateUserPointsCache(userId, {
           points: data.balance ?? 0,
           level: data.level ?? 1,
+          credits: data.credits,
         });
       }
     } catch (error) {
@@ -282,7 +283,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return data;
   };
 
-  const signup = async (email: string, password: string, metadata?: Record<string, any>) => {
+  const signup = async (email: string, password: string, metadata?: Record<string, unknown>) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,

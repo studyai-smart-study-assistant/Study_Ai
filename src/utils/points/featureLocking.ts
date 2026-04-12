@@ -1,6 +1,8 @@
 // Feature locking system based on credits (not points)
 import { supabase } from '@/integrations/supabase/client';
 import { deductCreditsForFeature, FEATURE_COSTS, FeatureType } from './credits';
+import { safeInvokeWithAuthRetry } from '@/lib/auth/sessionRecovery';
+import { updateUserPointsCache } from './cache';
 
 export interface FeatureCost {
   name: string;
@@ -87,8 +89,18 @@ export async function deductPointsForFeature(
       };
     }
 
-    // Get updated balance
-    const currentCredits = parseInt(localStorage.getItem(`${userId}_credits`) || '0');
+    // Get updated balance from server (single source of truth)
+    const { data: balanceData } = await safeInvokeWithAuthRetry(
+      (body) => supabase.functions.invoke('points-balance', { body }),
+      { userId }
+    );
+    const currentCredits = balanceData?.credits ?? 0;
+
+    updateUserPointsCache(userId, {
+      points: balanceData?.balance ?? 0,
+      level: balanceData?.level ?? 1,
+      credits: currentCredits,
+    });
 
     return {
       success: true,
@@ -154,21 +166,24 @@ export async function canAccessFeature(userId: string, featureKey: string): Prom
   
   try {
     // Check server balance
-    const { data, error } = await supabase.functions.invoke('points-balance', {
-      body: { userId }
-    });
+    const { data, error } = await safeInvokeWithAuthRetry(
+      (body) => supabase.functions.invoke('points-balance', { body }),
+      { userId }
+    );
     
     if (error || !data) {
-      // Fallback to localStorage
-      const currentCredits = parseInt(localStorage.getItem(`${userId}_credits`) || '0');
-      return currentCredits >= cost;
+      return false;
     }
+
+    updateUserPointsCache(userId, {
+      points: data.balance ?? 0,
+      level: data.level ?? 1,
+      credits: data.credits,
+    });
     
     return (data.credits || 0) >= cost;
   } catch (error) {
     console.error('Error checking feature access:', error);
-    // Fallback to localStorage
-    const currentCredits = parseInt(localStorage.getItem(`${userId}_credits`) || '0');
-    return currentCredits >= cost;
+    return false;
   }
 }

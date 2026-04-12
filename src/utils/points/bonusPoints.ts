@@ -1,5 +1,5 @@
 
-import { addPointsToUser, syncUserPoints } from './core';
+import { addPointsToUser } from './core';
 import { updateDailyStreak } from '../streakUtils';
 
 export async function awardDailyLoginBonus(userId: string): Promise<boolean> {

@@ -2,6 +2,43 @@ import { supabase } from '@/integrations/supabase/client';
 import { PointRecord } from './types';
 import { toast } from 'sonner';
 import { safeInvokeWithAuthRetry } from '@/lib/auth/sessionRecovery';
+import { updateUserPointsCache } from './cache';
+
+export interface PointsBalanceResponse {
+  balance: number;
+  level: number;
+  credits?: number;
+}
+
+export async function fetchUserPointsBalance(userId: string): Promise<PointsBalanceResponse | null> {
+  if (!userId) return null;
+
+  const { data, error } = await safeInvokeWithAuthRetry(
+    (body) => supabase.functions.invoke('points-balance', { body }),
+    { userId }
+  );
+
+  if (error || !data) {
+    if (error) {
+      console.error('Error fetching points balance:', error);
+    }
+    return null;
+  }
+
+  const snapshot = {
+    balance: data.balance ?? 0,
+    level: data.level ?? 1,
+    credits: data.credits,
+  };
+
+  updateUserPointsCache(userId, {
+    points: snapshot.balance,
+    level: snapshot.level,
+    credits: snapshot.credits,
+  });
+
+  return snapshot;
+}
 
 export async function addPointsToUser(
   userId: string,
@@ -37,9 +74,11 @@ export async function addPointsToUser(
 
     console.log(`Points added successfully. New balance: ${data.balance}`);
     
-    // Update localStorage for optimistic UI updates only
-    localStorage.setItem(`${userId}_points`, data.balance.toString());
-    localStorage.setItem(`${userId}_level`, data.level.toString());
+    updateUserPointsCache(userId, {
+      points: data.balance ?? 0,
+      level: data.level ?? 1,
+      credits: data.credits,
+    });
     
   } catch (error) {
     console.error("Error in addPointsToUser:", error);
@@ -65,68 +104,12 @@ export function addPointRecord(userId: string, record: PointRecord): void {
   console.log(`Points history record added to localStorage: ${record.points} points for ${record.description}`);
 }
 
-// Migrate localStorage points to database on first login
+// Deprecated: points now use DB as the only source of truth.
+// Kept as a no-op for backward compatibility with existing callers.
 export async function migrateLocalStoragePoints(userId: string): Promise<void> {
   if (!userId) return;
-  
-  try {
-    // Get points from localStorage
-    const localPoints = parseInt(localStorage.getItem(`${userId}_points`) || '0');
-    
-    if (localPoints <= 0) {
-      console.log('No points to migrate from localStorage');
-      return;
-    }
-    
-    // Fetch current balance from server
-    const { data: balanceData, error: balanceError } = await safeInvokeWithAuthRetry(
-      (body) => supabase.functions.invoke('points-balance', { body }),
-      { userId }
-    );
-    
-    if (balanceError) {
-      console.error('Error fetching balance for migration:', balanceError);
-      return;
-    }
-    
-    const serverPoints = balanceData?.balance || 0;
-    
-    // Only migrate if server has fewer points than localStorage
-    if (serverPoints < localPoints) {
-      const pointsToAdd = localPoints - serverPoints;
-      console.log(`Migrating ${pointsToAdd} points from localStorage to database`);
-      
-      // Add the difference to server
-      const { data: addData, error: addError } = await safeInvokeWithAuthRetry(
-        (body) => supabase.functions.invoke('points-add', { body }),
-        {
-          userId,
-          amount: pointsToAdd,
-          reason: 'पिछले points का migration',
-          transactionType: 'credit',
-          metadata: { migration: true, source: 'localStorage' }
-        }
-      );
-      
-      if (addError) {
-        console.error('Error migrating points:', addError);
-        return;
-      }
-      
-      if (addData?.success) {
-        console.log(`✅ Successfully migrated ${pointsToAdd} points. New balance: ${addData.balance}`);
-        localStorage.setItem(`${userId}_points`, addData.balance.toString());
-        localStorage.setItem(`${userId}_level`, addData.level.toString());
-      }
-    } else {
-      console.log(`Server already has more points (${serverPoints}) than localStorage (${localPoints})`);
-      // Update localStorage with server values
-      localStorage.setItem(`${userId}_points`, serverPoints.toString());
-      localStorage.setItem(`${userId}_level`, balanceData.level.toString());
-    }
-  } catch (error) {
-    console.error('Error in migrateLocalStoragePoints:', error);
-  }
+
+  console.info('migrateLocalStoragePoints is deprecated and now intentionally skipped.');
 }
 
 // Sync user points from server on login
@@ -134,25 +117,10 @@ export async function syncUserPoints(userId: string): Promise<void> {
   if (!userId) return;
   
   try {
-    // First, try to migrate any localStorage points
-    await migrateLocalStoragePoints(userId);
-    
-    // Then fetch current balance from server
-    const { data, error } = await safeInvokeWithAuthRetry(
-      (body) => supabase.functions.invoke('points-balance', { body }),
-      { userId }
-    );
-    
-    if (error) {
-      console.error('Error fetching points balance:', error);
-      return;
-    }
-
-    if (data) {
-      // Update localStorage with server values
-      localStorage.setItem(`${userId}_points`, data.balance.toString());
-      localStorage.setItem(`${userId}_level`, data.level.toString());
-      console.log(`Synced points from server: ${data.balance} points, level ${data.level}`);
+    // Fetch current balance from server and refresh in-memory cache.
+    const snapshot = await fetchUserPointsBalance(userId);
+    if (snapshot) {
+      console.log(`Synced points from server: ${snapshot.balance} points, level ${snapshot.level}`);
     }
   } catch (error) {
     console.error('Error syncing user points:', error);
@@ -164,7 +132,7 @@ export async function addCreditsToUser(
   userId: string,
   credits: number,
   reason: string,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ): Promise<void> {
   try {
     const { data, error } = await safeInvokeWithAuthRetry(
@@ -251,7 +219,11 @@ export async function convertPointsToCredits(
       toast.success(`${data.creditsAdded} क्रेडिट प्राप्त हुए!`);
       // Update localStorage
       localStorage.setItem(`${userId}_credits`, data.newCreditsBalance.toString());
-      localStorage.setItem(`${userId}_points`, data.newPointsBalance.toString());
+      updateUserPointsCache(userId, {
+        points: data.newPointsBalance ?? 0,
+        level: data.newLevel ?? 1,
+        credits: data.newCreditsBalance,
+      });
       return true;
     }
 
