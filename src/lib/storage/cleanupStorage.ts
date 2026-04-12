@@ -11,6 +11,14 @@ const ARRAY_KEY_LIMITS: Array<{ pattern: RegExp; maxItems: number }> = [
   { pattern: /_usage_data$/, maxItems: 90 },
   { pattern: /study_ai_notifications$/, maxItems: 200 },
 ];
+const LEGACY_CHAT_KEY_PATTERNS = [
+  /^teacher_chats_/,
+  /^chat_history_/,
+  /^chat_draft_/,
+  /^chat_messages_/,
+  /^studyai_chat_/,
+  /^studyai_storage_backend$/,
+];
 let isStorageGuardInstalled = false;
 
 export function isQuotaExceededError(error: unknown): boolean {
@@ -44,6 +52,16 @@ export function clearNonEssentialStorage(): void {
     const key = localStorage.key(i);
     if (!key || isEssentialKey(key)) continue;
     localStorage.removeItem(key);
+  }
+}
+
+export function purgeLegacyChatLocalStorage(): void {
+  for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    if (LEGACY_CHAT_KEY_PATTERNS.some((pattern) => pattern.test(key))) {
+      localStorage.removeItem(key);
+    }
   }
 }
 

@@ -54,10 +54,20 @@ const computeTitle = (messages: ChatMessage[]) => {
 };
 
 export class SupabaseChatRepository {
+  private async requireUserId(): Promise<string> {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user?.id) {
+      throw new Error('User session required for chat access');
+    }
+    return data.user.id;
+  }
+
   async getAllChats(): Promise<Conversation[]> {
+    const userId = await this.requireUserId();
     const { data: conversations, error: conversationsError } = await supabase
       .from('conversations')
       .select('id, created_at')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (conversationsError) throw conversationsError;
@@ -94,10 +104,12 @@ export class SupabaseChatRepository {
   }
 
   async getChat(id: string, pageSize: number = DEFAULT_PAGE_SIZE): Promise<Conversation | null> {
+    const userId = await this.requireUserId();
     const { data: conversation, error: conversationError } = await supabase
       .from('conversations')
       .select('id, created_at')
       .eq('id', id)
+      .eq('user_id', userId)
       .maybeSingle();
 
     if (conversationError) throw conversationError;
@@ -144,9 +156,10 @@ export class SupabaseChatRepository {
   }
 
   async createNewChat(): Promise<Conversation> {
+    const userId = await this.requireUserId();
     const { data, error } = await supabase
       .from('conversations')
-      .insert({})
+      .insert({ user_id: userId })
       .select('id, created_at')
       .single();
 
@@ -171,7 +184,8 @@ export class SupabaseChatRepository {
   }
 
   async deleteChat(id: string): Promise<void> {
-    const { error } = await supabase.from('conversations').delete().eq('id', id);
+    const userId = await this.requireUserId();
+    const { error } = await supabase.from('conversations').delete().eq('id', id).eq('user_id', userId);
     if (error) throw error;
   }
 
