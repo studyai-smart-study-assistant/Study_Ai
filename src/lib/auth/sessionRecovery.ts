@@ -81,11 +81,22 @@ export function installFetchInterceptor(): void {
     }
   };
 
+  const isSupabaseAuthTokenRequest = (input: RequestInfo | URL): boolean => {
+    const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    try {
+      const resolvedUrl = new URL(rawUrl, window.location.origin);
+      return resolvedUrl.pathname.includes('/auth/v1/token');
+    } catch {
+      return false;
+    }
+  };
+
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     let response = await nativeFetch(input, init);
     const isAuthFailure = response.status === 401 || response.status === 403;
+    const isRefreshEndpoint = isSupabaseAuthTokenRequest(input);
 
-    if (isAuthFailure && isSupabaseRequest(input)) {
+    if (isAuthFailure && isSupabaseRequest(input) && !isRefreshEndpoint) {
       const refreshed = await refreshSessionOnce({ redirectToLogin: false, logoutOnFailure: false });
 
       // Retry the original request once after a successful refresh.

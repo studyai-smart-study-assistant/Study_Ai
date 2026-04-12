@@ -98,8 +98,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const reconcileSessionSafely = (options?: { serverFirst?: boolean }) => {
       reconcileSession(options).catch((error) => {
         console.error('Session reconcile failed:', error);
-        setSession(null);
-        setCurrentUser(null);
+        // Keep last known auth state on transient failures (offline/network hiccups).
+        // Auth state will still be updated by onAuthStateChange when a real sign-out happens.
         setIsLoading(false);
       });
     };
