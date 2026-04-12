@@ -15,6 +15,12 @@ export interface ReferralData {
   rewardClaimed: boolean;
 }
 
+interface UserReferralEntry {
+  userId: string;
+  timestamp: string;
+  reward: number;
+}
+
 export async function generateReferralCode(userId: string): Promise<string> {
   // Generate a unique referral code based on user ID
   const code = `REF${userId.substring(0, 8).toUpperCase()}`;
@@ -93,19 +99,11 @@ export async function applyReferralCode(
 }
 
 async function findUserByReferralCode(referralCode: string): Promise<string | null> {
-  // In a real implementation, this would query the database
-  // For now, we'll extract the user ID from the referral code
+  // TODO: Replace with server-side referral validation.
+  // For now, decode referral code only and avoid localStorage-based points fallback.
   if (!referralCode.startsWith('REF')) return null;
   
-  const userId = referralCode.substring(3).toLowerCase();
-  
-  // Verify this is a valid user (in localStorage)
-  const userPoints = localStorage.getItem(`${userId}_points`);
-  if (userPoints !== null) {
-    return userId;
-  }
-  
-  return null;
+  return referralCode.substring(3).toLowerCase();
 }
 
 function logReferral(referral: ReferralData): void {
@@ -128,9 +126,9 @@ function getAllReferrals(): ReferralData[] {
   return saved ? JSON.parse(saved) : [];
 }
 
-export function getUserReferrals(userId: string): any[] {
+export function getUserReferrals(userId: string): UserReferralEntry[] {
   const saved = localStorage.getItem(`${userId}_referrals`);
-  return saved ? JSON.parse(saved) : [];
+  return saved ? (JSON.parse(saved) as UserReferralEntry[]) : [];
 }
 
 export function getTotalReferrals(userId: string): number {
