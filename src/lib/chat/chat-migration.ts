@@ -125,6 +125,7 @@ export async function migrateLegacyChatsToCloud(userId: string): Promise<boolean
   const conversationRows = chats.map((chat) => ({
     id: chat.id,
     created_at: toIsoString(chat.timestamp || Date.now()),
+    user_id: userId,
   }));
 
   const messageRows = await Promise.all(
@@ -144,30 +145,35 @@ export async function migrateLegacyChatsToCloud(userId: string): Promise<boolean
     )
   );
 
-  const { error: conversationError } = await supabase
-    .from('conversations')
-    .upsert(conversationRows, { onConflict: 'id' });
+  try {
+    const { error: conversationError } = await supabase
+      .from('conversations')
+      .upsert(conversationRows, { onConflict: 'id' });
 
-  if (conversationError) {
-    throw conversationError;
-  }
-
-  for (let index = 0; index < messageRows.length; index += MESSAGE_BATCH_SIZE) {
-    const batch = messageRows.slice(index, index + MESSAGE_BATCH_SIZE);
-    if (!batch.length) continue;
-
-    const { error: messageError } = await supabase
-      .from('chat_messages')
-      .upsert(batch, { onConflict: 'id' });
-
-    if (messageError) {
-      throw messageError;
+    if (conversationError) {
+      throw conversationError;
     }
-  }
 
-  await clearLegacyChatData();
-  localStorage.setItem(`${MIGRATION_DONE_PREFIX}${userId}`, 'true');
-  toast.success('Your chats are now synced to cloud');
+    for (let index = 0; index < messageRows.length; index += MESSAGE_BATCH_SIZE) {
+      const batch = messageRows.slice(index, index + MESSAGE_BATCH_SIZE);
+      if (!batch.length) continue;
+
+      const { error: messageError } = await supabase
+        .from('chat_messages')
+        .upsert(batch, { onConflict: 'id' });
+
+      if (messageError) {
+        throw messageError;
+      }
+    }
+
+    await clearLegacyChatData();
+    localStorage.setItem(`${MIGRATION_DONE_PREFIX}${userId}`, 'true');
+    toast.success('Your chats are now synced to cloud');
+  } catch (error) {
+    localStorage.removeItem(`${MIGRATION_DONE_PREFIX}${userId}`);
+    throw error;
+  }
 
   return true;
 }

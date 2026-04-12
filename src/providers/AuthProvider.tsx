@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
+import { toast } from 'sonner';
 import { AuthContext, User } from '@/contexts/AuthContext';
 import {
   cleanupStorage,
@@ -192,7 +193,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       migrationInProgressRef.current.add(userId);
       await migrateLegacyChatsToCloud(userId);
     } catch (error) {
-      console.error('Error migrating legacy chats:', error);
+      const migrationError = error as { code?: string; message?: string; details?: string } | null;
+      console.error('Error migrating legacy chats to cloud', {
+        userId,
+        code: migrationError?.code ?? null,
+        message: migrationError?.message ?? 'Unknown migration error',
+        details: migrationError?.details ?? null,
+        error,
+      });
+      toast.error('Chat sync to cloud failed. Your local chats are kept safe; please retry sign-in.');
     } finally {
       migrationInProgressRef.current.delete(userId);
     }
