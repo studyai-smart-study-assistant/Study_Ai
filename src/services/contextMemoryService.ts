@@ -1,4 +1,6 @@
-interface ConversationEntry {
+import { supabase } from '@/integrations/supabase/client';
+
+export interface ConversationEntry {
   id: string;
   message: string;
   response: string;
@@ -14,15 +16,24 @@ interface UserContextMemory {
   sessionStartTime: number;
 }
 
+interface UserContextMemoryRow {
+  id: string;
+  user_id: string;
+  message: string;
+  response: string;
+  context: string | null;
+  created_at: string;
+}
+
 class ContextMemoryService {
   private static instance: ContextMemoryService;
   private userContexts: Map<string, UserContextMemory> = new Map();
-  private readonly MAX_CONVERSATIONS_PER_USER = 25; // Increased from 6 to 25
+  private readonly MAX_CONVERSATIONS_PER_USER = 25;
   private readonly STORAGE_KEY_PREFIX = 'user_context_memory_';
+  private readonly MIGRATION_CLEANUP_KEY = 'user_context_memory_migration_cleanup_v1';
 
   private constructor() {
-    this.loadAllUserContexts();
-    this.clearOldContexts(30);
+    this.purgeLegacyLocalStorageKeys();
   }
 
   static getInstance(): ContextMemoryService {
@@ -32,101 +43,108 @@ class ContextMemoryService {
     return ContextMemoryService.instance;
   }
 
-  // Load user contexts from localStorage on initialization
-  private loadAllUserContexts(): void {
-    try {
-      const keys = Object.keys(localStorage).filter(key => 
-        key.startsWith(this.STORAGE_KEY_PREFIX)
-      );
-      
-      keys.forEach(key => {
-        const userData = localStorage.getItem(key);
-        if (userData) {
-          const userContext: UserContextMemory = JSON.parse(userData);
-          this.userContexts.set(userContext.userId, userContext);
-        }
-      });
-      
-      console.log(`📚 Loaded ${keys.length} user contexts from localStorage`);
-    } catch (error) {
-      console.error('❌ Error loading user contexts:', error);
-    }
-  }
-
-  // Get user-specific conversation history
-  getUserContext(userId: string): ConversationEntry[] {
-    const userContext = this.userContexts.get(userId);
-    if (!userContext) {
-      console.log(`📝 No existing context for user ${userId}`);
-      return [];
-    }
-    
-    console.log(`📚 Retrieved ${userContext.conversations.length} conversations for user ${userId}`);
-    return userContext.conversations;
-  }
-
-  // Add new conversation entry for a specific user
-  addConversation(
-    userId: string, 
-    userMessage: string, 
-    aiResponse: string, 
-    context?: string
-  ): void {
-    let userContext = this.userContexts.get(userId);
-    
-    if (!userContext) {
-      userContext = {
-        userId,
-        conversations: [],
-        lastUpdated: Date.now(),
-        sessionStartTime: Date.now()
-      };
-      this.userContexts.set(userId, userContext);
-      console.log(`🆕 Created new context memory for user ${userId}`);
-    }
-
-    // Create conversation entry
-    const conversationEntry: ConversationEntry = {
-      id: crypto.randomUUID(),
-      message: userMessage,
-      response: aiResponse,
-      timestamp: Date.now(),
+  private mapRowToConversation(row: UserContextMemoryRow): ConversationEntry {
+    return {
+      id: row.id,
+      message: row.message,
+      response: row.response,
+      timestamp: new Date(row.created_at).getTime(),
       sender: 'user',
-      context
+      context: row.context ?? undefined,
+    };
+  }
+
+  private ensureUserContext(userId: string): UserContextMemory {
+    const existing = this.userContexts.get(userId);
+    if (existing) return existing;
+
+    const initial: UserContextMemory = {
+      userId,
+      conversations: [],
+      lastUpdated: Date.now(),
+      sessionStartTime: Date.now(),
     };
 
-    // Add to conversations array
-    userContext.conversations.push(conversationEntry);
+    this.userContexts.set(userId, initial);
+    return initial;
+  }
 
-    // Keep only the last MAX_CONVERSATIONS_PER_USER entries
+  private async hydrateUserContext(userId: string, limit: number = this.MAX_CONVERSATIONS_PER_USER): Promise<ConversationEntry[]> {
+    const supabaseAny = supabase as any;
+    const { data, error } = await supabaseAny
+      .from('user_context_memory')
+      .select('id, user_id, message, response, context, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error(`❌ Error loading context for user ${userId}:`, error);
+      return this.userContexts.get(userId)?.conversations ?? [];
+    }
+
+    const conversations = ((data ?? []) as UserContextMemoryRow[])
+      .map((row) => this.mapRowToConversation(row))
+      .sort((a, b) => a.timestamp - b.timestamp);
+
+    const userContext = this.ensureUserContext(userId);
+    userContext.conversations = conversations;
+    userContext.lastUpdated = conversations.at(-1)?.timestamp ?? Date.now();
+
+    return conversations;
+  }
+
+  async getUserContext(userId: string): Promise<ConversationEntry[]> {
+    const conversations = await this.hydrateUserContext(userId);
+    console.log(`📚 Retrieved ${conversations.length} conversations for user ${userId} from DB`);
+    return conversations;
+  }
+
+  async addConversation(
+    userId: string,
+    userMessage: string,
+    aiResponse: string,
+    context?: string
+  ): Promise<void> {
+    const supabaseAny = supabase as any;
+    const { data, error } = await supabaseAny
+      .from('user_context_memory')
+      .insert({
+        user_id: userId,
+        message: userMessage,
+        response: aiResponse,
+        context: context ?? null,
+      })
+      .select('id, user_id, message, response, context, created_at')
+      .single();
+
+    if (error) {
+      console.error(`❌ Error saving context for user ${userId}:`, error);
+      return;
+    }
+
+    const userContext = this.ensureUserContext(userId);
+    userContext.conversations.push(this.mapRowToConversation(data as UserContextMemoryRow));
+
     if (userContext.conversations.length > this.MAX_CONVERSATIONS_PER_USER) {
       userContext.conversations = userContext.conversations.slice(-this.MAX_CONVERSATIONS_PER_USER);
-      console.log(`✂️ Trimmed conversation history for user ${userId} to ${this.MAX_CONVERSATIONS_PER_USER} entries`);
     }
 
     userContext.lastUpdated = Date.now();
-    
-    // Save to localStorage
-    this.saveUserContext(userId);
-    
-    console.log(`💾 Added conversation for user ${userId}. Total conversations: ${userContext.conversations.length}`);
+    console.log(`💾 Added DB-backed conversation for user ${userId}. Total cached: ${userContext.conversations.length}`);
   }
 
-  // Get recent conversation context for AI processing
-  getRecentContext(userId: string, limit: number = 10): ConversationEntry[] {
-    const userContext = this.userContexts.get(userId);
-    if (!userContext) return [];
-    
-    const recentConversations = userContext.conversations.slice(-limit);
-    console.log(`🔄 Retrieved ${recentConversations.length} recent conversations for user ${userId}`);
+  async getRecentContext(userId: string, limit: number = 10): Promise<ConversationEntry[]> {
+    const conversations = await this.hydrateUserContext(userId, Math.max(limit, this.MAX_CONVERSATIONS_PER_USER));
+    const recentConversations = conversations.slice(-limit);
+    console.log(`🔄 Retrieved ${recentConversations.length} recent conversations for user ${userId} from DB`);
     return recentConversations;
   }
 
-  // Get conversation summary for contextual understanding
   getConversationSummary(userId: string): string {
     const userContext = this.userContexts.get(userId);
     if (!userContext || userContext.conversations.length === 0) {
-      return "यह उपयोगकर्ता के साथ पहली बातचीत है।";
+      return 'यह उपयोगकर्ता के साथ पहली बातचीत है।';
     }
 
     const totalConversations = userContext.conversations.length;
@@ -137,13 +155,11 @@ class ContextMemoryService {
     return `उपयोगकर्ता के साथ ${totalConversations} बातचीत हो चुकी हैं। हाल के विषय: ${recentTopics.join(', ')}। सत्र की अवधि: ${sessionMinutes} मिनट।`;
   }
 
-  // Extract topics from recent conversations
   private extractRecentTopics(conversations: ConversationEntry[]): string[] {
     const recentConversations = conversations.slice(-5);
     const topics: string[] = [];
-    
-    recentConversations.forEach(conv => {
-      // Simple topic extraction based on common keywords
+
+    recentConversations.forEach((conv) => {
       const message = conv.message.toLowerCase();
       if (message.includes('गणित') || message.includes('math')) topics.push('गणित');
       if (message.includes('विज्ञान') || message.includes('science')) topics.push('विज्ञान');
@@ -152,46 +168,57 @@ class ContextMemoryService {
       if (message.includes('study ai') || message.includes('ऐप')) topics.push('Study AI');
       if (message.includes('अजित कुमार') || message.includes('ajit')) topics.push('निर्माता');
     });
-    
-    return [...new Set(topics)]; // Remove duplicates
+
+    return [...new Set(topics)];
   }
 
-  // Save user context to localStorage
-  private saveUserContext(userId: string): void {
-    try {
-      const userContext = this.userContexts.get(userId);
-      if (userContext) {
-        const storageKey = `${this.STORAGE_KEY_PREFIX}${userId}`;
-        localStorage.setItem(storageKey, JSON.stringify(userContext));
-        console.log(`💾 Saved context for user ${userId} to localStorage`);
-      }
-    } catch (error) {
-      console.error(`❌ Error saving context for user ${userId}:`, error);
+  async clearOldContexts(daysOld: number = 30): Promise<void> {
+    const cutoffIso = new Date(Date.now() - daysOld * 24 * 60 * 60 * 1000).toISOString();
+    const supabaseAny = supabase as any;
+    const { error } = await supabaseAny
+      .from('user_context_memory')
+      .delete()
+      .lt('created_at', cutoffIso);
+
+    if (error) {
+      console.error('❌ Error clearing old DB contexts:', error);
+      return;
     }
+
+    for (const [userId, context] of this.userContexts.entries()) {
+      context.conversations = context.conversations.filter((entry) => entry.timestamp >= new Date(cutoffIso).getTime());
+      context.lastUpdated = context.conversations.at(-1)?.timestamp ?? context.lastUpdated;
+      this.userContexts.set(userId, context);
+    }
+
+    console.log('🧹 Cleared old user contexts from DB');
   }
 
-  // Clear old contexts (cleanup utility)
-  clearOldContexts(daysOld: number = 30): void {
-    const cutoffTime = Date.now() - (daysOld * 24 * 60 * 60 * 1000);
-    let clearedCount = 0;
-    
-    this.userContexts.forEach((context, userId) => {
-      if (context.lastUpdated < cutoffTime) {
-        this.userContexts.delete(userId);
-        localStorage.removeItem(`${this.STORAGE_KEY_PREFIX}${userId}`);
-        clearedCount++;
-      }
-    });
-    
-    console.log(`🧹 Cleared ${clearedCount} old user contexts`);
-  }
-
-  // Get total conversation count for a user
   getTotalConversationCount(userId: string): number {
     const userContext = this.userContexts.get(userId);
     return userContext ? userContext.conversations.length : 0;
   }
+
+  private purgeLegacyLocalStorageKeys(): void {
+    try {
+      if (localStorage.getItem(this.MIGRATION_CLEANUP_KEY) === 'done') {
+        return;
+      }
+
+      const keysToRemove = Object.keys(localStorage).filter(
+        (key) => key.startsWith(this.STORAGE_KEY_PREFIX) && key !== this.MIGRATION_CLEANUP_KEY,
+      );
+
+      keysToRemove.forEach((key) => localStorage.removeItem(key));
+      localStorage.setItem(this.MIGRATION_CLEANUP_KEY, 'done');
+
+      if (keysToRemove.length > 0) {
+        console.log(`🧹 Purged ${keysToRemove.length} legacy user_context_memory_* localStorage keys`);
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to purge legacy context keys:', error);
+    }
+  }
 }
 
-// Export singleton instance
 export const contextMemoryService = ContextMemoryService.getInstance();

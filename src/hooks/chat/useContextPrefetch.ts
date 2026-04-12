@@ -31,7 +31,7 @@ export function useContextPrefetch() {
       const [contextResult, mindVaultResult] = await Promise.all([
         // Local context memory
         (async () => {
-          const recent = contextMemoryService.getRecentContext(userId, 10);
+          const recent = await contextMemoryService.getRecentContext(userId, 10);
           if (!recent.length) return '';
           return recent.slice(-5).map(e => `User: ${e.message.slice(0, 100)} → AI: ${e.response.slice(0, 100)}`).join('\n');
         })(),

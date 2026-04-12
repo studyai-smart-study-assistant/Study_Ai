@@ -45,7 +45,7 @@ class EnhancedChatHandler {
       let enhancedConversationHistory = conversationHistory;
       
       if (userId) {
-        const userSpecificContext = contextMemoryService.getRecentContext(userId, 15);
+        const userSpecificContext = await contextMemoryService.getRecentContext(userId, 15);
         console.log(`[ENHANCED CHAT HANDLER] Retrieved ${userSpecificContext.length} user-specific conversations`);
         
         const contextMessages: ConversationMessage[] = userSpecificContext.flatMap(entry => [
@@ -69,7 +69,7 @@ class EnhancedChatHandler {
         
         // Save this conversation to user's context memory
         if (userId) {
-          contextMemoryService.addConversation(userId, userQuery, customResponseResult.response, 'custom_response');
+          await contextMemoryService.addConversation(userId, userQuery, customResponseResult.response, 'custom_response');
         }
         
         return {
@@ -87,7 +87,7 @@ class EnhancedChatHandler {
       
       // Save API response to user context as well
       if (userId) {
-        contextMemoryService.addConversation(userId, userQuery, apiResponse, 'api_response');
+        await contextMemoryService.addConversation(userId, userQuery, apiResponse, 'api_response');
       }
       
       return {
@@ -107,7 +107,7 @@ class EnhancedChatHandler {
         this.updateCustomResponsePercentage();
         
         if (userId) {
-          contextMemoryService.addConversation(userId, userQuery, apiResponse, 'api_fallback');
+          await contextMemoryService.addConversation(userId, userQuery, apiResponse, 'api_fallback');
         }
         
         return {
@@ -121,7 +121,7 @@ class EnhancedChatHandler {
         const ultimateFallback = "मुझे खुशी होगी आपकी मदद करने में, लेकिन अभी कुछ technical issue है। कृपया थोड़ी देर बाद try करें। 🙏";
         
         if (userId) {
-          contextMemoryService.addConversation(userId, userQuery, ultimateFallback, 'error_fallback');
+          await contextMemoryService.addConversation(userId, userQuery, ultimateFallback, 'error_fallback');
         }
         
         return {

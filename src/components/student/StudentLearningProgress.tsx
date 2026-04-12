@@ -1,13 +1,12 @@
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { BookOpen, Target, BarChart, Clock, Trophy } from 'lucide-react';
-import { 
-  PieChart, 
-  Pie, 
-  Cell, 
+import {
+  PieChart,
+  Pie,
+  Cell,
   ResponsiveContainer,
   LineChart,
   Line,
@@ -15,6 +14,7 @@ import {
   YAxis,
   Tooltip
 } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
 
 interface StudentLearningProgressProps {
   currentUser: { uid: string } | null;
@@ -65,6 +65,10 @@ interface QuizResultItem {
   correctAnswers?: number;
 }
 
+interface ChatAnalyticsRow {
+  text_content: string | null;
+}
+
 const parseStoredArray = <T,>(value: string | null): T[] => {
   if (!value) return [];
   try {
@@ -81,14 +85,14 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
   const [weeklyActivity, setWeeklyActivity] = useState<WeeklyActivity[]>([]);
   const [achievements, setAchievements] = useState<number>(0);
   const [totalStudyTime, setTotalStudyTime] = useState<number>(0);
-  
+
   const subjectColors = [
-    '#8b5cf6', // Purple - गणित
-    '#3b82f6', // Blue - विज्ञान  
-    '#ef4444', // Red - हिंदी
-    '#10b981', // Green - अंग्रेजी
-    '#f97316', // Orange - सामाजिक विज्ञान
-    '#0ea5e9', // Light blue - अन्य विषय
+    '#8b5cf6',
+    '#3b82f6',
+    '#ef4444',
+    '#10b981',
+    '#f97316',
+    '#0ea5e9',
   ];
 
   const subjectKeywords = {
@@ -99,16 +103,16 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
     'सामाजिक विज्ञान': ['social', 'सामाजिक', 'इतिहास', 'भूगोल', 'राजनीति', 'history', 'geography'],
     'अन्य विषय': ['other', 'अन्य', 'general', 'सामान्य']
   };
-  
+
   const analyzeMessageContent = (message: string): string => {
     const lowerMessage = message.toLowerCase();
-    
+
     for (const [subject, keywords] of Object.entries(subjectKeywords)) {
       if (keywords.some(keyword => lowerMessage.includes(keyword))) {
         return subject;
       }
     }
-    
+
     return 'अन्य विषय';
   };
 
@@ -118,7 +122,7 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
     quizResults: QuizResultItem[],
   ) => {
     const subjectData: { [key: string]: SubjectProgress } = {};
-    
+
     Object.keys(subjectKeywords).forEach((subject, index) => {
       subjectData[subject] = {
         name: subject,
@@ -129,7 +133,7 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
         studyTime: 0
       };
     });
-    
+
     chatHistory.forEach((chat) => {
       if (chat.messages) {
         chat.messages.forEach((message) => {
@@ -143,7 +147,7 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
         });
       }
     });
-    
+
     quizResults.forEach((quiz) => {
       const subject = quiz.subject || analyzeMessageContent(quiz.topic || '');
       if (subjectData[subject]) {
@@ -151,19 +155,19 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
         subjectData[subject].correctAnswers += quiz.correctAnswers || 0;
       }
     });
-    
+
     pointsHistory.forEach((item) => {
       if (item.description) {
         const subject = analyzeMessageContent(item.description);
         subjectData[subject].studyTime += item.points || 0;
       }
     });
-    
+
     return Object.values(subjectData)
       .filter(subject => subject.totalQuestions > 0 || subject.studyTime > 0)
       .map(subject => ({
         ...subject,
-        progress: subject.totalQuestions > 0 
+        progress: subject.totalQuestions > 0
           ? Math.round((subject.correctAnswers / subject.totalQuestions) * 100)
           : Math.min(subject.studyTime, 100)
       }));
@@ -172,60 +176,83 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
   const calculateWeeklyActivity = (pointsHistory: PointsHistoryItem[], studySessions: StudySessionItem[]) => {
     const days = ['रवि', 'सोम', 'मंगल', 'बुध', 'गुरु', 'शुक्र', 'शनि'];
     const weeklyData: { [key: string]: WeeklyActivity } = {};
-    
-    // Initialize days
+
     days.forEach(day => {
       weeklyData[day] = { day, points: 0, studyTime: 0, quizzes: 0 };
     });
-    
+
     const now = new Date();
     const weekStart = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
-    
-    // Aggregate points from last 7 days
+
     pointsHistory.forEach((item) => {
-      const itemDate = new Date(item.timestamp);
-      if (itemDate >= weekStart) {
+      const itemDate = new Date(item.timestamp ?? '');
+      if (!Number.isNaN(itemDate.getTime()) && itemDate >= weekStart) {
         const dayIndex = itemDate.getDay();
         const dayName = days[dayIndex];
         weeklyData[dayName].points += item.points || 0;
-        
+
         if (item.type === 'quiz') {
           weeklyData[dayName].quizzes += 1;
         }
       }
     });
-    
-    // Aggregate study time from last 7 days
+
     studySessions.forEach((session) => {
-      const sessionDate = new Date(session.date || session.timestamp);
-      if (sessionDate >= weekStart) {
+      const sessionDate = new Date(session.date || session.timestamp || '');
+      if (!Number.isNaN(sessionDate.getTime()) && sessionDate >= weekStart) {
         const dayIndex = sessionDate.getDay();
         const dayName = days[dayIndex];
         weeklyData[dayName].studyTime += Math.floor((session.duration || 0) / 60);
       }
     });
-    
+
     return Object.values(weeklyData);
+  };
+
+  const fetchChatAnalyticsFromDb = async (uid: string): Promise<ChatHistoryItem[]> => {
+    const supabaseAny = supabase as any;
+    const { data, error } = await supabaseAny
+      .from('chat_messages')
+      .select('text_content')
+      .eq('sender_id', uid)
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (error) {
+      console.error('Error loading chat analytics from DB:', error);
+      return [];
+    }
+
+    const messages = ((data ?? []) as ChatAnalyticsRow[])
+      .filter((item) => !!item.text_content)
+      .map((item) => ({ sender: 'user', content: item.text_content ?? '' }));
+
+    return messages.length ? [{ messages }] : [];
   };
 
   useEffect(() => {
     if (!currentUser) return;
-    setLoading(true);
-    try {
-      const pointsHistory = parseStoredArray<PointsHistoryItem>(localStorage.getItem(`${currentUser.uid}_points_history`));
-      const chatHistory = parseStoredArray<ChatHistoryItem>(localStorage.getItem(`teacher_chats_${currentUser.uid}`));
-      const studySessions = parseStoredArray<StudySessionItem>(localStorage.getItem(`${currentUser.uid}_study_sessions`));
-      const quizResults = parseStoredArray<QuizResultItem>(localStorage.getItem(`${currentUser.uid}_quiz_results`));
-      
-      setSubjectProgress(calculateSubjectProgress(pointsHistory, chatHistory, quizResults));
-      setWeeklyActivity(calculateWeeklyActivity(pointsHistory, studySessions));
-      setTotalStudyTime(Math.floor(studySessions.reduce((t, s) => t + (s.duration || 0), 0) / 60));
-      setAchievements(pointsHistory.filter(i => ['achievement','quiz','streak','goal_completed'].includes(i.type || '')).length);
-    } catch (error) {
-      console.error('Error loading progress:', error);
-    } finally {
-      setLoading(false);
-    }
+
+    const loadProgress = async () => {
+      setLoading(true);
+      try {
+        const pointsHistory = parseStoredArray<PointsHistoryItem>(localStorage.getItem(`${currentUser.uid}_points_history`));
+        const studySessions = parseStoredArray<StudySessionItem>(localStorage.getItem(`${currentUser.uid}_study_sessions`));
+        const quizResults = parseStoredArray<QuizResultItem>(localStorage.getItem(`${currentUser.uid}_quiz_results`));
+        const chatHistory = await fetchChatAnalyticsFromDb(currentUser.uid);
+
+        setSubjectProgress(calculateSubjectProgress(pointsHistory, chatHistory, quizResults));
+        setWeeklyActivity(calculateWeeklyActivity(pointsHistory, studySessions));
+        setTotalStudyTime(Math.floor(studySessions.reduce((t, s) => t + (s.duration || 0), 0) / 60));
+        setAchievements(pointsHistory.filter(i => ['achievement', 'quiz', 'streak', 'goal_completed'].includes(i.type || '')).length);
+      } catch (error) {
+        console.error('Error loading progress:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProgress();
   }, [currentUser]);
 
   const calculateOverallProgress = () => {
@@ -233,7 +260,7 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
     const totalProgress = subjectProgress.reduce((sum, subject) => sum + subject.progress, 0);
     return Math.round(totalProgress / subjectProgress.length);
   };
-  
+
   const pieData = subjectProgress.map(subject => ({
     name: subject.name,
     value: subject.progress,
@@ -252,7 +279,7 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
             {calculateOverallProgress()}% पूर्ण
           </Badge>
         </div>
-        
+
         {loading ? (
           <div className="flex justify-center py-8">
             <div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div>
@@ -271,7 +298,7 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
                   <Target className="h-4 w-4" />
                   विषयवार प्रगति
                 </h4>
-                
+
                 <div className="aspect-square">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -293,32 +320,32 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
                   </ResponsiveContainer>
                 </div>
               </div>
-              
+
               <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-4">
                 <h4 className="text-sm font-medium mb-2 text-indigo-800 dark:text-indigo-300 flex items-center gap-1">
                   <Clock className="h-4 w-4" />
                   साप्ताहिक गतिविधि
                 </h4>
-                
+
                 <div className="aspect-square">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={weeklyActivity}>
                       <XAxis dataKey="day" tick={{ fontSize: 10 }} />
                       <YAxis tick={{ fontSize: 10 }} />
                       <Tooltip formatter={(value) => `${value} पॉइंट्स`} />
-                      <Line 
-                        type="monotone" 
-                        dataKey="points" 
-                        stroke="#8b5cf6" 
-                        strokeWidth={2} 
-                        dot={{ fill: '#8b5cf6' }} 
+                      <Line
+                        type="monotone"
+                        dataKey="points"
+                        stroke="#8b5cf6"
+                        strokeWidth={2}
+                        dot={{ fill: '#8b5cf6' }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
             </div>
-            
+
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-medium flex items-center gap-1">
@@ -327,12 +354,12 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
                 </h4>
                 <span className="text-sm">{achievements}</span>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400">
                 <div>कुल अध्ययन समय: {totalStudyTime} मिनट</div>
                 <div>सक्रिय विषय: {subjectProgress.length}</div>
               </div>
-              
+
               <div className="space-y-4">
                 {subjectProgress.map((subject, index) => (
                   <div key={index}>
@@ -342,8 +369,8 @@ const StudentLearningProgress: React.FC<StudentLearningProgressProps> = ({ curre
                         {subject.progress}% • {subject.totalQuestions} प्रश्न • {subject.correctAnswers} सही
                       </div>
                     </div>
-                    <Progress 
-                      value={subject.progress} 
+                    <Progress
+                      value={subject.progress}
                       className="h-2"
                       style={{ backgroundColor: `${subject.color}20` }}
                     />
