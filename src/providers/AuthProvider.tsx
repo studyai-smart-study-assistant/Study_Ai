@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 import { AuthContext, User } from '@/contexts/AuthContext';
 import { cleanupStorage, clearNonEssentialStorage, isQuotaExceededError } from '@/lib/storage/cleanupStorage';
 import { safeInvokeWithAuthRetry } from '@/lib/auth/sessionRecovery';
+import { migrateLegacyChatsToCloud } from '@/lib/chat/chat-migration';
 
 const toExtendedUser = (user: any): User | null => {
   if (!user) return null;
@@ -20,6 +21,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [messageLimitReached, setMessageLimitReached] = useState(false);
+  const migrationInProgressRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const forceCleanSignOut = async () => {
@@ -121,6 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (event === 'TOKEN_REFRESHED' && session?.user) {
         setTimeout(() => {
           void syncUserPoints(session.user.id);
+          void migrateLegacyChats(session.user.id);
         }, 0);
         return;
       }
@@ -134,6 +137,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session?.user) {
         setTimeout(() => {
           void syncUserPoints(session.user.id);
+          void migrateLegacyChats(session.user.id);
         }, 0);
       }
     });
@@ -171,6 +175,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('Error syncing points:', error);
+    }
+  };
+
+  const migrateLegacyChats = async (userId: string) => {
+    if (!userId) return;
+    if (migrationInProgressRef.current.has(userId)) return;
+
+    try {
+      migrationInProgressRef.current.add(userId);
+      await migrateLegacyChatsToCloud(userId);
+    } catch (error) {
+      console.error('Error migrating legacy chats:', error);
+    } finally {
+      migrationInProgressRef.current.delete(userId);
     }
   };
 
