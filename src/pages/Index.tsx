@@ -111,6 +111,7 @@ const Index = () => {
     authLoading,
     isLoading,
     location,
+    currentUser,
     initializeChat,
     handleNavigationState
   });

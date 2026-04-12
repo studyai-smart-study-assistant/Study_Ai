@@ -4,7 +4,8 @@ import { useEffect } from 'react';
 interface UseHomeEffectsProps {
   authLoading: boolean;
   isLoading: boolean;
-  location: any;
+  location: { state?: { activeChatId?: string } | null };
+  currentUser: { uid?: string } | null;
   initializeChat: () => void;
   handleNavigationState: () => void;
 }
@@ -13,18 +14,19 @@ export const useHomeEffects = ({
   authLoading,
   isLoading,
   location,
+  currentUser,
   initializeChat,
   handleNavigationState
 }: UseHomeEffectsProps) => {
   useEffect(() => {
-    if (!authLoading) {
+    if (!authLoading && currentUser) {
       initializeChat();
     }
-  }, [authLoading]);
+  }, [authLoading, currentUser, initializeChat]);
 
   useEffect(() => {
-    if (!isLoading && location.state?.activeChatId) {
+    if (!isLoading && currentUser && location.state?.activeChatId) {
       handleNavigationState();
     }
-  }, [location.state, isLoading]);
+  }, [location.state, isLoading, currentUser, handleNavigationState]);
 };
