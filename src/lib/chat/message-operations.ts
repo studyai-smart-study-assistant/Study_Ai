@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Chat, SupaChatMessage, Message } from "./types";
 import { getChat, saveChat } from "./chat-operations";
+import { buildChatMediaPath } from "./media-path";
 
 const supabaseAny = supabase as unknown as SupabaseClient<any>;
 
@@ -48,9 +49,9 @@ export async function sendTextMessage(groupId: string, senderId: string, text: s
 
 export async function sendImageMessage(groupId: string, senderId: string, file: File) {
   try {
-    const fileName = `${groupId}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9-.]/g, '_')}`;
+    const fileName = buildChatMediaPath(senderId, groupId, file.name, "group_messages");
     
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from("chat_media")
       .upload(fileName, file);
 

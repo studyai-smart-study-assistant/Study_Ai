@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Send, Image, Mic, File, Users, Phone, Video } from 'lucide-react';
 import GroupAvatar from './GroupAvatar';
+import { buildChatMediaPath } from '@/lib/chat/media-path';
 
 interface Message {
   id: string;
@@ -161,7 +162,7 @@ const SupabaseChatInterface: React.FC<SupabaseChatInterfaceProps> = ({
 
     try {
       setIsSending(true);
-      const fileName = `${groupId}/${Date.now()}-${file.name}`;
+      const fileName = buildChatMediaPath(currentUser.uid, groupId, file.name, 'group_chat_messages');
       const { error: uploadError } = await supabase.storage.from('chat_media').upload(fileName, file);
       if (uploadError) throw uploadError;
 
