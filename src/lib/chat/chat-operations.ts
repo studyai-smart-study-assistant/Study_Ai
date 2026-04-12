@@ -2,10 +2,6 @@
 import { Chat } from "./types";
 import { CHATS_STORE, getItem, setItem } from "./db-init";
 
-// Keep only the most recent messages per chat to prevent unbounded localStorage growth.
-// Older messages are intentionally trimmed and may disappear after persistence.
-export const MAX_MESSAGES_PER_CHAT = 50;
-
 export async function getAllChats(): Promise<Chat[]> {
   try {
     const chatData = (await getItem<Record<string, Chat>>(CHATS_STORE)) || {};
@@ -30,11 +26,7 @@ export async function getChat(id: string): Promise<Chat | null> {
 export async function saveChat(chat: Chat): Promise<void> {
   try {
     const chatData = (await getItem<Record<string, Chat>>(CHATS_STORE)) || {};
-    const trimmedMessages = (chat.messages || []).slice(-MAX_MESSAGES_PER_CHAT);
-    chatData[chat.id] = {
-      ...chat,
-      messages: trimmedMessages,
-    };
+    chatData[chat.id] = chat;
     await setItem(CHATS_STORE, chatData);
   } catch (error) {
     console.error("Error saving chat:", error);

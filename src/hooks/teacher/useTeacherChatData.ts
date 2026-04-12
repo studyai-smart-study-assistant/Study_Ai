@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { chatDB } from '@/lib/db';
+import { supabaseChatRepo } from '@/lib/chat/supabase-chat-repo';
 import { Chat } from '@/lib/db';
 import { toast } from "sonner";
 
@@ -24,7 +24,7 @@ export const useTeacherChatData = () => {
   const loadTeacherChats = async () => {
     try {
       setIsDataLoading(true);
-      const allChats = await chatDB.getAllChats();
+      const allChats = await supabaseChatRepo.getAllChats();
       
       // Filter for teacher-related chats
       const teacherChats = allChats.filter(chat => 
