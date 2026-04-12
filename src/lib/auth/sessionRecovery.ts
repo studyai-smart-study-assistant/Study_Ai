@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cleanupStorage, clearNonEssentialStorage, isQuotaExceededError } from '@/lib/storage/cleanupStorage';
 
 let isFetchInterceptorInstalled = false;
+let isInvokeInterceptorInstalled = false;
 let refreshInFlight: Promise<boolean> | null = null;
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -97,10 +98,39 @@ export function installFetchInterceptor(): void {
   };
 }
 
-type FunctionInvoker<TPayload, TResult> = (payload?: TPayload) => Promise<{ data: TResult | null; error: { status?: number; message?: string } | null }>;
+const hasAuthFailureSignature = (error: { status?: number; message?: string } | null | undefined): boolean => {
+  if (!error) return false;
+  if (error.status === 401 || error.status === 403) return true;
+  const message = (error.message || '').toLowerCase();
+  return message.includes('401') ||
+    message.includes('403') ||
+    message.includes('unauthorized') ||
+    message.includes('jwt') ||
+    message.includes('token');
+};
 
-const isSessionFailure = (error: { status?: number; message?: string } | null | undefined): boolean =>
-  Boolean(error && (error.status === 401 || error.status === 403));
+export function installSupabaseInvokeInterceptor(): void {
+  if (isInvokeInterceptorInstalled) return;
+  isInvokeInterceptorInstalled = true;
+
+  const functionsApi = supabase.functions as typeof supabase.functions & {
+    invoke: (...args: any[]) => Promise<{ data: unknown; error: { status?: number; message?: string } | null }>;
+  };
+  const nativeInvoke = functionsApi.invoke.bind(functionsApi);
+
+  functionsApi.invoke = async (...args: any[]) => {
+    let result = await nativeInvoke(...args);
+    if (hasAuthFailureSignature(result.error)) {
+      const refreshed = await refreshSessionOnce({ redirectToLogin: false, logoutOnFailure: false });
+      if (refreshed) {
+        result = await nativeInvoke(...args);
+      }
+    }
+    return result;
+  };
+}
+
+type FunctionInvoker<TPayload, TResult> = (payload?: TPayload) => Promise<{ data: TResult | null; error: { status?: number; message?: string } | null }>;
 
 export async function safeInvokeWithAuthRetry<TPayload = unknown, TResult = unknown>(
   invoke: FunctionInvoker<TPayload, TResult>,
@@ -108,7 +138,7 @@ export async function safeInvokeWithAuthRetry<TPayload = unknown, TResult = unkn
 ): Promise<{ data: TResult | null; error: { status?: number; message?: string } | null }> {
   let result = await invoke(payload);
 
-  if (isSessionFailure(result.error)) {
+  if (hasAuthFailureSignature(result.error)) {
     const refreshed = await refreshSessionOnce({ redirectToLogin: false, logoutOnFailure: false });
     if (refreshed) {
       result = await invoke(payload);

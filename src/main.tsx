@@ -7,10 +7,11 @@ import { AuthProvider } from './providers/AuthProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './providers/ThemeProvider';
 import { cleanupStorage } from './lib/storage/cleanupStorage';
-import { installFetchInterceptor } from './lib/auth/sessionRecovery';
+import { installFetchInterceptor, installSupabaseInvokeInterceptor } from './lib/auth/sessionRecovery';
 
 cleanupStorage();
 installFetchInterceptor();
+installSupabaseInvokeInterceptor();
 
 registerServiceWorker();
 
