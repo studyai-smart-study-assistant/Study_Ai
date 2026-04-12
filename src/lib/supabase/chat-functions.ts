@@ -385,5 +385,11 @@ export async function addPointsToUserDb(
 export async function logoutUser() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
-  localStorage.clear();
+  for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    if (key.includes('supabase.auth') || key.startsWith('sb-')) {
+      localStorage.removeItem(key);
+    }
+  }
 }

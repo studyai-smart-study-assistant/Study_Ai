@@ -6,11 +6,15 @@ import { registerServiceWorker } from './lib/register-sw';
 import { AuthProvider } from './providers/AuthProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './providers/ThemeProvider';
-import { cleanupStorage } from './lib/storage/cleanupStorage';
-import { installFetchInterceptor } from './lib/auth/sessionRecovery';
+import { cleanupStorage, installStorageQuotaGuard } from './lib/storage/cleanupStorage';
+import { installFetchInterceptor, installSupabaseInvokeInterceptor } from './lib/auth/sessionRecovery';
+import { startUserPrivateDataSync } from './lib/storage/userPrivateDataSync';
 
 cleanupStorage();
+installStorageQuotaGuard();
 installFetchInterceptor();
+installSupabaseInvokeInterceptor();
+startUserPrivateDataSync();
 
 registerServiceWorker();
 
