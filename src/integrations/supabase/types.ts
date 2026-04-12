@@ -289,6 +289,7 @@ export type Database = {
       }
       campus_messages: {
         Row: {
+          author_role: string
           chat_id: string
           created_at: string
           edited_at: string | null
@@ -299,6 +300,7 @@ export type Database = {
           text_content: string | null
         }
         Insert: {
+          author_role?: string
           chat_id: string
           created_at?: string
           edited_at?: string | null
@@ -309,6 +311,7 @@ export type Database = {
           text_content?: string | null
         }
         Update: {
+          author_role?: string
           chat_id?: string
           created_at?: string
           edited_at?: string | null
@@ -363,6 +366,7 @@ export type Database = {
       }
       chat_messages: {
         Row: {
+          author_role: string
           chat_id: string
           created_at: string
           edited_at: string | null
@@ -373,6 +377,7 @@ export type Database = {
           text_content: string | null
         }
         Insert: {
+          author_role?: string
           chat_id: string
           created_at?: string
           edited_at?: string | null
@@ -383,6 +388,7 @@ export type Database = {
           text_content?: string | null
         }
         Update: {
+          author_role?: string
           chat_id?: string
           created_at?: string
           edited_at?: string | null
