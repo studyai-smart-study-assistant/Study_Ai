@@ -18,11 +18,12 @@ import ChangePassword from '@/components/profile/ChangePassword';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { logoutUser } from '@/lib/supabase/chat-functions';
-import { syncUserPoints } from '@/utils/points/core';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import AdsterraBanner from '@/components/ads/AdsterraBanner';
 import MonetagInterstitial from '@/components/ads/MonetagInterstitial';
+import { supabase } from '@/integrations/supabase/client';
+import { safeInvokeWithAuthRetry } from '@/lib/auth/sessionRecovery';
 
 const Profile = () => {
   const { currentUser, isLoading } = useAuth();
@@ -39,20 +40,38 @@ const Profile = () => {
   useEffect(() => {
     if (!isLoading && !currentUser) { navigate('/login'); return; }
     if (currentUser && !userSynced) {
-      syncUserPoints(currentUser.uid).then(() => { setUserSynced(true); loadStudentData(); }).catch(() => loadStudentData());
-      setUserCategory(localStorage.getItem('userCategory') || '');
-      setEducationLevel(localStorage.getItem('educationLevel') || '');
-    } else if (currentUser && userSynced) { loadStudentData(); }
+      setUserSynced(true);
+      void loadStudentData();
+    } else if (currentUser && userSynced) { void loadStudentData(); }
   }, [currentUser, isLoading, navigate, userSynced]);
 
-  const loadStudentData = () => {
+  const loadStudentData = async () => {
     if (!currentUser) return;
-    const points = parseInt(localStorage.getItem(`${currentUser.uid}_points`) || '0');
-    const level = parseInt(localStorage.getItem(`${currentUser.uid}_level`) || '1');
-    setStudentPoints(points);
-    setStudentLevel(level);
-    const progress = Math.min(Math.floor(((points - ((level - 1) * 100)) / (level * 100)) * 100), 100);
-    setLevelProgress(progress);
+    try {
+      const [{ data: profileData }, { data: balanceData }] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('user_category, education_level')
+          .eq('user_id', currentUser.uid)
+          .maybeSingle(),
+        safeInvokeWithAuthRetry(
+          (body) => supabase.functions.invoke('points-balance', { body }),
+          { userId: currentUser.uid }
+        ),
+      ]);
+
+      setUserCategory(profileData?.user_category || '');
+      setEducationLevel(profileData?.education_level || '');
+
+      const points = balanceData?.balance || 0;
+      const level = balanceData?.level || 1;
+      setStudentPoints(points);
+      setStudentLevel(level);
+      const progress = Math.min(Math.floor(((points - ((level - 1) * 100)) / (level * 100)) * 100), 100);
+      setLevelProgress(progress);
+    } catch (error) {
+      console.error('Failed to load profile data:', error);
+    }
   };
 
   const handleLogout = async () => {

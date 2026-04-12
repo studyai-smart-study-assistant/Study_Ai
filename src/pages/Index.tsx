@@ -127,17 +127,6 @@ const Index = () => {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      if (currentUser?.uid) {
-        const keysToRemove: string[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (key.startsWith(`${currentUser.uid}_`) || key.includes('supabase'))) {
-            keysToRemove.push(key);
-          }
-        }
-        keysToRemove.forEach(key => localStorage.removeItem(key));
-      }
-      
       await logout();
       setIsSidebarOpen(false);
       toast.success('Logged out successfully');
