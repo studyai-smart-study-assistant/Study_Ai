@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { chatDB } from '@/lib/db';
+import { supabaseChatRepo } from '@/lib/chat/supabase-chat-repo';
 import { Chat, Message } from '@/lib/db';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +33,7 @@ const ChatHistory = () => {
   const loadChats = async () => {
     try {
       setIsDataLoading(true);
-      const allChats = await chatDB.getAllChats();
+      const allChats = await supabaseChatRepo.getAllChats();
       
       // Sort by timestamp (newest first)
       allChats.sort((a, b) => b.timestamp - a.timestamp);
@@ -80,7 +80,7 @@ const ChatHistory = () => {
     e?.stopPropagation();
     
     try {
-      await chatDB.deleteChat(chatId);
+      await supabaseChatRepo.deleteChat(chatId);
       toast.success('Chat deleted successfully');
       
       // Refresh the list
@@ -109,7 +109,7 @@ const ChatHistory = () => {
     }
 
     try {
-      await chatDB.updateChatTitle(editingChatId, editingTitle.trim());
+      await supabaseChatRepo.updateChatTitle(editingChatId, editingTitle.trim());
       
       // Update local state
       setChats(currentChats => currentChats.map(chat => 

@@ -11,6 +11,7 @@ import PageMeta from '@/components/seo/PageMeta';
 import HighPerformanceAd from '@/components/ads/HighPerformanceAd';
 
 const TeacherChats = () => {
+  // Data operations are now Supabase repository-backed via useTeacherChats hooks.
   const navigate = useNavigate();
   const {
     chats,

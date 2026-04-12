@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { chatDB } from '@/lib/db';
+import { supabaseChatRepo } from '@/lib/chat/supabase-chat-repo';
 import { toast } from "sonner";
 import { useAuth } from '@/hooks/useAuth';
 import { Message as MessageType } from '@/lib/db';
@@ -12,6 +12,7 @@ import { getRealtimeContext, isDateTimeQuery, getDateTimeAnswer } from '@/utils/
 import { supabase } from '@/integrations/supabase/client';
 
 const GUEST_MESSAGE_LIMIT = 50;
+const PAGE_SIZE = 30;
 
 export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
   const [messages, setMessages] = useState<MessageType[]>([]);
@@ -23,6 +24,8 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
   const [lastSources, setLastSources] = useState<Array<{ title: string; url: string }>>([]);
   const [agentStatus, setAgentStatus] = useState<{ status: string; text: string; tool?: string; provider?: string } | null>(null);
   const [streamingContent, setStreamingContent] = useState<string>('');
+  const [hasOlderMessages, setHasOlderMessages] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const { currentUser, messageLimitReached, setMessageLimitReached } = useAuth();
   const { prefetched, prefetchContext, resetPrefetch } = useContextPrefetch();
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -39,17 +42,14 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
   const loadMessages = async () => {
     try {
       setIsLoading(true);
-      const chat = await chatDB.getChat(chatId);
-      if (chat) {
-        setMessages(chat.messages || []);
-        if (chat.title === "New Chat" && chat.messages?.length) {
-          const first = chat.messages.find(m => m.role === 'user');
-          if (first) await chatDB.updateChatTitle(chatId, first.content.slice(0, 30) + (first.content.length > 30 ? '...' : ''));
-        }
-        if (!currentUser && chat.messages?.filter(m => m.role === 'user').length! >= GUEST_MESSAGE_LIMIT) {
-          setMessageLimitReached(true);
-          setShowLimitAlert(true);
-        }
+      const page = await supabaseChatRepo.getMessagesPage(chatId, { limit: PAGE_SIZE });
+      setMessages(page.messages);
+      setHasOlderMessages(page.hasMore);
+      setNextCursor(page.nextCursor);
+
+      if (!currentUser && page.messages.filter(m => m.role === 'user').length >= GUEST_MESSAGE_LIMIT) {
+        setMessageLimitReached(true);
+        setShowLimitAlert(true);
       }
     } catch (error) {
       console.error('Error loading messages:', error);
@@ -93,19 +93,14 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
         messageContent = messageContent ? `${messageContent}\n\n[Image: ${normalizedImageUrl}]` : `[Image: ${normalizedImageUrl}]`;
       }
 
-      const userMessage = await chatDB.addMessage(chatId, messageContent, 'user');
+      const userMessage = await supabaseChatRepo.addMessage(chatId, messageContent, 'user');
       setMessages(prev => [...prev, userMessage]);
 
-      const chat = await chatDB.getChat(chatId);
-      if (chat?.title === "New Chat") {
-        await chatDB.updateChatTitle(chatId, input.trim().slice(0, 30) + (input.trim().length > 30 ? '...' : ''));
-      }
       if (onChatUpdated) onChatUpdated();
 
       if (skipAIResponse) {
         const botContent = normalizedImageUrl ? `[IMG_DATA:${normalizedImageUrl}]✨ Image बन गई!` : '✨ Image generated!';
-        await chatDB.addMessage(chatId, botContent, 'bot');
-        await loadMessages();
+        await supabaseChatRepo.addMessage(chatId, botContent, 'bot');
         setAgentStatus(null);
       } else {
         // Check for simple date/time queries
@@ -113,13 +108,12 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
 
         if (!imageBase64 && isDateTimeQuery(cleanPrompt)) {
           const answer = getDateTimeAnswer(cleanPrompt);
-          await chatDB.addMessage(chatId, answer, 'bot');
-          await loadMessages();
+          await supabaseChatRepo.addMessage(chatId, answer, 'bot');
           setAgentStatus(null);
         } else {
           // Real streaming with Groq/Qwen
-          const currentChat = await chatDB.getChat(chatId);
-          const chatHistory = currentChat?.messages || [];
+          const historyPage = await supabaseChatRepo.getMessagesPage(chatId, { limit: 30 });
+          const chatHistory = historyPage.messages || [];
 
           const sanitize = (t: string) => (t || '').replace(/\[Image:\s*data:image\/[^\]]+\]/g, '[Image]').replace(/\[image:[^\]]+\]/gi, '[Image]').trim();
           const realtimeCtx = getRealtimeContext();
@@ -190,11 +184,9 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
 
           // Save the final streamed response to DB
           if (streamedText) {
-            await chatDB.addMessage(chatId, streamedText, 'bot');
+            await supabaseChatRepo.addMessage(chatId, streamedText, 'bot');
           }
 
-          // Reload to get proper DB messages
-          await loadMessages();
           setStreamingContent('');
           resetPrefetch();
         }
@@ -218,6 +210,16 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
     }
   }, [chatId, currentUser, messages, isLoading, isResponding, onChatUpdated, webSearchEnabled, prefetched, resetPrefetch]);
 
+
+  const loadOlderMessages = useCallback(async () => {
+    if (!nextCursor) return;
+
+    const page = await supabaseChatRepo.getMessagesPage(chatId, { limit: PAGE_SIZE, before: nextCursor });
+    setMessages((prev) => [...page.messages, ...prev]);
+    setHasOlderMessages(page.hasMore);
+    setNextCursor(page.nextCursor);
+  }, [chatId, nextCursor]);
+
   const sendMessage = enhancedSendMessage;
 
   const getChatStats = useCallback(() => chatHandler.getStats(), []);
@@ -231,10 +233,20 @@ export const useEnhancedChat = (chatId: string, onChatUpdated?: () => void) => {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
 
+
+  useEffect(() => {
+    if (!chatId) return;
+    const unsubscribe = supabaseChatRepo.subscribeToMessages(chatId, () => {
+      loadMessages();
+    });
+
+    return unsubscribe;
+  }, [chatId]);
   return {
     messages, isLoading, isResponding, showLimitAlert, setShowLimitAlert,
     loadMessages, sendMessage, enhancedSendMessage, messageLimitReached,
     connectionStatus, getChatStats, webSearchEnabled, setWebSearchEnabled,
     lastSources, agentStatus, streamingContent, prefetchContext,
+    hasOlderMessages, loadOlderMessages,
   };
 };

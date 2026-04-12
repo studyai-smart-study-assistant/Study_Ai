@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { chatDB } from '@/lib/db';
+import { supabaseChatRepo } from '@/lib/chat/supabase-chat-repo';
 import { Message } from '@/lib/chat/types';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,7 +26,7 @@ const SavedMessages = () => {
   const loadSavedMessages = async () => {
     try {
       // Fetch all chats
-      const chats = await chatDB.getAllChats();
+      const chats = await supabaseChatRepo.getAllChats();
       
       // Extract all messages from chats
       let allMessages: Message[] = [];
@@ -52,7 +52,7 @@ const SavedMessages = () => {
 
   const handleRemoveBookmark = async (message: Message) => {
     try {
-      await chatDB.toggleMessageBookmark(message.chatId, message.id);
+      await supabaseChatRepo.toggleMessageBookmark(message.chatId, message.id);
       toast.success('Bookmark removed');
       loadSavedMessages();
     } catch (error) {

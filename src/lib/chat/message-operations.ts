@@ -2,7 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Chat, SupaChatMessage, Message } from "./types";
-import { getChat, MAX_MESSAGES_PER_CHAT, saveChat } from "./chat-operations";
+import { getChat, saveChat } from "./chat-operations";
 
 const supabaseAny = supabase as unknown as SupabaseClient<any>;
 
@@ -107,9 +107,6 @@ export async function addMessage(chatId: string, content: string, role: "user" |
     // Add message to chat
     chat.messages = chat.messages || [];
     chat.messages.push(message);
-    // Mirror save-time trimming here so in-memory chat objects stay bounded too.
-    // This intentionally drops oldest entries when a chat exceeds MAX_MESSAGES_PER_CHAT.
-    chat.messages = chat.messages.slice(-MAX_MESSAGES_PER_CHAT);
     
     // Update timestamp to mark as recently used
     chat.timestamp = Date.now();

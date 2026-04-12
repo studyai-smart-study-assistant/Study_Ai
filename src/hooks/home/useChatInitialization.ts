@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from "sonner";
-import { chatDB } from '@/lib/db';
+import { supabaseChatRepo } from '@/lib/chat/supabase-chat-repo';
 
 export const useChatInitialization = () => {
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
@@ -12,12 +12,13 @@ export const useChatInitialization = () => {
   const initializeChat = async () => {
     try {
       setIsLoading(true);
-      const chats = await chatDB.getAllChats();
-      
-      if (chats.length > 0) {
-        setCurrentChatId(chats[0].id);
+      const chats = await supabaseChatRepo.getAllChats();
+      const sortedChats = [...chats].sort((a, b) => b.timestamp - a.timestamp);
+
+      if (sortedChats.length > 0) {
+        setCurrentChatId(sortedChats[0].id);
       } else {
-        const newChat = await chatDB.createNewChat();
+        const newChat = await supabaseChatRepo.createNewChat();
         setCurrentChatId(newChat.id);
       }
     } catch (error) {
@@ -32,7 +33,7 @@ export const useChatInitialization = () => {
     if (location.state?.activeChatId) {
       const chatId = location.state.activeChatId;
       try {
-        const chat = await chatDB.getChat(chatId);
+        const chat = await supabaseChatRepo.getChat(chatId);
         if (chat) {
           setCurrentChatId(chatId);
           if (location.state.source === 'teacher-chats') {
@@ -51,7 +52,7 @@ export const useChatInitialization = () => {
 
   const handleNewChat = async () => {
     try {
-      const newChat = await chatDB.createNewChat();
+      const newChat = await supabaseChatRepo.createNewChat();
       setCurrentChatId(newChat.id);
     } catch (error) {
       console.error('Error creating new chat:', error);
