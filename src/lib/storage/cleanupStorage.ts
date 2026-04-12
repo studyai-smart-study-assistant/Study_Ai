@@ -11,6 +11,7 @@ const ARRAY_KEY_LIMITS: Array<{ pattern: RegExp; maxItems: number }> = [
   { pattern: /_usage_data$/, maxItems: 90 },
   { pattern: /study_ai_notifications$/, maxItems: 200 },
 ];
+let isStorageGuardInstalled = false;
 
 export function isQuotaExceededError(error: unknown): boolean {
   if (!(error instanceof DOMException)) return false;
@@ -70,6 +71,31 @@ export function cleanupStorage(): void {
   removableKeys
     .sort((a, b) => b.size - a.size)
     .forEach(({ key }) => localStorage.removeItem(key));
+}
+
+export function installStorageQuotaGuard(): void {
+  if (isStorageGuardInstalled) return;
+  isStorageGuardInstalled = true;
+
+  const nativeSetItem = Storage.prototype.setItem;
+  Storage.prototype.setItem = function patchedSetItem(key: string, value: string): void {
+    try {
+      nativeSetItem.call(this, key, value);
+    } catch (error) {
+      if (!isQuotaExceededError(error)) throw error;
+
+      cleanupStorage();
+      try {
+        nativeSetItem.call(this, key, value);
+        return;
+      } catch (retryError) {
+        if (!isQuotaExceededError(retryError)) throw retryError;
+      }
+
+      clearNonEssentialStorage();
+      nativeSetItem.call(this, key, value);
+    }
+  };
 }
 
 function pruneStaleDailyKeys(): void {

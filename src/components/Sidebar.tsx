@@ -20,22 +20,20 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useAvatarUrl } from '@/hooks/useAvatarUrl';
 import { prefetchRoute } from '@/lib/route-prefetch';
+import { chatDB } from '@/lib/db';
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-// Helper to get recent chats from localStorage
-const getRecentChats = (): { id: string; title: string; time: number }[] => {
+// Helper to get recent chats from IndexedDB
+const getRecentChats = async (): Promise<{ id: string; title: string; time: number }[]> => {
   try {
-    const raw = localStorage.getItem('chat_sessions');
-    if (!raw) return [];
-    const sessions = JSON.parse(raw);
-    return (Array.isArray(sessions) ? sessions : [])
-      .sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0))
+    const chats = await chatDB.getAllChats();
+    return chats
       .slice(0, 8)
-      .map((s: any) => ({ id: s.id, title: s.title || 'New Chat', time: s.timestamp }));
+      .map((chat) => ({ id: chat.id, title: chat.title || 'New Chat', time: chat.timestamp }));
   } catch {
     return [];
   }
@@ -65,7 +63,14 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const [recentChats, setRecentChats] = useState<{ id: string; title: string; time: number }[]>([]);
 
   useEffect(() => {
-    if (isOpen) setRecentChats(getRecentChats());
+    if (!isOpen) return;
+    let isActive = true;
+    getRecentChats().then((chats) => {
+      if (isActive) setRecentChats(chats);
+    });
+    return () => {
+      isActive = false;
+    };
   }, [isOpen]);
 
   const handleLogout = async () => {
