@@ -32,13 +32,18 @@ export interface MessagePage {
 
 const DEFAULT_PAGE_SIZE = 30;
 
-const mapRole = (messageType: string | null): 'user' | 'bot' =>
-  messageType === 'bot' ? 'bot' : 'user';
+const mapRole = (
+  authorRole: string | null | undefined,
+  messageType: string | null | undefined
+): 'user' | 'bot' => {
+  if (authorRole === 'bot' || messageType === 'bot') return 'bot';
+  return 'user';
+};
 
 const mapMessageRow = (row: any): ChatMessage => ({
   id: row.id,
   chatId: row.chat_id,
-  role: mapRole(row.message_type),
+  role: mapRole(row.author_role, row.message_type),
   content: row.text_content ?? '',
   timestamp: new Date(row.created_at).getTime(),
   bookmarked: !!row.message_metadata?.bookmarked,
@@ -77,7 +82,7 @@ export class SupabaseChatRepository {
 
     const { data: messages, error: messagesError } = await supabase
       .from('chat_messages')
-      .select('id, chat_id, message_type, text_content, created_at, edited_at')
+      .select('id, chat_id, author_role, message_type, text_content, created_at, edited_at')
       .in('chat_id', chatIds)
       .order('created_at', { ascending: true });
 
@@ -133,7 +138,7 @@ export class SupabaseChatRepository {
     const limit = options.limit ?? DEFAULT_PAGE_SIZE;
     let query = supabase
       .from('chat_messages')
-      .select('id, chat_id, message_type, text_content, created_at, edited_at')
+      .select('id, chat_id, author_role, message_type, text_content, created_at, edited_at')
       .eq('chat_id', chatId)
       .order('created_at', { ascending: false })
       .limit(limit + 1);
@@ -190,15 +195,17 @@ export class SupabaseChatRepository {
   }
 
   async addMessage(chatId: string, content: string, role: 'user' | 'bot'): Promise<ChatMessage> {
+    const userId = await this.requireUserId();
     const { data, error } = await supabase
       .from('chat_messages')
       .insert({
         chat_id: chatId,
-        sender_id: role,
-        message_type: role,
+        sender_id: userId,
+        author_role: role,
+        message_type: 'text',
         text_content: content,
       })
-      .select('id, chat_id, message_type, text_content, created_at, edited_at')
+      .select('id, chat_id, author_role, message_type, text_content, created_at, edited_at')
       .single();
 
     if (error) throw error;
