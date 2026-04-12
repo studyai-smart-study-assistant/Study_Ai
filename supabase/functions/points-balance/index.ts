@@ -23,10 +23,31 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { userId } = await req.json();
+    const authHeader = req.headers.get('authorization');
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? '',
+      { global: { headers: authHeader ? { Authorization: authHeader } : {} } }
+    );
+    const { data: authData } = await userClient.auth.getUser();
+    const authenticatedUserId = authData.user?.id;
+
+    const body = await req.json().catch(() => ({}));
+    const requestedUserId = body?.userId as string | undefined;
+    const userId = requestedUserId || authenticatedUserId;
 
     if (!userId) {
-      throw new Error('Missing userId');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (requestedUserId && authenticatedUserId && requestedUserId !== authenticatedUserId) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden: userId mismatch' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const supabaseAdmin = createClient(

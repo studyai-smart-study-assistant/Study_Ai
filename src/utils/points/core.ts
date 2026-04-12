@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { PointRecord } from './types';
 import { toast } from 'sonner';
+import { safeInvokeWithAuthRetry } from '@/lib/auth/sessionRecovery';
 
 export async function addPointsToUser(
   userId: string,
@@ -14,15 +15,16 @@ export async function addPointsToUser(
     console.log(`Adding ${points} points to user ${userId} for: ${description}`);
     
     // Call secure edge function to add points
-    const { data, error } = await supabase.functions.invoke('points-add', {
-      body: {
+    const { data, error } = await safeInvokeWithAuthRetry(
+      (body) => supabase.functions.invoke('points-add', { body }),
+      {
         userId,
         amount: points,
         reason: description,
         transactionType: type,
         metadata: { type }
       }
-    });
+    );
 
     if (error) {
       console.error('Error calling points-add:', error);
@@ -77,9 +79,10 @@ export async function migrateLocalStoragePoints(userId: string): Promise<void> {
     }
     
     // Fetch current balance from server
-    const { data: balanceData, error: balanceError } = await supabase.functions.invoke('points-balance', {
-      body: { userId }
-    });
+    const { data: balanceData, error: balanceError } = await safeInvokeWithAuthRetry(
+      (body) => supabase.functions.invoke('points-balance', { body }),
+      { userId }
+    );
     
     if (balanceError) {
       console.error('Error fetching balance for migration:', balanceError);
@@ -94,15 +97,16 @@ export async function migrateLocalStoragePoints(userId: string): Promise<void> {
       console.log(`Migrating ${pointsToAdd} points from localStorage to database`);
       
       // Add the difference to server
-      const { data: addData, error: addError } = await supabase.functions.invoke('points-add', {
-        body: {
+      const { data: addData, error: addError } = await safeInvokeWithAuthRetry(
+        (body) => supabase.functions.invoke('points-add', { body }),
+        {
           userId,
           amount: pointsToAdd,
           reason: 'पिछले points का migration',
           transactionType: 'credit',
           metadata: { migration: true, source: 'localStorage' }
         }
-      });
+      );
       
       if (addError) {
         console.error('Error migrating points:', addError);
@@ -134,9 +138,10 @@ export async function syncUserPoints(userId: string): Promise<void> {
     await migrateLocalStoragePoints(userId);
     
     // Then fetch current balance from server
-    const { data, error } = await supabase.functions.invoke('points-balance', {
-      body: { userId }
-    });
+    const { data, error } = await safeInvokeWithAuthRetry(
+      (body) => supabase.functions.invoke('points-balance', { body }),
+      { userId }
+    );
     
     if (error) {
       console.error('Error fetching points balance:', error);
@@ -162,9 +167,10 @@ export async function addCreditsToUser(
   metadata?: Record<string, any>
 ): Promise<void> {
   try {
-    const { data, error } = await supabase.functions.invoke('credits-add', {
-      body: { userId, credits, reason, metadata }
-    });
+    const { data, error } = await safeInvokeWithAuthRetry(
+      (body) => supabase.functions.invoke('credits-add', { body }),
+      { userId, credits, reason, metadata }
+    );
 
     if (error) {
       console.error('Error adding credits:', error);
@@ -189,9 +195,10 @@ export async function deductCreditsFromUser(
   description: string
 ): Promise<boolean> {
   try {
-    const { data, error } = await supabase.functions.invoke('credits-deduct', {
-      body: { userId, credits, feature, description }
-    });
+    const { data, error } = await safeInvokeWithAuthRetry(
+      (body) => supabase.functions.invoke('credits-deduct', { body }),
+      { userId, credits, feature, description }
+    );
 
     if (error) {
       if (error.message?.includes('Insufficient credits')) {
@@ -229,9 +236,10 @@ export async function convertPointsToCredits(
       return false;
     }
 
-    const { data, error } = await supabase.functions.invoke('points-to-credits', {
-      body: { userId, points }
-    });
+    const { data, error } = await safeInvokeWithAuthRetry(
+      (body) => supabase.functions.invoke('points-to-credits', { body }),
+      { userId, points }
+    );
 
     if (error) {
       console.error('Error converting points:', error);

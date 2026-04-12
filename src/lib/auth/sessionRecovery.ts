@@ -1,8 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
 import { cleanupStorage, clearNonEssentialStorage, isQuotaExceededError } from '@/lib/storage/cleanupStorage';
 
-let isHandlingAuthFailure = false;
 let isFetchInterceptorInstalled = false;
+let isInvokeInterceptorInstalled = false;
+let refreshInFlight: Promise<boolean> | null = null;
+let isForcingRelogin = false;
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 type RefreshSessionOptions = {
@@ -40,6 +42,44 @@ export async function refreshSessionOrLogout(options?: RefreshSessionOptions): P
   }
 }
 
+async function refreshSessionOnce(options?: RefreshSessionOptions): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = refreshSessionOrLogout(options).finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+async function forceReloginIfUnrecoverable(): Promise<void> {
+  if (isForcingRelogin) return;
+  if (!navigator.onLine) return;
+  isForcingRelogin = true;
+  try {
+    await supabase.auth.signOut({ scope: 'local' });
+  } catch (error) {
+    console.warn('Force relogin signOut failed:', error);
+  } finally {
+    if (window.location.pathname !== '/login') {
+      window.location.assign('/login');
+    }
+    isForcingRelogin = false;
+  }
+}
+
+async function getLatestAuthHeaders(init?: RequestInit): Promise<RequestInit> {
+  const headers = new Headers(init?.headers ?? {});
+  const { data } = await supabase.auth.getSession();
+  const accessToken = data.session?.access_token;
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+  return {
+    ...init,
+    headers,
+  };
+}
+
 export function installFetchInterceptor(): void {
   if (isFetchInterceptorInstalled) return;
   isFetchInterceptorInstalled = true;
@@ -58,18 +98,89 @@ export function installFetchInterceptor(): void {
     }
   };
 
-  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-    const response = await nativeFetch(input, init);
-    const isAuthFailure = response.status === 401 || response.status === 403;
+  const isSupabaseAuthTokenRequest = (input: RequestInfo | URL): boolean => {
+    const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    try {
+      const resolvedUrl = new URL(rawUrl, window.location.origin);
+      return resolvedUrl.pathname.includes('/auth/v1/token');
+    } catch {
+      return false;
+    }
+  };
 
-    if (isAuthFailure && isSupabaseRequest(input) && !isHandlingAuthFailure) {
-      isHandlingAuthFailure = true;
-      try {
-        await refreshSessionOrLogout({ redirectToLogin: false, logoutOnFailure: false });
-      } finally {
-        isHandlingAuthFailure = false;
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    let response = await nativeFetch(input, init);
+    const isAuthFailure = response.status === 401 || response.status === 403;
+    const isRefreshEndpoint = isSupabaseAuthTokenRequest(input);
+
+    if (isAuthFailure && isSupabaseRequest(input) && !isRefreshEndpoint) {
+      const refreshed = await refreshSessionOnce({ redirectToLogin: false, logoutOnFailure: false });
+
+      // Retry the original request once after a successful refresh.
+      if (refreshed) {
+        const retryInit = await getLatestAuthHeaders(init);
+        response = await nativeFetch(input, retryInit);
+        if (response.status === 401 || response.status === 403) {
+          await forceReloginIfUnrecoverable();
+        }
+      } else {
+        await forceReloginIfUnrecoverable();
       }
     }
     return response;
   };
+}
+
+const hasAuthFailureSignature = (error: { status?: number; message?: string } | null | undefined): boolean => {
+  if (!error) return false;
+  if (error.status === 401 || error.status === 403) return true;
+  const message = (error.message || '').toLowerCase();
+  return message.includes('401') ||
+    message.includes('403') ||
+    message.includes('unauthorized') ||
+    message.includes('jwt') ||
+    message.includes('token');
+};
+
+export function installSupabaseInvokeInterceptor(): void {
+  if (isInvokeInterceptorInstalled) return;
+  isInvokeInterceptorInstalled = true;
+
+  const functionsApi = supabase.functions as typeof supabase.functions & {
+    invoke: (...args: any[]) => Promise<{ data: unknown; error: { status?: number; message?: string } | null }>;
+  };
+  const nativeInvoke = functionsApi.invoke.bind(functionsApi);
+
+  functionsApi.invoke = async (...args: any[]) => {
+    let result = await nativeInvoke(...args);
+    if (hasAuthFailureSignature(result.error)) {
+      const refreshed = await refreshSessionOnce({ redirectToLogin: false, logoutOnFailure: false });
+      if (refreshed) {
+        result = await nativeInvoke(...args);
+      } else {
+        await forceReloginIfUnrecoverable();
+      }
+    }
+    return result;
+  };
+}
+
+type FunctionInvoker<TPayload, TResult> = (payload?: TPayload) => Promise<{ data: TResult | null; error: { status?: number; message?: string } | null }>;
+
+export async function safeInvokeWithAuthRetry<TPayload = unknown, TResult = unknown>(
+  invoke: FunctionInvoker<TPayload, TResult>,
+  payload?: TPayload
+): Promise<{ data: TResult | null; error: { status?: number; message?: string } | null }> {
+  let result = await invoke(payload);
+
+  if (hasAuthFailureSignature(result.error)) {
+    const refreshed = await refreshSessionOnce({ redirectToLogin: false, logoutOnFailure: false });
+    if (refreshed) {
+      result = await invoke(payload);
+    } else {
+      await forceReloginIfUnrecoverable();
+    }
+  }
+
+  return result;
 }

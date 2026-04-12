@@ -11,6 +11,15 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get('authorization');
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? '',
+      { global: { headers: authHeader ? { Authorization: authHeader } : {} } }
+    );
+    const { data: authData } = await userClient.auth.getUser();
+    const authenticatedUserId = authData.user?.id;
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -22,11 +31,26 @@ Deno.serve(async (req) => {
       }
     );
 
-    const { userId, credits, feature, description } = await req.json();
+    const { userId: requestedUserId, credits, feature, description } = await req.json();
+    const userId = requestedUserId || authenticatedUserId;
 
-    if (!userId || !credits) {
+    if (!userId) {
       return new Response(
-        JSON.stringify({ error: 'userId and credits are required' }),
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (requestedUserId && authenticatedUserId && requestedUserId !== authenticatedUserId) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden: userId mismatch' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!credits) {
+      return new Response(
+        JSON.stringify({ error: 'credits are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

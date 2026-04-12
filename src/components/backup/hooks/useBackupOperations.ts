@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { googleDriveService } from '@/services/googleDriveService';
 import { BackupData, BackupFile } from '../types';
+import { chatDB } from '@/lib/db';
 
 export const useBackupOperations = () => {
   const [backups, setBackups] = useState<BackupFile[]>([]);
@@ -33,6 +34,8 @@ export const useBackupOperations = () => {
 
     setIsCreatingBackup(true);
     try {
+      const chatHistory = await chatDB.getAllChats();
+
       const backupData: BackupData = {
         studyData: {
           studySessions: localStorage.getItem(`${currentUser.uid}_study_sessions`) || '0',
@@ -51,7 +54,7 @@ export const useBackupOperations = () => {
           category: localStorage.getItem('userCategory') || '',
           educationLevel: localStorage.getItem('educationLevel') || '',
         },
-        chatHistory: JSON.parse(localStorage.getItem('chat_history') || '[]'),
+        chatHistory,
         timerStats: {
           dailyGoals: localStorage.getItem(`${currentUser.uid}_daily_goals`) || '{}',
           weeklyProgress: localStorage.getItem(`${currentUser.uid}_weekly_progress`) || '{}',
@@ -101,8 +104,20 @@ export const useBackupOperations = () => {
           localStorage.setItem('educationLevel', backupData.userProfile.educationLevel || '');
         }
         
-        if (backupData.chatHistory) {
-          localStorage.setItem('chat_history', JSON.stringify(backupData.chatHistory));
+        if (Array.isArray(backupData.chatHistory)) {
+          const existingChats = await chatDB.getAllChats();
+          await Promise.all(existingChats.map((chat) => chatDB.deleteChat(chat.id)));
+          await Promise.all(
+            backupData.chatHistory.map(async (chat: any) => {
+              if (!chat?.id || !Array.isArray(chat?.messages)) return;
+              await chatDB.saveChat({
+                id: chat.id,
+                title: chat.title || 'Restored Chat',
+                timestamp: typeof chat.timestamp === 'number' ? chat.timestamp : Date.now(),
+                messages: chat.messages,
+              });
+            })
+          );
         }
         
         if (backupData.timerStats) {
