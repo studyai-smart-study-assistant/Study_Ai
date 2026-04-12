@@ -2,7 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 import { AuthContext, User } from '@/contexts/AuthContext';
-import { cleanupStorage, clearNonEssentialStorage, isQuotaExceededError } from '@/lib/storage/cleanupStorage';
+import {
+  cleanupStorage,
+  clearNonEssentialStorage,
+  isQuotaExceededError,
+  purgeLegacyChatLocalStorage,
+} from '@/lib/storage/cleanupStorage';
 import { safeInvokeWithAuthRetry } from '@/lib/auth/sessionRecovery';
 import { migrateLegacyChatsToCloud } from '@/lib/chat/chat-migration';
 
@@ -135,6 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (session?.user) {
+        purgeLegacyChatLocalStorage();
         setTimeout(() => {
           void syncUserPoints(session.user.id);
           void migrateLegacyChats(session.user.id);
