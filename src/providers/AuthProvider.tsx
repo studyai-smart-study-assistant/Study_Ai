@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 import { AuthContext, User } from '@/contexts/AuthContext';
@@ -10,6 +10,47 @@ import {
 } from '@/lib/storage/cleanupStorage';
 import { safeInvokeWithAuthRetry } from '@/lib/auth/sessionRecovery';
 import { migrateLegacyChatsToCloud } from '@/lib/chat/chat-migration';
+import { toast } from 'sonner';
+
+const getMigrationRetryKey = (userId: string) => `studyai_chat_migration_retry_${userId}`;
+
+const getUserMarker = (userId: string) => {
+  if (!userId) return 'unknown_user';
+  if (userId.length <= 8) return `uid:${userId.length}`;
+  return `uid:${userId.slice(0, 4)}...${userId.slice(-4)}`;
+};
+
+const getErrorDetails = (error: unknown) => {
+  const parsed = error as { code?: string; message?: string } | null;
+  return {
+    code: parsed?.code ?? 'unknown_error',
+    message: parsed?.message ?? (error instanceof Error ? error.message : String(error)),
+  };
+};
+
+const setMigrationRetryPending = (userId: string) => {
+  try {
+    localStorage.setItem(getMigrationRetryKey(userId), '1');
+  } catch {
+    // Ignore storage issues; retry can still happen via auth events in memory.
+  }
+};
+
+const clearMigrationRetryPending = (userId: string) => {
+  try {
+    localStorage.removeItem(getMigrationRetryKey(userId));
+  } catch {
+    // Ignore storage issues.
+  }
+};
+
+const isMigrationRetryPending = (userId: string) => {
+  try {
+    return localStorage.getItem(getMigrationRetryKey(userId)) === '1';
+  } catch {
+    return false;
+  }
+};
 
 const toExtendedUser = (user: any): User | null => {
   if (!user) return null;
@@ -27,6 +68,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [messageLimitReached, setMessageLimitReached] = useState(false);
   const migrationInProgressRef = useRef<Set<string>>(new Set());
+
+  const migrateLegacyChats = useCallback(async (
+    userId: string,
+    trigger: 'auth_event' | 'focus' | 'visibility' | 'online' = 'auth_event'
+  ) => {
+    if (!userId) return;
+    if (migrationInProgressRef.current.has(userId)) return;
+
+    try {
+      migrationInProgressRef.current.add(userId);
+      await migrateLegacyChatsToCloud(userId);
+      clearMigrationRetryPending(userId);
+    } catch (error) {
+      setMigrationRetryPending(userId);
+      const errorDetails = getErrorDetails(error);
+      console.error('legacy_chat_migration_failed', {
+        event: 'legacy_chat_migration_failed',
+        trigger,
+        user: getUserMarker(userId),
+        retryScheduled: true,
+        error: errorDetails,
+      });
+      toast.warning('Chat sync is delayed. We’ll retry cloud sync automatically.');
+    } finally {
+      migrationInProgressRef.current.delete(userId);
+    }
+  }, []);
 
   useEffect(() => {
     const forceCleanSignOut = async () => {
@@ -111,14 +179,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     };
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        reconcileSessionSafely({ serverFirst: true });
+    const retryPendingMigrationForCurrentSession = async (trigger: 'focus' | 'visibility' | 'online' | 'auth_event') => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user?.id;
+        if (!userId || !isMigrationRetryPending(userId)) return;
+        void migrateLegacyChats(userId, trigger);
+      } catch {
+        // Silent by design: retries should remain non-blocking.
       }
     };
 
-    const handleFocus = () => reconcileSessionSafely({ serverFirst: true });
-    const handleOnline = () => reconcileSessionSafely({ serverFirst: true });
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        reconcileSessionSafely({ serverFirst: true });
+        void retryPendingMigrationForCurrentSession('visibility');
+      }
+    };
+
+    const handleFocus = () => {
+      reconcileSessionSafely({ serverFirst: true });
+      void retryPendingMigrationForCurrentSession('focus');
+    };
+
+    const handleOnline = () => {
+      reconcileSessionSafely({ serverFirst: true });
+      void retryPendingMigrationForCurrentSession('online');
+    };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
@@ -128,7 +215,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (event === 'TOKEN_REFRESHED' && session?.user) {
         setTimeout(() => {
           void syncUserPoints(session.user.id);
-          void migrateLegacyChats(session.user.id);
+          void migrateLegacyChats(session.user.id, 'auth_event');
+          void retryPendingMigrationForCurrentSession('auth_event');
         }, 0);
         return;
       }
@@ -143,7 +231,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         purgeLegacyChatLocalStorage();
         setTimeout(() => {
           void syncUserPoints(session.user.id);
-          void migrateLegacyChats(session.user.id);
+          void migrateLegacyChats(session.user.id, 'auth_event');
+          void retryPendingMigrationForCurrentSession('auth_event');
         }, 0);
       }
     });
@@ -166,7 +255,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.clearInterval(sessionHealthInterval);
     };
-  }, []);
+  }, [migrateLegacyChats]);
 
   const syncUserPoints = async (userId: string) => {
     try {
@@ -181,20 +270,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('Error syncing points:', error);
-    }
-  };
-
-  const migrateLegacyChats = async (userId: string) => {
-    if (!userId) return;
-    if (migrationInProgressRef.current.has(userId)) return;
-
-    try {
-      migrationInProgressRef.current.add(userId);
-      await migrateLegacyChatsToCloud(userId);
-    } catch (error) {
-      console.error('Error migrating legacy chats:', error);
-    } finally {
-      migrationInProgressRef.current.delete(userId);
     }
   };
 
