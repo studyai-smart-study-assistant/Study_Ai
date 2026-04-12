@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
+import { buildChatMediaPath } from '@/lib/chat/media-path';
 import {
   MessageLongPressMenu, ReplyPreview, QuotedMessage, ReactionsDisplay,
   useSwipeToReply, useLongPress,
@@ -157,8 +158,7 @@ const CampusTalkConversation: React.FC<Props> = ({ chatId, partnerUid, partnerNa
     if (!file || !currentUser) return;
     try {
       setSending(true);
-      const ext = file.name.split('.').pop();
-      const path = `campus-chat/${Date.now()}.${ext}`;
+      const path = buildChatMediaPath(currentUser.uid, chatId, file.name, 'campus-chat');
       const { error: upErr } = await supabase.storage.from('chat_media').upload(path, file);
       if (upErr) throw upErr;
       const { data: { publicUrl } } = supabase.storage.from('chat_media').getPublicUrl(path);

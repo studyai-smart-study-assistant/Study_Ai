@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from '@/integrations/supabase/client';
 import { useChatData, useGroupChat } from '@/hooks/useChat';
 import { sendMessage } from '@/lib/supabase/chat-functions';
+import { buildChatMediaPath } from '@/lib/chat/media-path';
 import EnhancedGroupMembersModal from './EnhancedGroupMembersModal';
 import GroupMessageInput from './GroupMessageInput';
 import ChatHeader from './ChatHeader';
@@ -66,8 +67,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       setLocalMessages(prev => [...prev, tempMessage]);
 
       if (file) {
-        const filePath = `chat_images/${chatId}/${Date.now()}_${file.name}`;
-        const { data, error } = await supabase.storage
+        const filePath = buildChatMediaPath(currentUser.uid, chatId, file.name, 'chat_images');
+        const { error } = await supabase.storage
           .from('chat_media')
           .upload(filePath, file);
         

@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
+import { buildChatMediaPath } from '@/lib/chat/media-path';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import type { CampusGroup } from './CampusTalkGroupList';
@@ -126,7 +127,8 @@ const CampusTalkGroupSettings: React.FC<Props> = ({ group, myRole, onBack, onGro
     const file = e.target.files?.[0];
     if (!file || !isOwnerOrAdmin) return;
     try {
-      const path = `group-avatars/${group.id}/${Date.now()}.${file.name.split('.').pop()}`;
+      if (!currentUser) throw new Error('User must be authenticated to upload group avatar');
+      const path = buildChatMediaPath(currentUser.uid, group.id, file.name, 'group-avatars');
       await supabase.storage.from('chat_media').upload(path, file);
       const { data: { publicUrl } } = supabase.storage.from('chat_media').getPublicUrl(path);
       await supabase.from('campus_groups').update({ avatar_url: publicUrl }).eq('id', group.id);

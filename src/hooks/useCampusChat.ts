@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from './useNotifications';
+import { buildChatMediaPath } from '@/lib/chat/media-path';
 
 export type CampusMessage = {
   id: string;
@@ -193,9 +194,9 @@ export const useCampusChat = (otherUserUid: string | null) => {
 
   const uploadImage = async (file: File): Promise<string> => {
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `campus-chat/${fileName}`;
+      if (!chat || !currentUser) throw new Error('Chat context missing for media upload');
+
+      const filePath = buildChatMediaPath(currentUser.uid, chat.id, file.name, 'campus-chat');
 
       const { error: uploadError } = await supabase.storage
         .from('chat_media')

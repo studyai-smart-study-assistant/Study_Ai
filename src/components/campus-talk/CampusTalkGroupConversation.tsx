@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import type { CampusGroup } from './CampusTalkGroupList';
 import CampusTalkGroupSettings from './CampusTalkGroupSettings';
+import { buildChatMediaPath } from '@/lib/chat/media-path';
 import {
   MessageLongPressMenu, ReplyPreview, ReactionsDisplay,
   useSwipeToReply, useLongPress,
@@ -177,8 +178,7 @@ const CampusTalkGroupConversation: React.FC<Props> = ({ group, onBack }) => {
     if (!file || !currentUser) return;
     try {
       setSending(true);
-      const ext = file.name.split('.').pop();
-      const path = `campus-group/${group.id}/${Date.now()}.${ext}`;
+      const path = buildChatMediaPath(currentUser.uid, group.id, file.name, 'campus-group');
       const { error: upErr } = await supabase.storage.from('chat_media').upload(path, file);
       if (upErr) throw upErr;
       const { data: { publicUrl } } = supabase.storage.from('chat_media').getPublicUrl(path);
