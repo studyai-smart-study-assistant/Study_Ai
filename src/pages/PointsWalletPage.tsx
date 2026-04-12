@@ -8,6 +8,7 @@ import PointsWallet from '@/components/student/PointsWallet';
 import PointsSystemDialog from '@/components/dialogs/PointsSystemDialog';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
+import { safeInvokeWithAuthRetry } from '@/lib/auth/sessionRecovery';
 
 const PointsWalletPage = () => {
   const { currentUser, isLoading } = useAuth();
@@ -42,12 +43,18 @@ const PointsWalletPage = () => {
 
   const fetchPointsFromServer = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('points-balance', {
-        body: { userId: currentUser?.uid }
-      });
+      const { data, error } = await safeInvokeWithAuthRetry(
+        (body) => supabase.functions.invoke('points-balance', { body }),
+        { userId: currentUser?.uid }
+      );
       
       if (error) {
         console.error('Error fetching points:', error);
+        if (error.status === 401 || error.status === 403) {
+          window.setTimeout(() => {
+            void fetchPointsFromServer();
+          }, 1000);
+        }
         // Fallback to localStorage
         const savedPoints = localStorage.getItem(`${currentUser?.uid}_points`);
         if (savedPoints) {

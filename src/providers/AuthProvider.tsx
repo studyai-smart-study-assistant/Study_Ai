@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 import { AuthContext, User } from '@/contexts/AuthContext';
 import { cleanupStorage, clearNonEssentialStorage, isQuotaExceededError } from '@/lib/storage/cleanupStorage';
+import { safeInvokeWithAuthRetry } from '@/lib/auth/sessionRecovery';
 
 const toExtendedUser = (user: any): User | null => {
   if (!user) return null;
@@ -97,8 +98,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const reconcileSessionSafely = (options?: { serverFirst?: boolean }) => {
       reconcileSession(options).catch((error) => {
         console.error('Session reconcile failed:', error);
-        setSession(null);
-        setCurrentUser(null);
+        // Keep last known auth state on transient failures (offline/network hiccups).
+        // Auth state will still be updated by onAuthStateChange when a real sign-out happens.
         setIsLoading(false);
       });
     };
@@ -159,9 +160,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const syncUserPoints = async (userId: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('points-balance', {
-        body: { userId },
-      });
+      const { data, error } = await safeInvokeWithAuthRetry(
+        (body) => supabase.functions.invoke('points-balance', { body }),
+        { userId }
+      );
 
       if (!error && data) {
         localStorage.setItem(`${userId}_points`, data.balance?.toString() || '0');
